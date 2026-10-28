@@ -105,11 +105,23 @@ static std::string Num(float v)
 }
 
 // ---------------------------------------------------------------------------
+// Language: English by default, Brazilian Portuguese with Language=pt
+// ---------------------------------------------------------------------------
+
+static bool g_pt = false;
+
+static std::string T(const char* en, const char* pt)
+{
+    return g_pt ? pt : en;
+}
+
+// ---------------------------------------------------------------------------
 // Settings (SlaverMod.ini next to the DLL)
 // ---------------------------------------------------------------------------
 
 struct Settings
 {
+    std::string language;
     std::string squadName;
     std::string hotkey;
     bool showButton;
@@ -172,7 +184,9 @@ static bool IniBool(const char* key, bool def)
 static void LoadSettings()
 {
     g_debug = IniBool("Debug", true);
-    g_cfg.squadName = IniString("SquadName", "Escravos");
+    g_cfg.language = IniString("Language", "en");
+    g_pt = g_cfg.language.compare(0, 2, "pt") == 0 || g_cfg.language.compare(0, 2, "PT") == 0;
+    g_cfg.squadName = IniString("SquadName", g_pt ? "Escravos" : "Slaves");
     g_cfg.hotkey = IniString("EnslaveKey", "CTRL+K");
     g_cfg.showButton = IniBool("ShowButton", false);
     g_cfg.contextMenu = IniBool("ContextMenu", true);
@@ -208,7 +222,7 @@ static void LoadSettings()
         g_cfg.relationGain = g_cfg.relationLoss * 0.5f;   // freeing must be worth less than enslaving costs
     g_cfg.slaveEscort = IniBool("SlaveEscort", true);
     g_cfg.escortMode = IniString("EscortMode", "bodyguard");
-    Trace("settings: squad='" + g_cfg.squadName + "' key=" + g_cfg.hotkey +
+    Trace("settings: language=" + std::string(g_pt ? "pt" : "en") + " squad='" + g_cfg.squadName + "' key=" + g_cfg.hotkey +
           " button=" + Num(g_cfg.showButton) + " menu=" + Num(g_cfg.contextMenu) + " unchain=" + Num(g_cfg.unchainOnEnslave) +
           " slaveAIJob=" + Num(g_cfg.slaveAIJob) + " banWeapons=" + Num(g_cfg.banWeapons) +
           " rebellion=" + Num(g_cfg.rebellionEnabled) + " every=" + Num(g_cfg.rebellionDays) + "d mult=" + Num(g_cfg.rebellionChanceMult) +
@@ -334,16 +348,16 @@ static void SetSlaveState(Character* c, SlaveStateEnum s)
 // A non-player character that is currently a prisoner (caged or chained) or knocked out.
 static bool IsEnslaveCandidate(Character* c, std::string* why)
 {
-    if (c == 0) { if (why) *why = "nenhum personagem"; return false; }
-    if (c->isDead()) { if (why) *why = "personagem morto"; return false; }
-    if (IsPlayerFaction(c)) { if (why) *why = "ja e da sua faccao"; return false; }
+    if (c == 0) { if (why) *why = T("no character", "nenhum personagem"); return false; }
+    if (c->isDead()) { if (why) *why = T("the character is dead", "personagem morto"); return false; }
+    if (IsPlayerFaction(c)) { if (why) *why = T("already in your faction", "ja e da sua faccao"); return false; }
 
     bool prisoner = c->inSomething == IN_PRISON;
     bool chained = c->isChainedMode();
     bool down = c->medical.isUnconcious();
     if (!prisoner && !chained && !down)
     {
-        if (why) *why = "precisa estar inconsciente, acorrentado ou preso";
+        if (why) *why = T("must be unconscious, chained or caged", "precisa estar inconsciente, acorrentado ou preso");
         return false;
     }
     return true;
@@ -436,15 +450,15 @@ static void EnslaveOwnMember(Character* target, Character* preferredOwner)
     if (owner == 0)
     {
         DumpMembers("last free member");
-        ShowNotice("Nao da para escravizar o ultimo membro livre da faccao.");
+        ShowNotice(T("You cannot enslave the last free member of your faction.", "Nao da para escravizar o ultimo membro livre da faccao."));
         return;
     }
     Trace("enslave own member '" + name + "' owner='" + owner->getName() + "' dist=" + Num(dist));
     MakeSlave(target, owner);
     if (target->isSlave() == IS_SLAVE)
-        ShowNotice(name + " agora e escravo(a) da sua faccao.");
+        ShowNotice(name + T(" is now a slave of your faction.", " agora e escravo(a) da sua faccao."));
     else
-        ShowNotice("O jogo nao aceitou marcar " + name + " como escravo(a).");
+        ShowNotice(T("The game did not accept ", "O jogo nao aceitou marcar ") + name + T(" as a slave.", " como escravo(a)."));
 }
 
 static void Enslave(Character* target, Character* preferredOwner)
@@ -452,7 +466,7 @@ static void Enslave(Character* target, Character* preferredOwner)
     std::string why;
     if (!IsEnslaveCandidate(target, &why))
     {
-        ShowNotice("Nao da para escravizar: " + why + ".");
+        ShowNotice(T("Cannot enslave: ", "Nao da para escravizar: ") + why + ".");
         return;
     }
 
@@ -462,7 +476,7 @@ static void Enslave(Character* target, Character* preferredOwner)
     if (owner == 0)
     {
         DumpMembers("no owner");
-        ShowNotice("Nenhum membro livre da sua faccao para ser o dono.");
+        ShowNotice(T("No free member of your faction to be the owner.", "Nenhum membro livre da sua faccao para ser o dono."));
         return;
     }
     Trace("enslave '" + name + "' owner='" + owner->getName() + "' dist=" + Num(dist) +
@@ -491,23 +505,23 @@ static void Enslave(Character* target, Character* preferredOwner)
 
     if (!IsPlayerFaction(target))
     {
-        ShowNotice("O jogo recusou o recrutamento de " + name + ".");
+        ShowNotice(T("The game refused to recruit ", "O jogo recusou o recrutamento de ") + name + ".");
         return;
     }
 
     // 2) native slave state, owned by the nearest free member
     MakeSlave(target, owner);
     if (target->isSlave() == IS_SLAVE)
-        ShowNotice(name + " agora e escravo(a) da sua faccao.");
+        ShowNotice(name + T(" is now a slave of your faction.", " agora e escravo(a) da sua faccao."));
     else
-        ShowNotice(name + " entrou na faccao, mas o jogo nao aceitou marca-lo(a) como escravo(a).");
+        ShowNotice(name + T(" joined your faction, but the game did not accept them as a slave.", " entrou na faccao, mas o jogo nao aceitou marca-lo(a) como escravo(a)."));
 }
 
 static void FreeSlave(Character* target)
 {
     if (!IsOurSlave(target))
     {
-        ShowNotice("Esse personagem nao e seu escravo.");
+        ShowNotice(T("This character is not your slave.", "Esse personagem nao e seu escravo."));
         return;
     }
     std::string name = target->getName();
@@ -515,7 +529,7 @@ static void FreeSlave(Character* target)
     SetSlaveState(target, NOT_SLAVE);
     target->changeSlaveOwner(hand());
     Trace("freed '" + name + "' slaveState=" + Num((float)target->isSlave()));
-    ShowNotice(name + " foi libertado(a) e continua na sua faccao.");
+    ShowNotice(name + T(" was freed and stays in your faction.", " foi libertado(a) e continua na sua faccao."));
 }
 
 // ---------------------------------------------------------------------------
@@ -604,7 +618,7 @@ static bool TryEquipShackles(Character* c, const std::string& sid)
             Trace("shackles: took off '" + name + "' from '" + c->getName() + "'");
     }
     if (ok && !displaced.empty())
-        ShowNotice(c->getName() + " teve " + Num((float)displaced.size()) + " peca(s) de roupa tirada(s) para os grilhoes.");
+        ShowNotice(c->getName() + T(" had ", " teve ") + Num((float)displaced.size()) + T(" piece(s) of clothing removed for the shackles.", " peca(s) de roupa tirada(s) para os grilhoes."));
     return ok;
 }
 
@@ -613,7 +627,7 @@ static void GiveShackles(Character* c)
     if (!g_cfg.giveShackles || c == 0 || c->inventory == 0 || WearsShackles(c))
         return;
     if (!TryEquipShackles(c, g_cfg.shackleItem) && !TryEquipShackles(c, g_cfg.shackleItemAlt))
-        ShowNotice("Nao deu para colocar grilhoes em " + c->getName() + ".");
+        ShowNotice(T("Could not put shackles on ", "Nao deu para colocar grilhoes em ") + c->getName() + ".");
 }
 
 static void RemoveShackles(Character* c)
@@ -665,7 +679,7 @@ static void ApplySlaveRules(float dt)
                 Trace("'" + c->getName() + "' dropped weapon '" + it->getName() + "'");
                 c->inventory->dropItem(it);
             }
-            ShowNotice(c->getName() + " e escravo(a) e nao pode usar armas.");
+            ShowNotice(c->getName() + T(" is a slave and cannot use weapons.", " e escravo(a) e nao pode usar armas."));
         }
     }
 }
@@ -854,7 +868,7 @@ static void UpdateEscorts(float dt)
         TaskType task = g_cfg.escortMode == "follow" ? FOLLOW_PLAYER_ORDER : BODYGUARD;
         slave->addOrder(0, task, owner, false, true, owner->getPosition());
         Trace("escort: '" + slave->getName() + "' " + g_cfg.escortMode + " '" + owner->getName() + "'");
-        ShowNotice(slave->getName() + " agora segue e protege " + owner->getName() + ".");
+        ShowNotice(slave->getName() + (g_cfg.escortMode == "follow" ? T(" now follows ", " agora segue ") : T(" now follows and guards ", " agora segue e protege ")) + owner->getName() + ".");
         g_escorts.erase(g_escorts.begin() + i);
     }
 }
@@ -885,7 +899,7 @@ static void StartActingVisuals(PendingAction& p, Character* performer)
         p.bar = gui->createFloatingProgressBar();
         if (p.bar != 0)
         {
-            p.bar->setCaption(p.action == ACT_FREE ? "Libertando" : "Escravizando");
+            p.bar->setCaption(p.action == ACT_FREE ? T("Freeing", "Libertando") : T("Enslaving", "Escravizando"));
             p.bar->setProgress(0.0f);
             p.bar->setPosition(performer->getPosition());
         }
@@ -929,7 +943,7 @@ static void ApplyRelationLoss(Faction* victimFaction, const std::string& victimN
     float after = victimFaction->relations->getFactionRelation(pf);
     Trace("relation with '" + victimFaction->getName() + "': " + Num(before) + " -> " + Num(after));
     if (after < before)
-        ShowNotice(victimFaction->getName() + " nao gostou de ver " + victimName + " escravizado(a). Relacao: " + Num((float)(int)after) + ".");
+        ShowNotice(victimFaction->getName() + T(" did not like seeing ", " nao gostou de ver ") + victimName + T(" enslaved. Relation: ", " escravizado(a). Relacao: ") + Num((float)(int)after) + ".");
 }
 
 // Smaller relation gain with the old faction of someone the player frees.
@@ -943,7 +957,7 @@ static void ApplyRelationGain(Faction* originFaction, const std::string& name)
     float after = originFaction->relations->getFactionRelation(pf);
     Trace("relation with '" + originFaction->getName() + "' (freed): " + Num(before) + " -> " + Num(after));
     if (after > before)
-        ShowNotice(originFaction->getName() + " gostou de ver " + name + " libertado(a). Relacao: " + Num((float)(int)after) + ".");
+        ShowNotice(originFaction->getName() + T(" liked seeing ", " gostou de ver ") + name + T(" freed. Relation: ", " libertado(a). Relacao: ") + Num((float)(int)after) + ".");
 }
 
 static void OrderMove(Character* who, const Ogre::Vector3& where)
@@ -958,19 +972,19 @@ static float ReachDistance(Character* performer, Character* target)
 
 static bool ActionStillValid(SlaveAction action, Character* performer, Character* target, std::string* why)
 {
-    if (performer == 0 || performer->isDead()) { *why = "quem ia agir nao esta mais disponivel"; return false; }
-    if (performer->medical.isUnconcious()) { *why = performer->getName() + " desmaiou"; return false; }
-    if (!IsFreePlayerMember(performer)) { *why = performer->getName() + " nao e mais um membro livre"; return false; }
-    if (target == 0 || target->isDead()) { *why = "o alvo nao esta mais disponivel"; return false; }
+    if (performer == 0 || performer->isDead()) { *why = T("whoever was acting is no longer available", "quem ia agir nao esta mais disponivel"); return false; }
+    if (performer->medical.isUnconcious()) { *why = performer->getName() + T(" was knocked out", " desmaiou"); return false; }
+    if (!IsFreePlayerMember(performer)) { *why = performer->getName() + T(" is no longer a free member", " nao e mais um membro livre"); return false; }
+    if (target == 0 || target->isDead()) { *why = T("the target is no longer available", "o alvo nao esta mais disponivel"); return false; }
     if (action == ACT_FREE)
     {
-        if (!IsOurSlave(target)) { *why = target->getName() + " nao e mais seu escravo"; return false; }
+        if (!IsOurSlave(target)) { *why = target->getName() + T(" is no longer your slave", " nao e mais seu escravo"); return false; }
         return true;
     }
-    if (IsOurSlave(target)) { *why = target->getName() + " ja e escravo(a)"; return false; }
+    if (IsOurSlave(target)) { *why = target->getName() + T(" is already a slave", " ja e escravo(a)"); return false; }
     if (IsPlayerFaction(target))
     {
-        if (CountFreeMembers() <= 1) { *why = "seria o ultimo membro livre da faccao"; return false; }
+        if (CountFreeMembers() <= 1) { *why = T("they would be the last free member of your faction", "seria o ultimo membro livre da faccao"); return false; }
         return true;
     }
     return IsEnslaveCandidate(target, why);
@@ -1026,14 +1040,14 @@ static void ToggleSlave(Character* target)
     if (performer == 0)
     {
         DumpMembers("no performer");
-        ShowNotice("Nenhum membro livre e acordado para fazer isso.");
+        ShowNotice(T("No free, conscious member can do that.", "Nenhum membro livre e acordado para fazer isso."));
         return;
     }
 
     std::string why;
     if (!ActionStillValid(action, performer, target, &why))
     {
-        ShowNotice("Nao da: " + why + ".");
+        ShowNotice(T("Cannot: ", "Nao da: ") + why + ".");
         return;
     }
 
@@ -1072,7 +1086,7 @@ static void ToggleSlave(Character* target)
     Trace("action " + std::string(action == ACT_FREE ? "free" : "enslave") + ": '" + performer->getName() + "' -> '" + target->getName() +
           "' dist=" + Num(p.bestDist) + " reach=" + Num(ReachDistance(performer, target)) +
           " radii=" + Num(performer->getRadius()) + "/" + Num(target->getRadius()));
-    ShowNotice(performer->getName() + (action == ACT_FREE ? " vai tirar os grilhoes de " : " vai colocar grilhoes em ") + target->getName() + ".");
+    ShowNotice(performer->getName() + (action == ACT_FREE ? T(" will take the shackles off ", " vai tirar os grilhoes de ") : T(" will put shackles on ", " vai colocar grilhoes em ")) + target->getName() + ".");
 }
 
 static void UpdatePendingActions(float dt)
@@ -1087,7 +1101,7 @@ static void UpdatePendingActions(float dt)
         if (!ActionStillValid(p.action, performer, target, &why))
         {
             Trace("action cancelled: " + why);
-            ShowNotice("Acao cancelada: " + why + ".");
+            ShowNotice(T("Action cancelled: ", "Acao cancelada: ") + why + ".");
             StopActingVisuals(p, performer);
             g_pending.erase(g_pending.begin() + i);
             continue;
@@ -1120,7 +1134,7 @@ static void UpdatePendingActions(float dt)
                 OrderMove(performer, performer->getPosition());
                 p.acting = 0.0f;
                 StartActingVisuals(p, performer);
-                ShowNotice(performer->getName() + (p.action == ACT_FREE ? " esta tirando os grilhoes de " : " esta colocando grilhoes em ") + target->getName() + "...");
+                ShowNotice(performer->getName() + (p.action == ACT_FREE ? T(" is taking the shackles off ", " esta tirando os grilhoes de ") : T(" is putting shackles on ", " esta colocando grilhoes em ")) + target->getName() + "...");
                 i++;
                 continue;
             }
@@ -1128,7 +1142,7 @@ static void UpdatePendingActions(float dt)
             if (p.elapsed > g_cfg.approachTimeout)
             {
                 Trace("action timeout: dist=" + Num(dist) + " reach=" + Num(reach));
-                ShowNotice(performer->getName() + " nao conseguiu chegar ate " + target->getName() + ".");
+                ShowNotice(performer->getName() + T(" could not reach ", " nao conseguiu chegar ate ") + target->getName() + ".");
                 g_pending.erase(g_pending.begin() + i);
                 continue;
             }
@@ -1182,7 +1196,7 @@ static void HandleHotkey()
             source = "selection";
         }
         if (c == 0)
-            ShowNotice("Selecione um personagem (clique nele) antes.");
+            ShowNotice(T("Select a character (click on it) first.", "Selecione um personagem (clique nele) antes."));
         else
         {
             Trace("hotkey on '" + c->getName() + "' (" + source + ")");
@@ -1263,7 +1277,7 @@ static void UpdateButtonIn(InventoryGUI* invGUI)
     bool slave = IsOurSlave(c);
     bool show = slave || IsPlayerFaction(c) || IsEnslaveCandidate(c, 0);
     button->setVisible(show && !c->isDead());
-    button->setCaption(slave ? "LIBERTAR" : "ESCRAVIZAR");
+    button->setCaption(slave ? T("FREE", "LIBERTAR") : T("ENSLAVE", "ESCRAVIZAR"));
 }
 
 static void UpdateInventoryButton()
@@ -1382,10 +1396,10 @@ static void AddSlaveOption(ContextMenuGUI* menu)
         MyGUI::IntCoord(rowCoord.left, rowCoord.top + rowCoord.height, rowCoord.width, rowCoord.height), MyGUI::Align::Default, "SlaverModMenuRow");
     MyGUI::Button* button = row->createWidget<MyGUI::Button>("Kenshi_Button1", lastButton->getCoord(), MyGUI::Align::Default, "SlaverModMenuOption");
 
-    std::string caption = action == MENU_FREE ? "Libertar" : "Escravizar";
+    std::string caption = action == MENU_FREE ? T("Free", "Libertar") : T("Enslave", "Escravizar");
     MyGUI::Button* lastAsButton = lastButton->castType<MyGUI::Button>(false);
     if (lastAsButton != 0 && IsUpperCase(lastAsButton->getCaption().asUTF8()))
-        caption = action == MENU_FREE ? "LIBERTAR" : "ESCRAVIZAR";
+        caption = action == MENU_FREE ? T("FREE", "LIBERTAR") : T("ENSLAVE", "ESCRAVIZAR");
     button->setCaption(caption);
 
     // the game's options react to the press, not to a full click
@@ -1551,7 +1565,7 @@ static void StartRebellion(const std::vector<Character*>& rebels)
         Trace("rebellion: '" + rebelFaction->getName() + "' wasEnemy=" + Num(wasEnemy) + " now enemy=" + Num(rebelFaction->relations->isEnemy(pf)) +
               " relation=" + Num(rebelFaction->relations->getFactionRelation(pf)));
     }
-    ShowNotice("REBELIAO! " + Num((float)rebels.size()) + " escravo(s) se rebelaram e se juntaram a " + rebelFaction->getName() + "!");
+    ShowNotice(T("REBELLION! ", "REBELIAO! ") + Num((float)rebels.size()) + T(" slave(s) rose up and joined ", " escravo(s) se rebelaram e se juntaram a ") + rebelFaction->getName() + "!");
     g_rebelTimer = 2.0f;   // attack right away
 }
 
@@ -1625,18 +1639,18 @@ static void CheckRebellion(bool force)
           " | chance=" + Num(chance) + " roll=" + Num(roll) + " force=" + Num(force) + " rebels>=" + Num(g_cfg.rebelMinStrength) +
           ": " + Num((float)rebels.size()));
 
-    std::string balance = " (livres " + Num((float)(int)freePower) + " x escravos " + Num((float)(int)slavePower) + ")";
+    std::string balance = T(" (free ", " (livres ") + Num((float)(int)freePower) + T(" x slaves ", " x escravos ") + Num((float)(int)slavePower) + ")";
     if (!rebel)
     {
         if (chance > 0.0f)
-            ShowNotice("Os escravos estao inquietos, mas nao se rebelaram" + balance + ".");
+            ShowNotice(T("The slaves are restless, but did not rise up", "Os escravos estao inquietos, mas nao se rebelaram") + balance + ".");
         else
-            ShowNotice("Os escravos estao sob controle" + balance + ".");
+            ShowNotice(T("The slaves are under control", "Os escravos estao sob controle") + balance + ".");
         return;
     }
     if (rebels.empty())
     {
-        ShowNotice("Os escravos tentaram se rebelar, mas nenhum tem forca " + Num(g_cfg.rebelMinStrength) + " ou mais.");
+        ShowNotice(T("The slaves tried to rise up, but none has strength ", "Os escravos tentaram se rebelar, mas nenhum tem forca ") + Num(g_cfg.rebelMinStrength) + T(" or more.", " ou mais."));
         return;
     }
     StartRebellion(rebels);
@@ -1742,59 +1756,94 @@ extern "C" __declspec(dllexport) void MCM_Describe(MCM_Api* api)
 {
     static const std::string ini = g_modDir + "SlaverMod.ini";   // must outlive the call
     const char* const sec = "SlaverMod";
+#define L(en, pt) T(en, pt).c_str()
 
     api->beginMod(api, "SlaverMod", "SlaverMod", ini.c_str(), &ReloadSettings);
     if (api->version >= 2)
-        api->info(api, "Sua facção pode ter escravos: escravizar, grilhões, relações e rebelião.");
+        api->info(api, L("Your faction can own slaves: enslave, shackles, relations and rebellion. Translated to Brazilian Portuguese.",
+                         "Sua facção pode ter escravos: escravizar, grilhões, relações e rebelião. Traduzido para português do Brasil."));
 
-    api->section(api, "Geral");
-    api->toggle(api, sec, "ContextMenu", "Opção no menu do botão direito", "Escravizar/Libertar no menu de ordens (segure o botão direito sobre o alvo).", 1, 0);
-    api->toggle(api, sec, "ShowButton", "Botão no inventário", "Mostra também o botão ESCRAVIZAR/LIBERTAR na janela de inventário.", 0, 0);
-    api->text(api, sec, "SquadName", "Nome do esquadrão de escravos", "Esquadrão onde os novos escravos entram (criado se não existir).", "Escravos", 0);
+    api->section(api, L("General", "Geral"));
+    static const char* const langValues[] = { "en", "pt" };
+    static const char* const langLabels[] = { "English", "Português (Brasil)" };
+    api->choice(api, sec, "Language", L("Language", "Idioma"), L("Language of the mod's messages and of this page.", "Idioma das mensagens do mod e desta página."),
+                "en", langValues, langLabels, 2, MCM_RESTART);
+    api->toggle(api, sec, "ContextMenu", L("Option in the right-click menu", "Opção no menu do botão direito"),
+                L("Enslave/Free in the order menu (hold the right mouse button over the target).", "Escravizar/Libertar no menu de ordens (segure o botão direito sobre o alvo)."), 1, 0);
+    api->toggle(api, sec, "ShowButton", L("Inventory button", "Botão no inventário"),
+                L("Also shows the ENSLAVE/FREE button in the inventory window.", "Mostra também o botão ESCRAVIZAR/LIBERTAR na janela de inventário."), 0, 0);
+    api->text(api, sec, "SquadName", L("Slave squad name", "Nome do esquadrão de escravos"),
+              L("Squad new slaves are put in (created if missing).", "Esquadrão onde os novos escravos entram (criado se não existir)."), L("Slaves", "Escravos"), 0);
 
-    api->section(api, "Escravizar e libertar");
-    api->toggle(api, sec, "InstantAction", "Ação instantânea", "Escraviza/liberta na hora, sem o dono ir até o alvo.", 0, 0);
-    api->number(api, sec, "ActionSeconds", "Duração da ação", "Tempo que o dono passa ao lado do alvo colocando ou tirando os grilhões.", 4.0f, 0.5f, 20.0f, 1, 0);
-    api->integer(api, sec, "ApproachTimeout", "Tempo máximo para chegar", "Tempo para o dono chegar até o alvo antes de desistir.", 120, 10, 600, 0);
-    api->number(api, sec, "ReachFactor", "Distância para agir", "Quão perto o dono precisa chegar (múltiplo do tamanho dos personagens).", 2.5f, 1.0f, 6.0f, 1, 0);
-    api->toggle(api, sec, "ProgressBar", "Barra de progresso", "Mostra a barra sobre o dono enquanto ele age.", 1, 0);
-    api->text(api, sec, "ActionAnimation", "Animação da ação", "Animação do dono enquanto age (medic = primeiros socorros). Vazio = nenhuma.", "medic", 0);
-    api->toggle(api, sec, "UnchainOnEnslave", "Tirar correntes ao escravizar", "Tira as correntes de quem estava acorrentado.", 1, 0);
+    api->section(api, L("Enslaving and freeing", "Escravizar e libertar"));
+    api->toggle(api, sec, "InstantAction", L("Instant action", "Ação instantânea"),
+                L("Enslave/free at once, without the owner walking to the target.", "Escraviza/liberta na hora, sem o dono ir até o alvo."), 0, 0);
+    api->number(api, sec, "ActionSeconds", L("Action duration", "Duração da ação"),
+                L("Time the owner spends next to the target putting on or taking off the shackles.", "Tempo que o dono passa ao lado do alvo colocando ou tirando os grilhões."), 4.0f, 0.5f, 20.0f, 1, 0);
+    api->integer(api, sec, "ApproachTimeout", L("Time limit to arrive", "Tempo máximo para chegar"),
+                 L("Time for the owner to reach the target before giving up.", "Tempo para o dono chegar até o alvo antes de desistir."), 120, 10, 600, 0);
+    api->number(api, sec, "ReachFactor", L("Reach distance", "Distância para agir"),
+                L("How close the owner must get (multiple of the characters' size).", "Quão perto o dono precisa chegar (múltiplo do tamanho dos personagens)."), 2.5f, 1.0f, 6.0f, 1, 0);
+    api->toggle(api, sec, "ProgressBar", L("Progress bar", "Barra de progresso"),
+                L("Shows the bar over the owner while acting.", "Mostra a barra sobre o dono enquanto ele age."), 1, 0);
+    api->text(api, sec, "ActionAnimation", L("Action animation", "Animação da ação"),
+              L("Owner's animation while acting (medic = first aid). Empty = none.", "Animação do dono enquanto age (medic = primeiros socorros). Vazio = nenhuma."), "medic", 0);
+    api->toggle(api, sec, "UnchainOnEnslave", L("Unchain when enslaving", "Tirar correntes ao escravizar"),
+                L("Removes the chains of whoever was chained.", "Tira as correntes de quem estava acorrentado."), 1, 0);
 
-    api->section(api, "Escravos");
-    api->toggle(api, sec, "GiveShackles", "Grilhões", "O escravo ganha grilhões trancados; ao ser liberto eles somem.", 1, 0);
-    api->toggle(api, sec, "BanWeapons", "Proibir armas", "Escravos largam qualquer arma equipada.", 1, 0);
-    api->toggle(api, sec, "SlaveEscort", "Seguir quem escravizou", "O recém-escravizado passa a seguir quem o escravizou.", 1, 0);
+    api->section(api, L("Slaves", "Escravos"));
+    api->toggle(api, sec, "GiveShackles", L("Shackles", "Grilhões"),
+                L("Slaves get locked shackles; freeing removes them.", "O escravo ganha grilhões trancados; ao ser liberto eles somem."), 1, 0);
+    api->toggle(api, sec, "BanWeapons", L("Ban weapons", "Proibir armas"),
+                L("Slaves drop any equipped weapon.", "Escravos largam qualquer arma equipada."), 1, 0);
+    api->toggle(api, sec, "SlaveEscort", L("Follow the enslaver", "Seguir quem escravizou"),
+                L("A new slave follows whoever enslaved them.", "O recém-escravizado passa a seguir quem o escravizou."), 1, 0);
     static const char* const escortValues[] = { "bodyguard", "follow" };
-    static const char* const escortLabels[] = { "Seguir e proteger", "Só seguir" };
-    api->choice(api, sec, "EscortMode", "Modo de seguir", NULL, "bodyguard", escortValues, escortLabels, 2, 0);
-    api->toggle(api, sec, "SlaveAIJob", "Trabalho escravo nativo", "Liga o comportamento de trabalho escravo do jogo. Experimental.", 0, 0);
-    api->text(api, sec, "ShackleItem", "Grilhão (ID)", "Item de grilhão usado.", "SHACKLES", 0);
-    api->text(api, sec, "ShackleItemAlt", "Grilhão alternativo (ID)", "Usado quando o primeiro não serve (ex.: colmeia).", "SHACKLES-BODY", 0);
+    const char* escortLabels[] = { g_pt ? "Seguir e proteger" : "Follow and guard", g_pt ? "Só seguir" : "Follow only" };
+    api->choice(api, sec, "EscortMode", L("Follow mode", "Modo de seguir"), NULL, "bodyguard", escortValues, escortLabels, 2, 0);
+    api->toggle(api, sec, "SlaveAIJob", L("Native slave work", "Trabalho escravo nativo"),
+                L("Turns on the game's slave work behaviour. Experimental.", "Liga o comportamento de trabalho escravo do jogo. Experimental."), 0, 0);
+    api->text(api, sec, "ShackleItem", L("Shackles (ID)", "Grilhão (ID)"), L("Shackles item used.", "Item de grilhão usado."), "SHACKLES", 0);
+    api->text(api, sec, "ShackleItemAlt", L("Alternative shackles (ID)", "Grilhão alternativo (ID)"),
+              L("Used when the first one does not fit (e.g. hivers).", "Usado quando o primeiro não serve (ex.: colmeia)."), "SHACKLES-BODY", 0);
 
-    api->section(api, "Relações");
-    api->number(api, sec, "RelationLoss", "Perda ao escravizar", "Quanto a relação com a facção da vítima cai.", 5.0f, 0.0f, 50.0f, 1, 0);
-    api->number(api, sec, "RelationGain", "Ganho ao libertar", "Quanto a relação com a facção de origem sobe. Precisa ser menor que a perda.", 2.0f, 0.0f, 50.0f, 1, 0);
+    api->section(api, L("Relations", "Relações"));
+    api->number(api, sec, "RelationLoss", L("Loss when enslaving", "Perda ao escravizar"),
+                L("How much the victim's faction relation drops.", "Quanto a relação com a facção da vítima cai."), 5.0f, 0.0f, 50.0f, 1, 0);
+    api->number(api, sec, "RelationGain", L("Gain when freeing", "Ganho ao libertar"),
+                L("How much the original faction relation rises. Must be lower than the loss.", "Quanto a relação com a facção de origem sobe. Precisa ser menor que a perda."), 2.0f, 0.0f, 50.0f, 1, 0);
 
-    api->section(api, "Rebelião");
-    api->toggle(api, sec, "RebellionEnabled", "Rebelião", "Verifica periodicamente se os escravos se rebelam.", 1, 0);
-    api->integer(api, sec, "RebellionDays", "Dias entre verificações", NULL, 7, 1, 60, 0);
-    api->number(api, sec, "RebellionChanceMult", "Multiplicador da chance", "Chance = (escravos - livres) / escravos x este valor.", 1.0f, 0.0f, 5.0f, 2, 0);
-    api->number(api, sec, "RebellionMaxChance", "Chance máxima", "Limite da chance de rebelião (0 a 1).", 0.9f, 0.0f, 1.0f, 2, 0);
-    api->integer(api, sec, "RebelMinStrength", "Força mínima do rebelde", "Só escravos com esta força ou mais se rebelam.", 20, 0, 100, 0);
-    api->toggle(api, sec, "RebellionHostile", "Guerra com os rebeldes", "Os Abolicionistas entram em guerra com você na rebelião.", 1, 0);
-    api->integer(api, sec, "RebelChaseRange", "Distância de perseguição", "Até onde os rebeldes perseguem seus membros livres.", 1000, 100, 5000, 0);
-    api->text(api, sec, "RebelFaction", "Facção dos rebeldes (ID)", NULL, "58229-Dialogue.mod", 0);
-    api->text(api, sec, "RebelWeapon", "Arma dos rebeldes (ID)", NULL, "52295-rebirth.mod", 0);
-    api->text(api, sec, "RebelWeaponMaker", "Fabricante da arma (ID)", NULL, "912-gamedata.base", 0);
-    api->text(api, sec, "RebelWeaponModel", "Qualidade da arma (ID)", NULL, "913-gamedata.base", 0);
+    api->section(api, L("Rebellion", "Rebelião"));
+    api->toggle(api, sec, "RebellionEnabled", L("Rebellion", "Rebelião"),
+                L("Periodically checks whether the slaves rise up.", "Verifica periodicamente se os escravos se rebelam."), 1, 0);
+    api->integer(api, sec, "RebellionDays", L("Days between checks", "Dias entre verificações"), NULL, 7, 1, 60, 0);
+    api->number(api, sec, "RebellionChanceMult", L("Chance multiplier", "Multiplicador da chance"),
+                L("Chance = (slaves - free) / slaves x this value.", "Chance = (escravos - livres) / escravos x este valor."), 1.0f, 0.0f, 5.0f, 2, 0);
+    api->number(api, sec, "RebellionMaxChance", L("Maximum chance", "Chance máxima"),
+                L("Upper limit of the rebellion chance (0 to 1).", "Limite da chance de rebelião (0 a 1)."), 0.9f, 0.0f, 1.0f, 2, 0);
+    api->integer(api, sec, "RebelMinStrength", L("Rebel minimum strength", "Força mínima do rebelde"),
+                 L("Only slaves with this strength or more rise up.", "Só escravos com esta força ou mais se rebelam."), 20, 0, 100, 0);
+    api->toggle(api, sec, "RebellionHostile", L("War with the rebels", "Guerra com os rebeldes"),
+                L("The Anti-Slavers go to war with you on a rebellion.", "Os Abolicionistas entram em guerra com você na rebelião."), 1, 0);
+    api->integer(api, sec, "RebelChaseRange", L("Chase distance", "Distância de perseguição"),
+                 L("How far rebels chase your free members.", "Até onde os rebeldes perseguem seus membros livres."), 1000, 100, 5000, 0);
+    api->text(api, sec, "RebelFaction", L("Rebel faction (ID)", "Facção dos rebeldes (ID)"), NULL, "58229-Dialogue.mod", 0);
+    api->text(api, sec, "RebelWeapon", L("Rebel weapon (ID)", "Arma dos rebeldes (ID)"), NULL, "52295-rebirth.mod", 0);
+    api->text(api, sec, "RebelWeaponMaker", L("Weapon manufacturer (ID)", "Fabricante da arma (ID)"), NULL, "912-gamedata.base", 0);
+    api->text(api, sec, "RebelWeaponModel", L("Weapon quality (ID)", "Qualidade da arma (ID)"), NULL, "913-gamedata.base", 0);
 
     api->section(api, "Debug");
-    api->toggle(api, sec, "DebugMode", "Modo debug", "Liga os atalhos de teste (escravizar na hora e forçar a verificação de rebelião).", 0, 0);
-    api->hotkey(api, sec, "EnslaveKey", "Atalho: escravizar/libertar", "Só no modo debug. Age sobre o personagem selecionado.", "CTRL+K", 0);
-    api->hotkey(api, sec, "RebellionTestKey", "Atalho: verificar rebelião", "Só no modo debug. Faz a verificação de rebelião na hora.", "CTRL+SHIFT+R", 0);
-    api->toggle(api, sec, "RebellionTestForce", "Forçar rebelião no teste", "O atalho de teste sempre causa rebelião.", 0, 0);
-    api->toggle(api, sec, "Debug", "Gravar log detalhado", "Grava SlaverMod_trace.log na pasta do mod.", 1, 0);
+    api->toggle(api, sec, "DebugMode", L("Debug mode", "Modo debug"),
+                L("Turns on the test hotkeys (instant enslave and forced rebellion check).", "Liga os atalhos de teste (escravizar na hora e forçar a verificação de rebelião)."), 0, 0);
+    api->hotkey(api, sec, "EnslaveKey", L("Hotkey: enslave/free", "Atalho: escravizar/libertar"),
+                L("Debug mode only. Acts on the selected character.", "Só no modo debug. Age sobre o personagem selecionado."), "CTRL+K", 0);
+    api->hotkey(api, sec, "RebellionTestKey", L("Hotkey: rebellion check", "Atalho: verificar rebelião"),
+                L("Debug mode only. Runs the rebellion check right away.", "Só no modo debug. Faz a verificação de rebelião na hora."), "CTRL+SHIFT+R", 0);
+    api->toggle(api, sec, "RebellionTestForce", L("Force rebellion on test", "Forçar rebelião no teste"),
+                L("The test hotkey always causes a rebellion.", "O atalho de teste sempre causa rebelião."), 0, 0);
+    api->toggle(api, sec, "Debug", L("Write detailed log", "Gravar log detalhado"),
+                L("Writes SlaverMod_trace.log in the mod folder.", "Grava SlaverMod_trace.log na pasta do mod."), 0, 0);
+#undef L
 }
 
 __declspec(dllexport) void startPlugin()
@@ -1803,7 +1852,7 @@ __declspec(dllexport) void startPlugin()
     LoadSettings();
     ParseHotkey();
     srand(GetTickCount());
-    Trace("startPlugin v1.0");
+    Trace("startPlugin v1.1");
 
     if (KenshiLib::SUCCESS != KenshiLib::AddHook(KenshiLib::GetRealAddress(&GameWorld::_NV_mainLoop_GPUSensitiveStuff), GameWorld_update_hook, (void**)&GameWorld_update_orig))
         ErrorLog("SlaverMod: could not add GameWorld update hook!");

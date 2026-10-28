@@ -1,11 +1,45 @@
 [h1]SlaverMod[/h1]
+A RE_Kenshi plugin that lets your faction own slaves, using Kenshi's own slave system.
+
+[b]Languages: English (default) and Brazilian Portuguese.[/b] For Portuguese, set [i]Language=pt[/i] in SlaverMod.ini, or pick it in Options > MCM > SlaverMod > Language.
+[i]Traduzido para português do Brasil (veja abaixo).[/i]
+
+[h2]Features[/h2]
+[list]
+[*][b]Enslave / Free from the right-click menu.[/b] Select one of your members and hold the right mouse button over an unconscious, chained or caged enemy (or one of your own members). The selected member becomes the owner.
+[*][b]Action with approach:[/b] the owner walks over, kneels (first-aid animation) and fills the game's progress bar.
+[*][b]Locked shackles[/b] (hive version for hivers). Clothes in the way go to the inventory. Freeing removes the shackles.
+[*][b]Slaves cannot use weapons.[/b]
+[*][b]New slaves follow and guard[/b] whoever enslaved them.
+[*][b]Relations:[/b] enslaving someone from another faction lowers your relation with it (-5); freeing gives a little back (+2).
+[*][b]Rebellion:[/b] every 7 days the game weighs (free members x strongest) against (slaves x strongest). If the slaves are stronger they may rise up: those with 20+ strength join the Anti-Slavers, lose their shackles, grab a rusted iron club and attack.
+[*][b]In-game settings[/b] with ModConfigMenu (optional), or the commented SlaverMod.ini.
+[*][b]Debug mode[/b] (off by default) with test hotkeys: CTRL+K and CTRL+SHIFT+R.
+[/list]
+
+[h2]Requirements[/h2]
+[list]
+[*]RE_Kenshi 0.3.x
+[*]Optional: ModConfigMenu (in-game settings)
+[/list]
+Tested on Kenshi 1.0.65 Steam. Uses only base-game items and factions; also tested with Second Life of Kenshi.
+
+[h2]Source code[/h2]
+MIT license. Code, build instructions and technical notes for anyone who wants to continue the mod:
+[url=https://github.com/FelipeSKT/kenshi-slavermod]github.com/FelipeSKT/kenshi-slavermod[/url]
+
+[hr][/hr]
+
+[h1]Português do Brasil[/h1]
 Plugin RE_Kenshi que deixa a sua facção ter escravos de verdade, usando o sistema de escravidão do próprio jogo.
+
+[b]O mod é traduzido para português do Brasil.[/b] O padrão é inglês: para português, use [i]Language=pt[/i] no SlaverMod.ini ou escolha em Opções > MCM > SlaverMod > Idioma.
 
 [h2]Funções[/h2]
 [list]
-[*][b]Escravizar / Libertar pelo menu do botão direito.[/b] Selecione um membro seu e segure o botão direito sobre um inimigo desmaiado, acorrentado ou preso (ou um membro seu). O membro selecionado vira o dono.
+[*][b]Escravizar / Libertar pelo menu do botão direito.[/b] Selecione um membro seu e segure o botão direito sobre um inimigo desmaiado, acorrentado ou preso (ou sobre um membro seu). O membro selecionado vira o dono.
 [*][b]Ação com aproximação:[/b] o dono vai até o alvo, agacha (animação de primeiros socorros) e enche a barra de progresso do jogo.
-[*][b]Grilhões trancados[/b] (versão de colmeia para hivers). Roupas no caminho vão para o inventário. Ao libertar, os grilhões somem.
+[*][b]Grilhões trancados[/b] (versão de colmeia para hivers). A roupa que estiver no caminho vai para o inventário. Ao libertar, os grilhões somem.
 [*][b]Escravos não usam armas.[/b]
 [*][b]O recém-escravizado segue e protege[/b] quem o escravizou.
 [*][b]Relações:[/b] escravizar alguém de outra facção reduz a relação (-5); libertar devolve um pouco (+2).
@@ -19,24 +53,6 @@ Plugin RE_Kenshi que deixa a sua facção ter escravos de verdade, usando o sist
 [*]RE_Kenshi 0.3.x
 [*]Opcional: ModConfigMenu (opções dentro do jogo)
 [/list]
-Testado no Kenshi 1.0.65 Steam. Usa só itens e facções do jogo base; testado também com o Second Life of Kenshi.
+Testado no Kenshi 1.0.65 Steam. Usa só itens e facções do jogo base; também foi testado com o Second Life of Kenshi.
 
-[h2]Código-fonte[/h2]
-Licença MIT. Código, instruções para compilar e notas técnicas para quem quiser continuar o mod:
-[url=https://github.com/FelipeSKT/kenshi-slavermod]github.com/FelipeSKT/kenshi-slavermod[/url]
-
-[hr][/hr]
-
-[h1]English[/h1]
-A RE_Kenshi plugin that lets your faction own slaves using Kenshi's native slave system.
-[list]
-[*]Enslave / free from the hold-right-click order menu. The selected member becomes the owner.
-[*]The owner walks over, kneels (first-aid animation) and fills the game's progress bar.
-[*]Locked shackles (hive version for hivers). Clothes in the way go to the inventory. Freeing removes them.
-[*]Slaves cannot use weapons. New slaves bodyguard their enslaver.
-[*]Relations: -5 with the victim's faction, +2 back when freed.
-[*]Weekly rebellion check (count x strongest, each side). Slaves with 20+ strength may join the Anti-Slavers with a rusted iron club and attack.
-[*]In-game settings with ModConfigMenu (optional), or the commented SlaverMod.ini (Portuguese).
-[*]Debug mode (off by default) with test hotkeys CTRL+K and CTRL+SHIFT+R.
-[/list]
-Requires RE_Kenshi 0.3.x. Tested on Kenshi 1.0.65 Steam. Source code (MIT): [url=https://github.com/FelipeSKT/kenshi-slavermod]github.com/FelipeSKT/kenshi-slavermod[/url]
+Código-fonte (licença MIT): [url=https://github.com/FelipeSKT/kenshi-slavermod]github.com/FelipeSKT/kenshi-slavermod[/url]
