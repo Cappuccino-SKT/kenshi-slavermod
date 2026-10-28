@@ -1,0 +1,15 @@
+build/
+dist/
+*.obj
+*.pdb
+*.ilk
+*.exp
+*.lib
+*.log
+
+# third-party header from ModConfigMenu (see README: copy it from the MCM sdk folder)
+ModConfigMenu.h
+
+# per-player data written by the plugin
+SlaverMod_origins.ini
+SlaverMod_trace*.log
