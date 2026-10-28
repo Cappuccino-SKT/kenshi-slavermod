@@ -2,6 +2,8 @@
 
 A [RE_Kenshi](https://github.com/BFrizzleFoShizzle/RE_Kenshi) plugin that lets the player's faction own slaves, using Kenshi's native slave system.
 
+**Steam Workshop:** https://steamcommunity.com/sharedfiles/filedetails/?id=3828708454
+
 **Languages:** English (default) and **Brazilian Portuguese** (`Language=pt`, or *Options > MCM > SlaverMod > Language*).
 *Traduzido para português do Brasil — [veja a seção em português](#português-do-brasil).*
 
@@ -32,7 +34,7 @@ Works with the base game: every item and faction it uses is vanilla. Also tested
 
 ## Installation
 
-1. Copy the `SlaverMod` folder (`SlaverMod.dll`, `SlaverMod.mod`, `RE_Kenshi.json`, `SlaverMod.ini`) into `Kenshi/mods/`, or subscribe on the Steam Workshop.
+1. Subscribe on the [Steam Workshop](https://steamcommunity.com/sharedfiles/filedetails/?id=3828708454), or copy the `SlaverMod` folder (`SlaverMod.dll`, `SlaverMod.mod`, `RE_Kenshi.json`, `SlaverMod.ini`) into `Kenshi/mods/`.
 2. Enable **SlaverMod** in the launcher's mod list.
 3. Adjust the options in `SlaverMod.ini` (commented) or in *Options > MCM*. For Portuguese, set `Language=pt`.
 
@@ -109,7 +111,7 @@ Funciona com o jogo base, porque todos os itens e facções que usa são do jogo
 
 ### Instalação
 
-1. Copie a pasta `SlaverMod` para `Kenshi/mods/`, ou assine o mod na Oficina Steam.
+1. Assine o mod na [Oficina Steam](https://steamcommunity.com/sharedfiles/filedetails/?id=3828708454), ou copie a pasta `SlaverMod` para `Kenshi/mods/`.
 2. Ative **SlaverMod** na lista de mods do launcher.
 3. Para português, coloque `Language=pt` no `SlaverMod.ini`, ou escolha *Português (Brasil)* em *Opções > MCM > SlaverMod > Idioma*. Se quiser, mude também `SquadName` para `Escravos`.
 
