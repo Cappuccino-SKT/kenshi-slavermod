@@ -27,7 +27,7 @@ Tested on Kenshi 1.0.65 Steam. Uses only base-game items and factions; also test
 
 [h2]Source code[/h2]
 MIT license. Code, build instructions and technical notes for anyone who wants to continue the mod:
-[url=https://github.com/FelipeSKT/kenshi-slavermod]github.com/FelipeSKT/kenshi-slavermod[/url]
+[url=https://github.com/Cappuccino-SKT/kenshi-slavermod]github.com/Cappuccino-SKT/kenshi-slavermod[/url]
 
 [hr][/hr]
 
@@ -57,4 +57,4 @@ Plugin RE_Kenshi que deixa a sua facção ter escravos de verdade, usando o sist
 [/list]
 Testado no Kenshi 1.0.65 Steam. Usa só itens e facções do jogo base; também foi testado com o Second Life of Kenshi.
 
-Código-fonte (licença MIT): [url=https://github.com/FelipeSKT/kenshi-slavermod]github.com/FelipeSKT/kenshi-slavermod[/url]
+Código-fonte (licença MIT): [url=https://github.com/Cappuccino-SKT/kenshi-slavermod]github.com/Cappuccino-SKT/kenshi-slavermod[/url]
