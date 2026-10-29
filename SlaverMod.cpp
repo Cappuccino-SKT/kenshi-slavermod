@@ -152,6 +152,7 @@ struct Settings
     std::string shackleItemAlt;
     std::string actionAnimation;
     bool progressBar;
+    bool showNotices;   // 0 = only the rebellion alert is shown
     float relationLoss;
     float relationGain;
     bool slaveEscort;
@@ -216,6 +217,7 @@ static void LoadSettings()
     g_cfg.shackleItemAlt = IniString("ShackleItemAlt", "SHACKLES-BODY");
     g_cfg.actionAnimation = IniString("ActionAnimation", "medic");
     g_cfg.progressBar = IniBool("ProgressBar", true);
+    g_cfg.showNotices = IniBool("ShowNotices", true);
     g_cfg.relationLoss = IniFloat("RelationLoss", 5.0f);
     g_cfg.relationGain = IniFloat("RelationGain", 2.0f);
     if (g_cfg.relationGain >= g_cfg.relationLoss && g_cfg.relationLoss > 0.0f)
@@ -233,7 +235,7 @@ static void LoadSettings()
           " actionSeconds=" + Num(g_cfg.actionSeconds) + " timeout=" + Num(g_cfg.approachTimeout) +
           " reach=" + Num(g_cfg.reachFactor) + " shackles=" + Num(g_cfg.giveShackles) +
           " item=" + g_cfg.shackleItem + "/" + g_cfg.shackleItemAlt + " anim=" + g_cfg.actionAnimation +
-          " bar=" + Num(g_cfg.progressBar) + " relationLoss=" + Num(g_cfg.relationLoss) + " relationGain=" + Num(g_cfg.relationGain) +
+          " bar=" + Num(g_cfg.progressBar) + " notices=" + Num(g_cfg.showNotices) + " relationLoss=" + Num(g_cfg.relationLoss) + " relationGain=" + Num(g_cfg.relationGain) +
           " escort=" + Num(g_cfg.slaveEscort) + "/" + g_cfg.escortMode);
 }
 
@@ -245,9 +247,11 @@ static MyGUI::Widget* g_noticePanel = NULL;
 static MyGUI::TextBox* g_noticeText = NULL;
 static DWORD g_noticeUntil = 0;
 
-static void ShowNotice(const std::string& text)
+static void ShowNotice(const std::string& text, bool always = false)
 {
     Trace("notice: " + text);
+    if (!g_cfg.showNotices && !always)
+        return;
     MyGUI::Gui* mg = MyGUI::Gui::getInstancePtr();
     if (mg == NULL)
         return;
@@ -1565,7 +1569,7 @@ static void StartRebellion(const std::vector<Character*>& rebels)
         Trace("rebellion: '" + rebelFaction->getName() + "' wasEnemy=" + Num(wasEnemy) + " now enemy=" + Num(rebelFaction->relations->isEnemy(pf)) +
               " relation=" + Num(rebelFaction->relations->getFactionRelation(pf)));
     }
-    ShowNotice(T("REBELLION! ", "REBELIAO! ") + Num((float)rebels.size()) + T(" slave(s) rose up and joined ", " escravo(s) se rebelaram e se juntaram a ") + rebelFaction->getName() + "!");
+    ShowNotice(T("REBELLION! ", "REBELIAO! ") + Num((float)rebels.size()) + T(" slave(s) rose up and joined ", " escravo(s) se rebelaram e se juntaram a ") + rebelFaction->getName() + "!", true);
     g_rebelTimer = 2.0f;   // attack right away
 }
 
@@ -1772,6 +1776,9 @@ extern "C" __declspec(dllexport) void MCM_Describe(MCM_Api* api)
                 L("Enslave/Free in the order menu (hold the right mouse button over the target).", "Escravizar/Libertar no menu de ordens (segure o botão direito sobre o alvo)."), 1, 0);
     api->toggle(api, sec, "ShowButton", L("Inventory button", "Botão no inventário"),
                 L("Also shows the ENSLAVE/FREE button in the inventory window.", "Mostra também o botão ESCRAVIZAR/LIBERTAR na janela de inventário."), 0, 0);
+    api->toggle(api, sec, "ShowNotices", L("On-screen messages", "Mensagens na tela"),
+                L("Messages at the top of the screen (enslaved, freed, rebellion check...). The REBELLION alert is always shown.",
+                  "Mensagens no topo da tela (escravizado, libertado, verificação de rebelião...). O alerta de REBELIÃO sempre aparece."), 1, 0);
     api->text(api, sec, "SquadName", L("Slave squad name", "Nome do esquadrão de escravos"),
               L("Squad new slaves are put in (created if missing).", "Esquadrão onde os novos escravos entram (criado se não existir)."), L("Slaves", "Escravos"), 0);
 
@@ -1852,7 +1859,7 @@ __declspec(dllexport) void startPlugin()
     LoadSettings();
     ParseHotkey();
     srand(GetTickCount());
-    Trace("startPlugin v1.1");
+    Trace("startPlugin v1.2");
 
     if (KenshiLib::SUCCESS != KenshiLib::AddHook(KenshiLib::GetRealAddress(&GameWorld::_NV_mainLoop_GPUSensitiveStuff), GameWorld_update_hook, (void**)&GameWorld_update_orig))
         ErrorLog("SlaverMod: could not add GameWorld update hook!");

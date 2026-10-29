@@ -22,6 +22,7 @@ A [RE_Kenshi](https://github.com/BFrizzleFoShizzle/RE_Kenshi) plugin that lets t
   - if the slaves are stronger, chance = (slaves − free) ÷ slaves (max. 90%)
   - on a rebellion, slaves with **strength 20+** join the **Anti-Slavers**, lose their shackles, get a worst-quality **Iron Club** and attack your free members.
 - **In-game settings** with [ModConfigMenu](https://steamcommunity.com/sharedfiles/filedetails/?id=3813761584) (optional): *Options > MCM > SlaverMod*.
+- **On-screen messages** in a single box at the top of the screen that fades after a few seconds. `ShowNotices=0` hides them; the REBELLION alert is always shown.
 - **Debug mode** (off by default): test hotkeys **CTRL+K** (enslave/free the selected character) and **CTRL+SHIFT+R** (rebellion check right away).
 
 ## Requirements
@@ -99,6 +100,7 @@ Plugin [RE_Kenshi](https://github.com/BFrizzleFoShizzle/RE_Kenshi) que deixa a f
   - se os escravos forem mais fortes, chance = (escravos − livres) ÷ escravos (máx. 90%)
   - na rebelião, os escravos com **força 20+** vão para os **Abolicionistas**, perdem os grilhões, recebem um **Porrete de Ferro** da pior qualidade e atacam seus membros livres.
 - **Configuração dentro do jogo** com o [ModConfigMenu](https://steamcommunity.com/sharedfiles/filedetails/?id=3813761584) (opcional): *Opções > MCM > SlaverMod*.
+- **Mensagens na tela** numa única caixa no topo, que some depois de alguns segundos. `ShowNotices=0` esconde; o alerta de REBELIÃO sempre aparece.
 - **Modo debug** (desligado por padrão): atalhos de teste **CTRL+K** (escravizar ou libertar o personagem selecionado) e **CTRL+SHIFT+R** (verificar rebelião na hora).
 
 ### Requisitos

@@ -14,6 +14,7 @@ A RE_Kenshi plugin that lets your faction own slaves, using Kenshi's own slave s
 [*][b]Relations:[/b] enslaving someone from another faction lowers your relation with it (-5); freeing gives a little back (+2).
 [*][b]Rebellion:[/b] every 7 days the game weighs (free members x strongest) against (slaves x strongest). If the slaves are stronger they may rise up: those with 20+ strength join the Anti-Slavers, lose their shackles, grab a rusted iron club and attack.
 [*][b]In-game settings[/b] with ModConfigMenu (optional), or the commented SlaverMod.ini.
+[*][b]On-screen messages[/b] in a single box at the top that fades after a few seconds. Can be turned off (ShowNotices=0); the REBELLION alert always shows.
 [*][b]Debug mode[/b] (off by default) with test hotkeys: CTRL+K and CTRL+SHIFT+R.
 [/list]
 
@@ -45,6 +46,7 @@ Plugin RE_Kenshi que deixa a sua facção ter escravos de verdade, usando o sist
 [*][b]Relações:[/b] escravizar alguém de outra facção reduz a relação (-5); libertar devolve um pouco (+2).
 [*][b]Rebelião:[/b] a cada 7 dias o jogo compara (nº de livres x maior força) com (nº de escravos x maior força). Se os escravos forem mais fortes, podem se rebelar: os que têm força 20+ vão para os Abolicionistas, perdem os grilhões, pegam um porrete de ferro enferrujado e atacam.
 [*][b]Opções dentro do jogo[/b] com o ModConfigMenu (opcional), ou no SlaverMod.ini comentado.
+[*][b]Mensagens na tela[/b] numa única caixa no topo, que some depois de alguns segundos. Dá para desligar (ShowNotices=0); o alerta de REBELIÃO sempre aparece.
 [*][b]Modo debug[/b] (desligado por padrão) com atalhos de teste: CTRL+K e CTRL+SHIFT+R.
 [/list]
 
