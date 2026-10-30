@@ -26,6 +26,7 @@ A [RE_Kenshi](https://github.com/BFrizzleFoShizzle/RE_Kenshi) plugin that lets t
   - slaves = only the **defiant** ones (submission below 50): their number × highest strength × (100 − their average submission) ÷ 100
   - if the slaves are stronger, chance = (slaves − free) ÷ slaves (max. 90%)
   - on a rebellion, the defiant slaves strong enough (strength **10** at submission 0, up to **20** near the limit: the more defiant, the weaker they can be) join the **Anti-Slavers**, lose their shackles, get a worst-quality **Iron Club** and attack your free members.
+- **New game start: Slave Hunters.** A leader and five slave hunters with rusty clubs and 500 cats, at a random slaver camp (Slave Farm, Slave Markets, Stone Camp, South Stone Camp or Slave Farm South), friendly with the Slave Traders and Slave Hunters and disliked by the Anti-Slavers.
 - **In-game settings** with [ModConfigMenu](https://steamcommunity.com/sharedfiles/filedetails/?id=3813761584) (optional): *Options > MCM > SlaverMod*.
 - **On-screen messages** in a single box at the top of the screen that fades after a few seconds. `ShowNotices=0` hides them; the REBELLION alert is always shown.
 - **Debug mode** (off by default): test hotkeys **CTRL+K** (enslave/free the selected character), **CTRL+SHIFT+R** (rebellion check right away), **CTRL+SHIFT+S** (+25 submission on the selected slave) and **CTRL+SHIFT+E** (the selected slave runs away).
@@ -111,6 +112,7 @@ Plugin [RE_Kenshi](https://github.com/BFrizzleFoShizzle/RE_Kenshi) que deixa a f
   - escravos = só os **rebeldes** (submissão abaixo de 50): quantidade × maior força × (100 − submissão média deles) ÷ 100
   - se os escravos forem mais fortes, chance = (escravos − livres) ÷ escravos (máx. 90%)
   - na rebelião, os escravos rebeldes fortes o bastante (força **10** com submissão 0, subindo até **20** perto do limite: quanto mais rebelde, mais fraco ele pode ser) vão para os **Abolicionistas**, perdem os grilhões, recebem um **Porrete de Ferro** da pior qualidade e atacam seus membros livres.
+- **Novo início de jogo: Slave Hunters (Caçadores de Escravos).** Um líder e cinco caçadores com porretes enferrujados e 500 cats, num acampamento de traficantes sorteado (Slave Farm, Slave Markets, Stone Camp, South Stone Camp ou Slave Farm South), com boa relação com os Traficantes e os Caçadores de Escravos e malvistos pelos Abolicionistas.
 - **Configuração dentro do jogo** com o [ModConfigMenu](https://steamcommunity.com/sharedfiles/filedetails/?id=3813761584) (opcional): *Opções > MCM > SlaverMod*.
 - **Mensagens na tela** numa única caixa no topo, que some depois de alguns segundos. `ShowNotices=0` esconde; o alerta de REBELIÃO sempre aparece.
 - **Modo debug** (desligado por padrão): atalhos de teste **CTRL+K** (escravizar ou libertar o personagem selecionado), **CTRL+SHIFT+R** (verificar rebelião na hora), **CTRL+SHIFT+S** (+25 de submissão no escravo selecionado) e **CTRL+SHIFT+E** (o escravo selecionado foge).

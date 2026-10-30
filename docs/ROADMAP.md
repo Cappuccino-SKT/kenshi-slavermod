@@ -146,7 +146,12 @@ Proposta inicial:
 
 **Para pesquisar:** os IDs de cada raça e sub-raça (`RaceData`, registros rtype 7) e como identificar as sub-raças da colmeia.
 
-## Fase 5 — Início "Caçadores de escravos" (v1.7)
+## Fase 5 — Início "Caçadores de escravos" (v1.7) ✅
+
+**Testada no jogo.** Início "Slave Hunters" em `SlaverMod.mod`, gerado por `tools/build_start.py`:
+líder + 5 caçadores, porretes enferrujados, 500 cats, acampamento sorteado entre 5 dos traficantes, relações +50 com
+Traficantes e Caçadores de Escravos e −30 com Abolicionistas. Roupa do Slave Hunter do jogo + camisa (couro para o
+líder, pano para os caçadores).
 
 - Novo registro de início de jogo dentro do `SlaverMod.mod`. Não mexe nos outros mods.
 - **Grupo:** 6 pessoas.

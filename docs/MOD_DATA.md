@@ -24,7 +24,12 @@ Notes:
 
 | rtype | Kind |
 |-------|------|
+| 1 | CHARACTER |
 | 7 | RACE |
+| 10 | FACTION |
+| 13 | TOWN |
+| 24 | ANIMATION |
+| 52 | SQUAD_TEMPLATE |
 | 64 | NEW_GAME_STARTOFF (game start) |
 
 ## Game starts (rtype 64)
@@ -43,8 +48,28 @@ Example — vanilla "The Slaves" (`1532934-rebirth.mod`):
 | `town` | list | starting town (`18921-Newwworld.mod`) |
 
 "The Wandering Trader" (`1994-gamedata.base`): `squad` `47928-rebirth.mod`, `town` `55661-rebirth.mod`.
-A new start for SlaverMod = new rtype 64 record in `SlaverMod.mod` + its own squad template (characters, items,
-faction) + a slave camp as `town`. Details to be worked out in the roadmap phase.
+Several `town` entries = one picked at random (vanilla "Nobodies" and "Holy Nation Citizen" do this).
+`faction relations` entries are `(faction, (relation -100..100, 0, 0))`.
+
+Squad template (rtype 52): `leader` `(count)`, `squad`/`squad2` `(min, max; 0 = exactly min)`.
+Character (rtype 1): ints `combat stats`, `strength`, `unarmed stats`, `ranged stats`, `stealth stats`,
+`stats randomise`, `female chance`, `money min/max`, `NPC class` (9 for player start characters); bools `named`,
+`unique`; lists `clothing` `(qty, chance%)`, `weapons` `(qty, slot 0=hip 1=back, chance%)`, `weapon level`
+(manufacturer), `inventory`, `dialogue package player`, `personality`.
+Field meanings: `Kenshi\fcs.def` (the FCS's own definitions, one `[TYPE]` block per record type).
+
+### SlaverMod's start (v1.7)
+
+Built by `tools/build_start.py` (re-run after editing its constants; it replaces its own records):
+
+| sid | rtype | What |
+|-----|-------|------|
+| `1-SlaverMod.mod` | 64 | "Slave Hunters" start: 500 cats, Hard, relations Slave Traders +50, Slave Hunters +50, Anti-Slavers −30; towns 1073 Slave Farm, 1080 Slave Markets, 1785 Stone Camp, 1533492 South Stone Camp, 1533495 Slave Farm South |
+| `2-SlaverMod.mod` | 52 | squad: leader ×1 + hunter ×5 (copy of the Holy Nation Citizen start squad) |
+| `3-SlaverMod.mod` | 1 | Slaver Leader (copy of the Holy Citizen start character; Slave Hunter clothes (shorts, sandals, face plates) + Leather Shirt; Iron Club, rusted) |
+| `4-SlaverMod.mod` | 1 | Slave Hunter (same, weaker stats, Cloth Shirt) |
+
+Record `id` is 0 and `flags` are copied from the vanilla templates, like the game's own data.
 
 ## Useful IDs
 

@@ -2948,7 +2948,7 @@ __declspec(dllexport) void startPlugin()
     LoadRaces();
     ParseHotkey();
     srand(GetTickCount());
-    Trace("startPlugin v1.6");
+    Trace("startPlugin v1.7");
 
     if (KenshiLib::SUCCESS != KenshiLib::AddHook(KenshiLib::GetRealAddress(&GameWorld::_NV_mainLoop_GPUSensitiveStuff), GameWorld_update_hook, (void**)&GameWorld_update_orig))
         ErrorLog("SlaverMod: could not add GameWorld update hook!");
