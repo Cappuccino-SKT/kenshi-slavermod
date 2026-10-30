@@ -19,6 +19,9 @@
 #include <kenshi/GameData.h>
 #include <kenshi/FactionRelations.h>
 #include <kenshi/CharStats.h>
+#include <kenshi/SaveManager.h>
+#include <kenshi/FactionWarMgr.h>
+#include <kenshi/Damages.h>
 
 #include <kenshi/Animation/AnimationClass.h>
 #include <kenshi/util/hand.h>
@@ -133,7 +136,8 @@ struct Settings
     float rebellionDays;
     float rebellionChanceMult;
     float rebellionMaxChance;
-    float rebelMinStrength;
+    float rebelMinStrength;          // strength needed at the RebelMaxSubmission limit
+    float rebelMinStrengthDefiant;   // strength needed at submission 0
     std::string rebelFaction;
     std::string rebelWeapon;
     std::string rebelWeaponMaker;
@@ -153,6 +157,42 @@ struct Settings
     std::string actionAnimation;
     bool progressBar;
     bool showNotices;   // 0 = only the rebellion alert is shown
+    bool showSubmission;
+    float submissionStart;
+    float submissionPrisonerBonus;
+    float submissionDailyGain;
+    float submissionGainCap;
+    float rebelMaxSubmission;
+    std::string submissionTestKey;
+    bool supervisionEnabled;
+    float supervisionRange;            // world units (a character's radius is about 4)
+    float submissionUnsupervisedLoss;  // per in-game day without anyone watching
+    bool escapeEnabled;
+    float escapeMaxSubmission;         // slaves at or above it never run away
+    float escapeDailyChance;           // for submission 0, unwatched, no shackles
+    float escapeSupervisedMult;
+    float escapeShackledMult;
+    std::string escapeFaction;         // used when the slave's origin is unknown
+    bool escapeMarkEscaped;            // native ESCAPING_SLAVE state (slavers recognise runaways)
+    bool escapeRemoveShackles;         // runaways get out of their shackles
+    std::string escapeGoal;            // forced | run_away | total | hometown
+    float escapeSafeDistance;
+    float escapeRecapturePenalty;
+    float escapeForgetDays;            // runaways are forgotten after this many game days (0 = never)
+    bool punishEnabled;
+    float punishSubmission;            // first punishment; each one within PunishCooldownDays gives less
+    float punishDamage;                // blunt damage on a limb; grows with repeated punishments
+    float punishCooldownDays;
+    std::string punishAnimation;       // performer
+    std::string punishVictimAnimation; // slave
+    bool rewardEnabled;
+    float rewardSubmission;
+    int rewardCost;                    // cats
+    float rewardCooldownDays;
+    std::string rewardAnimation;
+    float cageDailyGain;               // extra submission per day in a cage
+    float cageSubmissionCap;
+    std::string escapeTestKey;
     float relationLoss;
     float relationGain;
     bool slaveEscort;
@@ -199,6 +239,7 @@ static void LoadSettings()
     g_cfg.rebellionChanceMult = IniFloat("RebellionChanceMult", 1.0f);
     g_cfg.rebellionMaxChance = IniFloat("RebellionMaxChance", 0.9f);
     g_cfg.rebelMinStrength = IniFloat("RebelMinStrength", 20.0f);
+    g_cfg.rebelMinStrengthDefiant = IniFloat("RebelMinStrengthDefiant", 10.0f);
     g_cfg.rebelFaction = IniString("RebelFaction", "58229-Dialogue.mod");
     g_cfg.rebelWeapon = IniString("RebelWeapon", "52295-rebirth.mod");
     g_cfg.rebelWeaponMaker = IniString("RebelWeaponMaker", "912-gamedata.base");
@@ -218,6 +259,42 @@ static void LoadSettings()
     g_cfg.actionAnimation = IniString("ActionAnimation", "medic");
     g_cfg.progressBar = IniBool("ProgressBar", true);
     g_cfg.showNotices = IniBool("ShowNotices", true);
+    g_cfg.showSubmission = IniBool("ShowSubmission", true);
+    g_cfg.submissionStart = IniFloat("SubmissionStart", 30.0f);
+    g_cfg.submissionPrisonerBonus = IniFloat("SubmissionPrisonerBonus", 10.0f);
+    g_cfg.submissionDailyGain = IniFloat("SubmissionDailyGain", 2.0f);
+    g_cfg.submissionGainCap = IniFloat("SubmissionGainCap", 60.0f);
+    g_cfg.rebelMaxSubmission = IniFloat("RebelMaxSubmission", 50.0f);
+    g_cfg.submissionTestKey = IniString("SubmissionTestKey", "CTRL+SHIFT+S");
+    g_cfg.supervisionEnabled = IniBool("SupervisionEnabled", true);
+    g_cfg.supervisionRange = IniFloat("SupervisionRange", 500.0f);
+    g_cfg.submissionUnsupervisedLoss = IniFloat("SubmissionUnsupervisedLoss", 5.0f);
+    g_cfg.escapeEnabled = IniBool("EscapeEnabled", true);
+    g_cfg.escapeMaxSubmission = IniFloat("EscapeMaxSubmission", 50.0f);
+    g_cfg.escapeDailyChance = IniFloat("EscapeDailyChance", 0.5f);
+    g_cfg.escapeSupervisedMult = IniFloat("EscapeSupervisedMult", 0.1f);
+    g_cfg.escapeShackledMult = IniFloat("EscapeShackledMult", 0.5f);
+    g_cfg.escapeFaction = IniString("EscapeFaction", "51707-rebirth.mod");
+    g_cfg.escapeMarkEscaped = IniBool("EscapeMarkEscaped", true);
+    g_cfg.escapeRemoveShackles = IniBool("EscapeRemoveShackles", true);
+    g_cfg.escapeGoal = IniString("EscapeGoal", "forced");
+    g_cfg.escapeSafeDistance = IniFloat("EscapeSafeDistance", 1500.0f);
+    g_cfg.escapeRecapturePenalty = IniFloat("EscapeRecapturePenalty", 10.0f);
+    g_cfg.escapeForgetDays = IniFloat("EscapeForgetDays", 30.0f);
+    g_cfg.punishEnabled = IniBool("PunishEnabled", true);
+    g_cfg.punishSubmission = IniFloat("PunishSubmission", 15.0f);
+    g_cfg.punishDamage = IniFloat("PunishDamage", 10.0f);
+    g_cfg.punishCooldownDays = IniFloat("PunishCooldownDays", 1.0f);
+    g_cfg.punishAnimation = IniString("PunishAnimation", "");
+    g_cfg.punishVictimAnimation = IniString("PunishVictimAnimation", "kneeling hostage idle");
+    g_cfg.rewardEnabled = IniBool("RewardEnabled", true);
+    g_cfg.rewardSubmission = IniFloat("RewardSubmission", 5.0f);
+    g_cfg.rewardCost = (int)IniFloat("RewardCost", 100.0f);
+    g_cfg.rewardCooldownDays = IniFloat("RewardCooldownDays", 1.0f);
+    g_cfg.rewardAnimation = IniString("RewardAnimation", "");
+    g_cfg.cageDailyGain = IniFloat("CageDailyGain", 10.0f);
+    g_cfg.cageSubmissionCap = IniFloat("CageSubmissionCap", 75.0f);
+    g_cfg.escapeTestKey = IniString("EscapeTestKey", "CTRL+SHIFT+E");
     g_cfg.relationLoss = IniFloat("RelationLoss", 5.0f);
     g_cfg.relationGain = IniFloat("RelationGain", 2.0f);
     if (g_cfg.relationGain >= g_cfg.relationLoss && g_cfg.relationLoss > 0.0f)
@@ -228,14 +305,23 @@ static void LoadSettings()
           " button=" + Num(g_cfg.showButton) + " menu=" + Num(g_cfg.contextMenu) + " unchain=" + Num(g_cfg.unchainOnEnslave) +
           " slaveAIJob=" + Num(g_cfg.slaveAIJob) + " banWeapons=" + Num(g_cfg.banWeapons) +
           " rebellion=" + Num(g_cfg.rebellionEnabled) + " every=" + Num(g_cfg.rebellionDays) + "d mult=" + Num(g_cfg.rebellionChanceMult) +
-          " max=" + Num(g_cfg.rebellionMaxChance) + " minStr=" + Num(g_cfg.rebelMinStrength) + " faction=" + g_cfg.rebelFaction +
+          " max=" + Num(g_cfg.rebellionMaxChance) + " minStr=" + Num(g_cfg.rebelMinStrengthDefiant) + "-" + Num(g_cfg.rebelMinStrength) + " faction=" + g_cfg.rebelFaction +
           " weapon=" + g_cfg.rebelWeapon + " by " + g_cfg.rebelWeaponMaker + "/" + g_cfg.rebelWeaponModel + " hostile=" + Num(g_cfg.rebellionHostile) +
           " testKey=" + g_cfg.rebellionTestKey + " testForce=" + Num(g_cfg.rebellionTestForce) +
           " debugMode=" + Num(g_cfg.debugMode) + " instant=" + Num(g_cfg.instantAction) +
           " actionSeconds=" + Num(g_cfg.actionSeconds) + " timeout=" + Num(g_cfg.approachTimeout) +
           " reach=" + Num(g_cfg.reachFactor) + " shackles=" + Num(g_cfg.giveShackles) +
           " item=" + g_cfg.shackleItem + "/" + g_cfg.shackleItemAlt + " anim=" + g_cfg.actionAnimation +
-          " bar=" + Num(g_cfg.progressBar) + " notices=" + Num(g_cfg.showNotices) + " relationLoss=" + Num(g_cfg.relationLoss) + " relationGain=" + Num(g_cfg.relationGain) +
+          " bar=" + Num(g_cfg.progressBar) + " notices=" + Num(g_cfg.showNotices) + " submission: show=" + Num(g_cfg.showSubmission) + " start=" + Num(g_cfg.submissionStart) +
+          " prisonerBonus=" + Num(g_cfg.submissionPrisonerBonus) + " daily=" + Num(g_cfg.submissionDailyGain) + " cap=" + Num(g_cfg.submissionGainCap) +
+          " rebelMax=" + Num(g_cfg.rebelMaxSubmission) + " supervision=" + Num(g_cfg.supervisionEnabled) + "/" + Num(g_cfg.supervisionRange) +
+          " unwatchedLoss=" + Num(g_cfg.submissionUnsupervisedLoss) + " escape=" + Num(g_cfg.escapeEnabled) + " max=" + Num(g_cfg.escapeMaxSubmission) +
+          " daily=" + Num(g_cfg.escapeDailyChance) + " watched=" + Num(g_cfg.escapeSupervisedMult) + " shackled=" + Num(g_cfg.escapeShackledMult) +
+          " faction=" + g_cfg.escapeFaction + " mark=" + Num(g_cfg.escapeMarkEscaped) + " unshackle=" + Num(g_cfg.escapeRemoveShackles) + " goal=" + g_cfg.escapeGoal +
+          " safe=" + Num(g_cfg.escapeSafeDistance) + " recapture=" + Num(g_cfg.escapeRecapturePenalty) + " forget=" + Num(g_cfg.escapeForgetDays) +
+          " punish=" + Num(g_cfg.punishEnabled) + "/" + Num(g_cfg.punishSubmission) + "/" + Num(g_cfg.punishDamage) + "/" + Num(g_cfg.punishCooldownDays) +
+          "d anim='" + g_cfg.punishAnimation + "'/'" + g_cfg.punishVictimAnimation + "' reward=" + Num(g_cfg.rewardEnabled) + "/" + Num(g_cfg.rewardSubmission) +
+          "/" + Num((float)g_cfg.rewardCost) + "cats/" + Num(g_cfg.rewardCooldownDays) + "d cage=" + Num(g_cfg.cageDailyGain) + "/" + Num(g_cfg.cageSubmissionCap) + " relationLoss=" + Num(g_cfg.relationLoss) + " relationGain=" + Num(g_cfg.relationGain) +
           " escort=" + Num(g_cfg.slaveEscort) + "/" + g_cfg.escortMode);
 }
 
@@ -246,7 +332,10 @@ static void LoadSettings()
 static MyGUI::Widget* g_noticePanel = NULL;
 static MyGUI::TextBox* g_noticeText = NULL;
 static DWORD g_noticeUntil = 0;
+static DWORD g_noticeShownAt = 0;
+static std::vector<std::string> g_noticeLines;
 
+// Messages sent together (one action, same moment) share the box, up to 3 lines.
 static void ShowNotice(const std::string& text, bool always = false)
 {
     Trace("notice: " + text);
@@ -256,7 +345,19 @@ static void ShowNotice(const std::string& text, bool always = false)
     if (mg == NULL)
         return;
 
-    const int w = 520, h = 40;
+    DWORD now = GetTickCount();
+    bool together = g_noticePanel != NULL && g_noticePanel->getVisible() && now - g_noticeShownAt < 200;
+    if (!together)
+        g_noticeLines.clear();
+    g_noticeLines.push_back(text);
+    if (g_noticeLines.size() > 3)
+        g_noticeLines.erase(g_noticeLines.begin());
+    g_noticeShownAt = now;
+    std::string all;
+    for (size_t i = 0; i < g_noticeLines.size(); i++)
+        all += (i > 0 ? "\n" : "") + g_noticeLines[i];
+
+    const int w = 520, h = 22 * (int)g_noticeLines.size() + 18;
     if (g_noticePanel == NULL)
     {
         g_noticePanel = mg->createWidget<MyGUI::Widget>("Kenshi_FloatingPanelSkin", 0, 0, w, h, MyGUI::Align::Default, "Popup", "SlaverModNotice");
@@ -269,10 +370,11 @@ static void ShowNotice(const std::string& text, bool always = false)
     }
 
     const MyGUI::IntSize& view = MyGUI::RenderManager::getInstance().getViewSize();
-    g_noticePanel->setPosition((view.width - w) / 2, 90);
-    g_noticeText->setCaption(text);
+    g_noticePanel->setCoord((view.width - w) / 2, 90, w, h);
+    g_noticeText->setCoord(8, 0, w - 16, h);
+    g_noticeText->setCaption(all);
     g_noticePanel->setVisible(true);
-    g_noticeUntil = GetTickCount() + 4500;
+    g_noticeUntil = now + 4500 + 1500 * (DWORD)(g_noticeLines.size() - 1);
 }
 
 static void UpdateNotice()
@@ -701,6 +803,8 @@ struct Hotkey
 
 static Hotkey g_enslaveKey = { 0, false, false, false, false };
 static Hotkey g_rebellionKey = { 0, false, false, false, false };
+static Hotkey g_submissionKey = { 0, false, false, false, false };
+static Hotkey g_escapeKey = { 0, false, false, false, false };
 
 static Hotkey ParseKey(const std::string& text)
 {
@@ -728,6 +832,8 @@ static void ParseHotkey()
 {
     g_enslaveKey = ParseKey(g_cfg.hotkey);
     g_rebellionKey = ParseKey(g_cfg.rebellionTestKey);
+    g_submissionKey = ParseKey(g_cfg.submissionTestKey);
+    g_escapeKey = ParseKey(g_cfg.escapeTestKey);
     Trace("hotkeys parsed: enslave vk=" + Num((float)g_enslaveKey.vk) + " rebellion test vk=" + Num((float)g_rebellionKey.vk));
 }
 
@@ -782,11 +888,45 @@ static Character* SelectedPlayerCharacter()
 // ---------------------------------------------------------------------------
 
 // ---------------------------------------------------------------------------
-// Where each slave came from (SlaverMod_origins.ini), so freeing them can please
-// their old faction. Keyed by the character's handle, which saves keep.
+// Per-save slave records: submission and the faction each slave was taken from.
+// Kept in memory, written to saves\<save name>.txt (next to the DLL) when the game
+// saves and read back when it loads. Keyed by the character's handle, which the
+// game's own saves keep.
 // ---------------------------------------------------------------------------
 
-static std::string OriginKey(Character* c)
+struct SlaveRecord
+{
+    float submission;     // 0..100
+    std::string origin;   // string ID of the faction the slave was taken from ("" = unknown)
+    std::string name;     // for the log only
+    bool escaped;         // ran away; kept so a recapture remembers them
+    double escapedDay;    // game day of the escape (-1 = unknown); old runaways are forgotten
+    std::string handle;   // runaways only: full handle, to find them again after a load
+};
+
+static std::map<std::string, SlaveRecord> g_records;
+static std::string g_recordsSave;   // save the records in memory belong to
+
+// Full handle as "type.container.containerSerial.index.serial" (no '|', safe in the data file).
+static std::string HandleText(const hand& h)
+{
+    std::ostringstream s;
+    s << (int)h.type << "." << h.container << "." << h.containerSerial << "." << h.index << "." << h.serial;
+    return s.str();
+}
+
+static hand HandleFromText(const std::string& text)
+{
+    unsigned int v[5] = { 0, 0, 0, 0, 0 };
+    std::istringstream in(text);
+    char dot;
+    in >> v[0] >> dot >> v[1] >> dot >> v[2] >> dot >> v[3] >> dot >> v[4];
+    if (!in)
+        return hand();
+    return hand(v[3], v[4], (itemType)v[0], v[1], v[2]);
+}
+
+static std::string SlaveKey(Character* c)
 {
     hand h(c);
     std::ostringstream s;
@@ -794,35 +934,285 @@ static std::string OriginKey(Character* c)
     return s.str();
 }
 
-static std::string OriginsFile()
+static std::string SaveDataFile(const std::string& save)
 {
-    return g_modDir + "SlaverMod_origins.ini";
+    std::string safe = save;
+    for (size_t i = 0; i < safe.size(); i++)
+        if ((unsigned char)safe[i] < 32 || strchr("\\/:*?\"<>|", safe[i]) != 0)
+            safe[i] = '_';
+    return g_modDir + "saves\\" + safe + ".txt";
 }
 
-static void SaveOrigin(Character* c, Faction* f)
+static void WriteRecords(const std::string& save)
 {
-    if (c == 0 || f == 0 || f->getData() == 0)
+    CreateDirectoryA((g_modDir + "saves").c_str(), NULL);
+    std::ofstream f(SaveDataFile(save).c_str(), std::ios::trunc);
+    if (!f)
+    {
+        Trace("records: cannot write " + SaveDataFile(save));
         return;
-    std::string value = f->getData()->stringID + "|" + c->getName();
-    WritePrivateProfileStringA("origins", OriginKey(c).c_str(), value.c_str(), OriginsFile().c_str());
-    Trace("origin of '" + c->getName() + "' [" + OriginKey(c) + "] = " + f->getName());
+    }
+    f << "# SlaverMod data for save '" << save << "'. key=submission|origin faction|flags (e<day> = escaped on that game day)|handle|name\n";
+    for (std::map<std::string, SlaveRecord>::const_iterator it = g_records.begin(); it != g_records.end(); ++it)
+    {
+        f << it->first << "=" << it->second.submission << "|" << it->second.origin << "|";
+        if (it->second.escaped)
+            f << "e" << it->second.escapedDay;
+        f << "|" << it->second.handle << "|" << it->second.name << "\n";
+    }
+    Trace("records: wrote " + Num((float)g_records.size()) + " slave(s) for save '" + save + "'");
 }
 
-// Returns the faction a slave was taken from (and forgets it), or 0 if unknown.
-static Faction* TakeOrigin(Character* c)
+static void ReadRecords(const std::string& save)
+{
+    g_records.clear();
+    g_recordsSave = save;
+    std::ifstream f(SaveDataFile(save).c_str());
+    std::string line;
+    while (std::getline(f, line))
+    {
+        if (line.empty() || line[0] == '#')
+            continue;
+        size_t eq = line.find('=');
+        if (eq == std::string::npos)
+            continue;
+        // fields: v1.3 submission|origin|name, then flags and handle were added before the name
+        std::vector<std::string> fields;
+        size_t start = eq + 1;
+        while (fields.size() < 4)
+        {
+            size_t bar = line.find('|', start);
+            if (bar == std::string::npos)
+                break;
+            fields.push_back(line.substr(start, bar - start));
+            start = bar + 1;
+        }
+        if (fields.size() < 2)
+            continue;
+        SlaveRecord r;
+        r.submission = (float)atof(fields[0].c_str());
+        r.origin = fields[1];
+        r.escaped = fields.size() >= 3 && !fields[2].empty() && fields[2][0] == 'e';
+        r.escapedDay = r.escaped && fields[2].size() > 1 ? atof(fields[2].c_str() + 1) : -1.0;
+        if (fields.size() >= 4)
+            r.handle = fields[3];
+        r.name = line.substr(start);
+        g_records[line.substr(0, eq)] = r;
+    }
+    Trace("records: read " + Num((float)g_records.size()) + " slave(s) for save '" + save + "'");
+}
+
+// Origin written by v1.0-1.2 in SlaverMod_origins.ini (shared by all saves); only read now.
+static std::string LegacyOrigin(Character* c)
 {
     char buf[512] = {0};
-    std::string key = OriginKey(c);
-    GetPrivateProfileStringA("origins", key.c_str(), "", buf, sizeof(buf), OriginsFile().c_str());
+    GetPrivateProfileStringA("origins", SlaveKey(c).c_str(), "", buf, sizeof(buf), (g_modDir + "SlaverMod_origins.ini").c_str());
     std::string value = buf;
-    if (value.empty())
+    return value.substr(0, value.find('|'));
+}
+
+static SlaveRecord* FindRecord(Character* c)
+{
+    std::map<std::string, SlaveRecord>::iterator it = g_records.find(SlaveKey(c));
+    return it == g_records.end() ? 0 : &it->second;
+}
+
+static float ClampSubmission(float s)
+{
+    return s < 0.0f ? 0.0f : (s > 100.0f ? 100.0f : s);
+}
+
+static SlaveRecord& CreateRecord(Character* c, const std::string& origin, float submission)
+{
+    SlaveRecord& r = g_records[SlaveKey(c)];
+    r.submission = ClampSubmission(submission);
+    r.origin = origin;
+    r.name = c->getName();
+    r.escaped = false;
+    r.escapedDay = -1.0;
+    r.handle.clear();
+    Trace("record [" + SlaveKey(c) + "] '" + r.name + "' submission=" + Num(r.submission) + " origin=" + (origin.empty() ? "?" : origin));
+    return r;
+}
+
+static void ForgetRecord(Character* c)
+{
+    g_records.erase(SlaveKey(c));
+}
+
+static Faction* OriginFaction(const std::string& sid)
+{
+    return sid.empty() || ou->factionMgr == 0 ? 0 : ou->factionMgr->getFactionByStringID(sid);
+}
+
+static float SubmissionOf(Character* c)
+{
+    SlaveRecord* r = FindRecord(c);
+    return r != 0 ? r->submission : g_cfg.submissionStart;
+}
+
+static std::string SubmissionLevel(float s)
+{
+    if (s < 25.0f) return T("Defiant", "Rebelde");
+    if (s < 50.0f) return T("Restless", "Inquieto");
+    if (s < 75.0f) return T("Obedient", "Obediente");
+    return T("Loyal", "Leal");
+}
+
+static std::string SubmissionText(float s)
+{
+    return T("Submission ", "Submissao ") + Num((float)(int)(s + 0.5f)) + " (" + SubmissionLevel(s) + ")";
+}
+
+// Matches the loaded world's slaves with the records: slaves without one (made by
+// an older version, or a save from before this file existed) get the starting value.
+// Records of runaways are kept: they are no longer in the player's faction.
+static void SyncRecords()
+{
+    const lektor<Character*>& all = ou->player->getAllPlayerCharacters();
+    std::map<std::string, SlaveRecord> kept;
+    for (std::map<std::string, SlaveRecord>::const_iterator it = g_records.begin(); it != g_records.end(); ++it)
+        if (it->second.escaped)
+            kept.insert(*it);
+    int created = 0;
+    for (uint32_t i = 0; i < all.size(); i++)
     {
-        Trace("origin of '" + c->getName() + "' [" + key + "] unknown");
-        return 0;
+        Character* c = all.stuff[i];
+        if (c == 0 || !IsOurSlave(c))
+            continue;
+        SlaveRecord* r = FindRecord(c);
+        if (r == 0)
+        {
+            r = &CreateRecord(c, LegacyOrigin(c), g_cfg.submissionStart);
+            created++;
+        }
+        else if (r->name != c->getName())
+            Trace("record [" + SlaveKey(c) + "] was '" + r->name + "', now '" + c->getName() + "'");
+        r->name = c->getName();
+        r->escaped = false;
+        r->handle.clear();
+        kept[SlaveKey(c)] = *r;
     }
-    WritePrivateProfileStringA("origins", key.c_str(), NULL, OriginsFile().c_str());
-    std::string sid = value.substr(0, value.find('|'));
-    return ou->factionMgr != 0 ? ou->factionMgr->getFactionByStringID(sid) : 0;
+    Trace("records synced: " + Num((float)kept.size()) + " slave(s), " + Num((float)created) + " new, " +
+          Num((float)(g_records.size() - kept.size())) + " dropped");
+    g_records.swap(kept);
+}
+
+// ---------------------------------------------------------------------------
+// Submission over time and on screen
+// ---------------------------------------------------------------------------
+
+static double GameDays();
+static double g_lastDriftDay = -1.0;
+static std::map<std::string, float> g_unsupervisedDays;   // per slave key, since someone last watched them
+
+// Watched: caged, or a free, awake member of the faction within SupervisionRange.
+static bool IsSupervised(Character* c, float* distOut)
+{
+    float dist = 0.0f;
+    Character* guard = NearestFreeMember(c->getPosition(), &dist, c, true);
+    if (distOut != 0)
+        *distOut = guard != 0 ? dist : -1.0f;
+    if (c->inSomething == IN_PRISON)
+        return true;
+    return guard != 0 && dist <= g_cfg.supervisionRange;
+}
+
+static void TryEscape(Character* c, SlaveRecord& r, double days, bool supervised);
+static void StartEscape(Character* c, const char* why);
+static void PruneRunaways();
+
+// About once an in-game hour: watched slaves slowly get used to their condition (up to
+// SubmissionGainCap), unwatched ones lose submission and may run away.
+static void UpdateSubmission()
+{
+    double now = GameDays();
+    if (g_lastDriftDay < 0.0 || now < g_lastDriftDay || now - g_lastDriftDay > 1.0)
+    {
+        g_lastDriftDay = now;   // first frame, or a jump in time (loading): just resync
+        return;
+    }
+    double days = now - g_lastDriftDay;
+    if (days < 0.05)
+        return;
+    g_lastDriftDay = now;
+    PruneRunaways();
+
+    std::vector<Character*> slaves;   // copied: an escape changes the player's character list
+    const lektor<Character*>& all = ou->player->getAllPlayerCharacters();
+    for (uint32_t i = 0; i < all.size(); i++)
+        if (IsOurSlave(all.stuff[i]) && !all.stuff[i]->isDead())
+            slaves.push_back(all.stuff[i]);
+
+    for (size_t i = 0; i < slaves.size(); i++)
+    {
+        Character* c = slaves[i];
+        SlaveRecord* r = FindRecord(c);
+        if (r == 0)
+            continue;
+        float dist = 0.0f;
+        bool supervised = !g_cfg.supervisionEnabled || IsSupervised(c, &dist);
+        float& alone = g_unsupervisedDays[SlaveKey(c)];
+        float before = r->submission;
+        if (supervised)
+        {
+            alone = 0.0f;
+            if (r->submission < g_cfg.submissionGainCap)
+            {
+                r->submission += (float)(g_cfg.submissionDailyGain * days);
+                if (r->submission > g_cfg.submissionGainCap)
+                    r->submission = g_cfg.submissionGainCap;
+            }
+            // time in a cage breaks them faster, up to CageSubmissionCap
+            if (c->inSomething == IN_PRISON && r->submission < g_cfg.cageSubmissionCap)
+            {
+                r->submission += (float)(g_cfg.cageDailyGain * days);
+                if (r->submission > g_cfg.cageSubmissionCap)
+                    r->submission = g_cfg.cageSubmissionCap;
+            }
+        }
+        else
+        {
+            alone += (float)days;
+            r->submission = ClampSubmission(r->submission - (float)(g_cfg.submissionUnsupervisedLoss * days));
+        }
+        if (!supervised || (int)before != (int)r->submission)
+            Trace("slave '" + c->getName() + "' supervised=" + Num(supervised) + " guard dist=" + Num(dist) +
+                  " submission " + Num(before) + " -> " + Num(r->submission) + " alone=" + Num(alone) + "d");
+        if (g_cfg.escapeEnabled)
+            TryEscape(c, *r, days, supervised);
+    }
+}
+
+// One bar over the selected slave with its submission.
+static FloatingProgressBar* g_submissionBar = NULL;
+
+static void HideSubmissionBar()
+{
+    if (g_submissionBar != NULL && gui != 0)
+        gui->destroy(g_submissionBar);
+    g_submissionBar = NULL;
+}
+
+static void UpdateSubmissionBar()
+{
+    Character* c = g_cfg.showSubmission && gui != 0 ? ou->player->selectedCharacter.getCharacter() : 0;
+    if (c == 0 || !IsOurSlave(c) || c->isDead())
+    {
+        HideSubmissionBar();
+        return;
+    }
+    if (g_submissionBar == NULL)
+        g_submissionBar = gui->createFloatingProgressBar();
+    if (g_submissionBar == NULL)
+        return;
+    float s = SubmissionOf(c);
+    std::string caption = SubmissionText(s);
+    if (g_cfg.supervisionEnabled && !IsSupervised(c, 0))
+        caption += T(" - unwatched", " - sem vigilancia");
+    g_submissionBar->setCaption(caption);
+    g_submissionBar->setProgress(s / 100.0f);
+    g_submissionBar->setPosition(c->getPosition());
 }
 
 // ---------------------------------------------------------------------------
@@ -877,7 +1267,7 @@ static void UpdateEscorts(float dt)
     }
 }
 
-enum SlaveAction { ACT_ENSLAVE, ACT_FREE };
+enum SlaveAction { ACT_ENSLAVE, ACT_FREE, ACT_PUNISH, ACT_REWARD };
 
 struct PendingAction
 {
@@ -896,6 +1286,46 @@ static std::vector<PendingAction> g_pending;
 static bool g_loggedReach = false;
 
 // Crouching first-aid animation + floating progress bar while the performer works.
+static const std::string& PerformerAnimation(SlaveAction action)
+{
+    if (action == ACT_PUNISH)
+        return g_cfg.punishAnimation;
+    if (action == ACT_REWARD)
+        return g_cfg.rewardAnimation;
+    return g_cfg.actionAnimation;
+}
+
+static const std::string& TargetAnimation(SlaveAction action)
+{
+    static const std::string none;
+    return action == ACT_PUNISH ? g_cfg.punishVictimAnimation : none;
+}
+
+static std::string ActingCaption(SlaveAction action)
+{
+    switch (action)
+    {
+    case ACT_FREE: return T("Freeing", "Libertando");
+    case ACT_PUNISH: return T("Punishing", "Punindo");
+    case ACT_REWARD: return T("Rewarding", "Recompensando");
+    default: return T("Enslaving", "Escravizando");
+    }
+}
+
+static void RunAnimation(Character* c, const std::string& name)
+{
+    AnimationClass* anim = c != 0 && !name.empty() ? c->getAnimationClass() : 0;
+    if (anim != 0)
+        anim->runAnimation(name, 1.0f, 1.0f);   // kept alive every frame, like the game's first aid
+}
+
+static void StopAnimation(Character* c, const std::string& name)
+{
+    AnimationClass* anim = c != 0 && !name.empty() ? c->getAnimationClass() : 0;
+    if (anim != 0)
+        anim->stopAnimation(name);
+}
+
 static void StartActingVisuals(PendingAction& p, Character* performer)
 {
     if (g_cfg.progressBar && gui != 0 && p.bar == 0)
@@ -903,7 +1333,7 @@ static void StartActingVisuals(PendingAction& p, Character* performer)
         p.bar = gui->createFloatingProgressBar();
         if (p.bar != 0)
         {
-            p.bar->setCaption(p.action == ACT_FREE ? T("Freeing", "Libertando") : T("Enslaving", "Escravizando"));
+            p.bar->setCaption(ActingCaption(p.action));
             p.bar->setProgress(0.0f);
             p.bar->setPosition(performer->getPosition());
         }
@@ -912,9 +1342,8 @@ static void StartActingVisuals(PendingAction& p, Character* performer)
 
 static void UpdateActingVisuals(PendingAction& p, Character* performer)
 {
-    AnimationClass* anim = performer->getAnimationClass();
-    if (anim != 0 && !g_cfg.actionAnimation.empty())
-        anim->runAnimation(g_cfg.actionAnimation, 1.0f, 1.0f);   // kept alive every frame, like the game's first aid
+    RunAnimation(performer, PerformerAnimation(p.action));
+    RunAnimation(p.target.getCharacter(), TargetAnimation(p.action));
     if (p.bar != 0)
     {
         float progress = g_cfg.actionSeconds > 0.0f ? p.acting / g_cfg.actionSeconds : 1.0f;
@@ -925,12 +1354,8 @@ static void UpdateActingVisuals(PendingAction& p, Character* performer)
 
 static void StopActingVisuals(PendingAction& p, Character* performer)
 {
-    if (performer != 0 && !g_cfg.actionAnimation.empty())
-    {
-        AnimationClass* anim = performer->getAnimationClass();
-        if (anim != 0)
-            anim->stopAnimation(g_cfg.actionAnimation);
-    }
+    StopAnimation(performer, PerformerAnimation(p.action));
+    StopAnimation(p.target.getCharacter(), TargetAnimation(p.action));
     if (p.bar != 0 && gui != 0)
         gui->destroy(p.bar);
     p.bar = 0;
@@ -980,9 +1405,14 @@ static bool ActionStillValid(SlaveAction action, Character* performer, Character
     if (performer->medical.isUnconcious()) { *why = performer->getName() + T(" was knocked out", " desmaiou"); return false; }
     if (!IsFreePlayerMember(performer)) { *why = performer->getName() + T(" is no longer a free member", " nao e mais um membro livre"); return false; }
     if (target == 0 || target->isDead()) { *why = T("the target is no longer available", "o alvo nao esta mais disponivel"); return false; }
-    if (action == ACT_FREE)
+    if (action == ACT_FREE || action == ACT_PUNISH || action == ACT_REWARD)
     {
         if (!IsOurSlave(target)) { *why = target->getName() + T(" is no longer your slave", " nao e mais seu escravo"); return false; }
+        if (action == ACT_REWARD && performer->getMoney() < g_cfg.rewardCost)
+        {
+            *why = T("not enough money (", "dinheiro insuficiente (") + Num((float)g_cfg.rewardCost) + T(" cats needed)", " cats)");
+            return false;
+        }
         return true;
     }
     if (IsOurSlave(target)) { *why = target->getName() + T(" is already a slave", " ja e escravo(a)"); return false; }
@@ -994,16 +1424,107 @@ static bool ActionStillValid(SlaveAction action, Character* performer, Character
     return IsEnslaveCandidate(target, why);
 }
 
+// Recent punishments / rewards per slave (memory only): repeating them soon gives less.
+struct DisciplineState
+{
+    double lastPunishDay, lastRewardDay;
+    int punishStreak;
+};
+static std::map<std::string, DisciplineState> g_discipline;
+
+static DisciplineState& DisciplineOf(Character* c)
+{
+    std::map<std::string, DisciplineState>::iterator it = g_discipline.find(SlaveKey(c));
+    if (it != g_discipline.end())
+        return it->second;
+    DisciplineState d = { -1000.0, -1000.0, 0 };
+    return g_discipline[SlaveKey(c)] = d;
+}
+
+// A beating: blunt damage on a random flesh limb (more for each recent punishment),
+// and submission, less for each recent punishment.
+static void Punish(Character* performer, Character* target)
+{
+    SlaveRecord* r = FindRecord(target);
+    if (r == 0)
+        return;
+    DisciplineState& d = DisciplineOf(target);
+    double now = GameDays();
+    d.punishStreak = now - d.lastPunishDay < g_cfg.punishCooldownDays ? d.punishStreak + 1 : 0;
+    d.lastPunishDay = now;
+
+    float gain = g_cfg.punishSubmission / (1.0f + d.punishStreak);
+    float damage = g_cfg.punishDamage * (1.0f + d.punishStreak);
+    MedicalSystem::HealthPartStatus* limbs[4] = { target->medical.leftArm, target->medical.rightArm, target->medical.leftLeg, target->medical.rightLeg };
+    std::vector<MedicalSystem::HealthPartStatus*> flesh;
+    for (int i = 0; i < 4; i++)
+        if (limbs[i] != 0 && !limbs[i]->isRobotic())
+            flesh.push_back(limbs[i]);
+    if (!flesh.empty() && damage > 0.0f)
+    {
+        MedicalSystem::HealthPartStatus* part = flesh[rand() % flesh.size()];
+        float before = part->flesh;
+        part->applyDamage(Damages(0.0f, damage, 0.0f, 0.0f, 0.0f));
+        Trace("punish: limb flesh " + Num(before) + " -> " + Num(part->flesh) + " (blunt " + Num(damage) + ")");
+    }
+    float before = r->submission;
+    r->submission = ClampSubmission(r->submission + gain);
+    Trace("punish '" + target->getName() + "' by '" + performer->getName() + "': streak=" + Num((float)d.punishStreak) +
+          " submission " + Num(before) + " -> " + Num(r->submission));
+    ShowNotice(performer->getName() + T(" punished ", " puniu ") + target->getName() + ". " + SubmissionText(r->submission) + ".");
+}
+
+// Some cats for a little submission; once per RewardCooldownDays per slave.
+static void Reward(Character* performer, Character* target)
+{
+    SlaveRecord* r = FindRecord(target);
+    if (r == 0)
+        return;
+    DisciplineState& d = DisciplineOf(target);
+    double now = GameDays();
+    if (now - d.lastRewardDay < g_cfg.rewardCooldownDays)
+    {
+        ShowNotice(target->getName() + T(" was rewarded recently.", " foi recompensado(a) ha pouco tempo."));
+        return;
+    }
+    if (g_cfg.rewardCost > 0 && !performer->takeMoney(g_cfg.rewardCost))
+    {
+        ShowNotice(T("Not enough money to reward ", "Dinheiro insuficiente para recompensar ") + target->getName() + ".");
+        return;
+    }
+    d.lastRewardDay = now;
+    float before = r->submission;
+    r->submission = ClampSubmission(r->submission + g_cfg.rewardSubmission);
+    Trace("reward '" + target->getName() + "' by '" + performer->getName() + "' for " + Num((float)g_cfg.rewardCost) +
+          " cats: submission " + Num(before) + " -> " + Num(r->submission));
+    ShowNotice(performer->getName() + T(" rewarded ", " recompensou ") + target->getName() + " (" + Num((float)g_cfg.rewardCost) + " cats). " +
+               SubmissionText(r->submission) + ".");
+}
+
 static void CompleteAction(SlaveAction action, Character* performer, Character* target)
 {
+    if (action == ACT_PUNISH)
+    {
+        Punish(performer, target);
+        return;
+    }
+    if (action == ACT_REWARD)
+    {
+        Reward(performer, target);
+        return;
+    }
     if (action == ACT_FREE)
     {
-        Faction* origin = TakeOrigin(target);
+        SlaveRecord* record = FindRecord(target);
+        Faction* origin = OriginFaction(record != 0 ? record->origin : LegacyOrigin(target));
         std::string name = target->getName();
         RemoveShackles(target);
         FreeSlave(target);
         if (!IsOurSlave(target))
+        {
+            ForgetRecord(target);
             ApplyRelationGain(origin, name);
+        }
         return;
     }
     if (IsPlayerFaction(target))
@@ -1011,33 +1532,76 @@ static void CompleteAction(SlaveAction action, Character* performer, Character* 
         EnslaveOwnMember(target, performer);
         if (IsOurSlave(target))
         {
+            SlaveRecord& r = CreateRecord(target, "", g_cfg.submissionStart);
+            ShowNotice(target->getName() + T(" is now a slave. ", " agora e escravo(a). ") + SubmissionText(r.submission) + ".");
             GiveShackles(target);
             QueueEscort(target, performer);
         }
         return;
     }
     Faction* victimFaction = target->getFaction();   // before recruiting moves them to ours
+    std::string origin = victimFaction != 0 && victimFaction->getData() != 0 ? victimFaction->getData()->stringID : "";
+    bool wasPrisoner = target->inSomething == IN_PRISON || target->isChainedMode();   // before unchaining
+    float start = g_cfg.submissionStart + (wasPrisoner ? g_cfg.submissionPrisonerBonus : 0.0f);
+    SlaveRecord* runaway = FindRecord(target);
+    bool recaptured = runaway != 0 && runaway->escaped;
+    if (recaptured)
+    {
+        origin = runaway->origin;   // where they really came from
+        start = runaway->submission - g_cfg.escapeRecapturePenalty;
+    }
     std::string name = target->getName();
     Enslave(target, performer);
     if (IsOurSlave(target))
     {
+        SlaveRecord& r = CreateRecord(target, origin, start);
+        if (recaptured)
+            ShowNotice(name + T(" was recaptured. ", " foi recapturado(a). ") + SubmissionText(r.submission) + ".");
+        else
+            ShowNotice(name + T(" is now a slave. ", " agora e escravo(a). ") + SubmissionText(r.submission) + ".");
         GiveShackles(target);
-        ApplyRelationLoss(victimFaction, name);
-        SaveOrigin(target, victimFaction);
+        if (!recaptured)   // a runaway is still yours: no one to offend
+            ApplyRelationLoss(victimFaction, name);
         QueueEscort(target, performer);
     }
 }
 
 // Free a slave, or enslave anyone else (own member or prisoner). The selected character
 // does it (or the nearest awake free member) and becomes the owner.
-static void ToggleSlave(Character* target)
+static std::string WillDoText(SlaveAction action)
 {
-    SlaveAction action = IsOurSlave(target) ? ACT_FREE : ACT_ENSLAVE;
+    switch (action)
+    {
+    case ACT_FREE: return T(" will take the shackles off ", " vai tirar os grilhoes de ");
+    case ACT_PUNISH: return T(" will punish ", " vai punir ");
+    case ACT_REWARD: return T(" will reward ", " vai recompensar ");
+    default: return T(" will put shackles on ", " vai colocar grilhoes em ");
+    }
+}
 
+static std::string DoingText(SlaveAction action)
+{
+    switch (action)
+    {
+    case ACT_FREE: return T(" is taking the shackles off ", " esta tirando os grilhoes de ");
+    case ACT_PUNISH: return T(" is punishing ", " esta punindo ");
+    case ACT_REWARD: return T(" is rewarding ", " esta recompensando ");
+    default: return T(" is putting shackles on ", " esta colocando grilhoes em ");
+    }
+}
+
+static void StartAction(Character* target, SlaveAction action)
+{
+
+    // the selected member closest to the target does it (with a group selected, the
+    // "main" selected character can be anywhere)
+    Character* nearestSelected = ou->player->getNearestSelectedCharacterTo(target->getPosition());
     Character* selected = SelectedPlayerCharacter();
     Character* performer = 0;
     float dist = 0.0f;
-    if (selected != 0 && selected != target && IsActiveGuard(selected))
+    if (nearestSelected != 0 && nearestSelected != target && IsActiveGuard(nearestSelected))
+        performer = nearestSelected;
+    else if (selected != 0 && selected != target && IsActiveGuard(selected))
         performer = selected;
     else
         performer = NearestFreeMember(target->getPosition(), &dist, target, true);
@@ -1087,10 +1651,16 @@ static void ToggleSlave(Character* target)
     g_pending.push_back(p);
 
     OrderMove(performer, target->getPosition());
-    Trace("action " + std::string(action == ACT_FREE ? "free" : "enslave") + ": '" + performer->getName() + "' -> '" + target->getName() +
+    Trace("action " + Num((float)action) + ": '" + performer->getName() + "' -> '" + target->getName() +
           "' dist=" + Num(p.bestDist) + " reach=" + Num(ReachDistance(performer, target)) +
           " radii=" + Num(performer->getRadius()) + "/" + Num(target->getRadius()));
-    ShowNotice(performer->getName() + (action == ACT_FREE ? T(" will take the shackles off ", " vai tirar os grilhoes de ") : T(" will put shackles on ", " vai colocar grilhoes em ")) + target->getName() + ".");
+    ShowNotice(performer->getName() + WillDoText(action) + target->getName() + ".");
+}
+
+// Free a slave, or enslave anyone else (the hotkey).
+static void ToggleSlave(Character* target)
+{
+    StartAction(target, IsOurSlave(target) ? ACT_FREE : ACT_ENSLAVE);
 }
 
 static void UpdatePendingActions(float dt)
@@ -1138,7 +1708,7 @@ static void UpdatePendingActions(float dt)
                 OrderMove(performer, performer->getPosition());
                 p.acting = 0.0f;
                 StartActingVisuals(p, performer);
-                ShowNotice(performer->getName() + (p.action == ACT_FREE ? T(" is taking the shackles off ", " esta tirando os grilhoes de ") : T(" is putting shackles on ", " esta colocando grilhoes em ")) + target->getName() + "...");
+                ShowNotice(performer->getName() + DoingText(p.action) + target->getName() + "...");
                 i++;
                 continue;
             }
@@ -1206,6 +1776,29 @@ static void HandleHotkey()
             Trace("hotkey on '" + c->getName() + "' (" + source + ")");
             ToggleSlave(c);
         }
+    }
+    // test key: +25 submission on the selected slave, wrapping back to 0 after 100
+    if (KeyPressed(g_submissionKey) && g_cfg.debugMode)
+    {
+        Character* c = ou->player->selectedCharacter.getCharacter();
+        SlaveRecord* r = c != 0 && IsOurSlave(c) ? FindRecord(c) : 0;
+        if (r == 0)
+            ShowNotice(T("Select one of your slaves first.", "Selecione um escravo seu antes."));
+        else
+        {
+            r->submission = r->submission >= 100.0f ? 0.0f : ClampSubmission(r->submission + 25.0f);
+            Trace("submission test key: '" + c->getName() + "' -> " + Num(r->submission));
+            ShowNotice(c->getName() + ": " + SubmissionText(r->submission));
+        }
+    }
+    // test key: the selected slave runs away now
+    if (KeyPressed(g_escapeKey) && g_cfg.debugMode)
+    {
+        Character* c = ou->player->selectedCharacter.getCharacter();
+        if (c == 0 || !IsOurSlave(c) || FindRecord(c) == 0)
+            ShowNotice(T("Select one of your slaves first.", "Selecione um escravo seu antes."));
+        else
+            StartEscape(c, "test key");
     }
 }
 
@@ -1301,8 +1894,6 @@ static void UpdateInventoryButton()
 // Escravizar / Libertar option in the hold-right-click order menu
 // ---------------------------------------------------------------------------
 
-enum MenuAction { MENU_NONE, MENU_ENSLAVE, MENU_FREE };
-
 static hand g_menuTarget;
 static bool g_loggedMenu = false;
 
@@ -1326,24 +1917,40 @@ static void FindMenuFlags()
     Trace("menu flags found: " + Num((float)found) + "/3");
 }
 
-static MenuAction MenuActionFor(Character* target)
+// Options offered for a target: enslave someone, or free / punish / reward one of your slaves.
+static std::vector<SlaveAction> MenuActionsFor(Character* target)
 {
+    std::vector<SlaveAction> out;
     if (target == 0 || target->isDead())
-        return MENU_NONE;
+        return out;
     if (IsOurSlave(target))
-        return MENU_FREE;
+    {
+        out.push_back(ACT_FREE);
+        if (g_cfg.punishEnabled)
+            out.push_back(ACT_PUNISH);
+        if (g_cfg.rewardEnabled)
+            out.push_back(ACT_REWARD);
+        return out;
+    }
     if (IsPlayerFaction(target))
-        return (target != SelectedPlayerCharacter() && CountFreeMembers() > 1) ? MENU_ENSLAVE : MENU_NONE;
-    return IsEnslaveCandidate(target, 0) ? MENU_ENSLAVE : MENU_NONE;
+    {
+        if (target != SelectedPlayerCharacter() && CountFreeMembers() > 1)
+            out.push_back(ACT_ENSLAVE);
+        return out;
+    }
+    if (IsEnslaveCandidate(target, 0))
+        out.push_back(ACT_ENSLAVE);
+    return out;
 }
 
 static void OnMenuOption(MyGUI::Widget* sender, int left, int top, MyGUI::MouseButton id)
 {
     Character* target = g_menuTarget.getCharacter();
-    if (target != 0)
+    if (target != 0 && sender != 0)
     {
-        Trace("menu option on '" + target->getName() + "'");
-        ToggleSlave(target);
+        SlaveAction action = (SlaveAction)atoi(sender->getUserString("SlaverModAction").c_str());
+        Trace("menu option " + Num((float)action) + " on '" + target->getName() + "'");
+        StartAction(target, action);
     }
     // close the menu the same way the game's own options do
     ou->player->contextMenu.showContextMenu(false, 0);
@@ -1366,7 +1973,18 @@ static bool IsUpperCase(const std::string& s)
     return letters;
 }
 
-// Appends one row to the menu the game just built, copying the geometry of its last row.
+static std::string MenuCaption(SlaveAction action, bool upper)
+{
+    switch (action)
+    {
+    case ACT_FREE: return upper ? T("FREE", "LIBERTAR") : T("Free", "Libertar");
+    case ACT_PUNISH: return upper ? T("PUNISH", "PUNIR") : T("Punish", "Punir");
+    case ACT_REWARD: return upper ? T("REWARD", "RECOMPENSAR") : T("Reward", "Recompensar");
+    default: return upper ? T("ENSLAVE", "ESCRAVIZAR") : T("Enslave", "Escravizar");
+    }
+}
+
+// Appends our rows to the menu the game just built, copying the geometry of its last row.
 static void AddSlaveOption(ContextMenuGUI* menu)
 {
     if (!g_cfg.contextMenu || ou == 0 || ou->player == 0 || menu == 0)
@@ -1377,10 +1995,10 @@ static void AddSlaveOption(ContextMenuGUI* menu)
         return;
 
     Character* target = menu->contextMenuTarget.getCharacter();
-    MenuAction action = MenuActionFor(target);
-    if (action == MENU_NONE)
+    std::vector<SlaveAction> actions = MenuActionsFor(target);
+    if (actions.empty())
         return;
-    if (list->findWidget("SlaverModMenuRow") != 0)
+    if (list->findWidget("SlaverModMenuRow0") != 0)
         return;
 
     MyGUI::Widget* lastRow = list->getChildAt(list->getChildCount() - 1);
@@ -1388,35 +2006,39 @@ static void AddSlaveOption(ContextMenuGUI* menu)
     if (lastButton == 0)
         return;
     const MyGUI::IntCoord rowCoord = lastRow->getCoord();
+    MyGUI::Button* lastAsButton = lastButton->castType<MyGUI::Button>(false);
+    bool upper = lastAsButton != 0 && IsUpperCase(lastAsButton->getCaption().asUTF8());
+    // the game's options react to the release, not to a full click
+    bool onRelease = !lastButton->eventMouseButtonReleased.empty() && lastButton->eventMouseButtonPressed.empty();
 
     if (!g_loggedMenu)
     {
         g_loggedMenu = true;
-        Trace("menu: rows=" + Num((float)list->getChildCount()) + " last option='" + lastButton->castType<MyGUI::Button>(false)->getCaption().asUTF8() +
+        Trace("menu: rows=" + Num((float)list->getChildCount()) + " last option='" + (lastAsButton != 0 ? lastAsButton->getCaption().asUTF8() : std::string("?")) +
               "' pressed=" + Num(!lastButton->eventMouseButtonPressed.empty()) + " released=" + Num(!lastButton->eventMouseButtonReleased.empty()));
     }
 
-    MyGUI::Widget* row = list->createWidget<MyGUI::Widget>("PanelEmpty",
-        MyGUI::IntCoord(rowCoord.left, rowCoord.top + rowCoord.height, rowCoord.width, rowCoord.height), MyGUI::Align::Default, "SlaverModMenuRow");
-    MyGUI::Button* button = row->createWidget<MyGUI::Button>("Kenshi_Button1", lastButton->getCoord(), MyGUI::Align::Default, "SlaverModMenuOption");
+    for (size_t k = 0; k < actions.size(); k++)
+    {
+        MyGUI::Widget* row = list->createWidget<MyGUI::Widget>("PanelEmpty",
+            MyGUI::IntCoord(rowCoord.left, rowCoord.top + rowCoord.height * (int)(k + 1), rowCoord.width, rowCoord.height),
+            MyGUI::Align::Default, "SlaverModMenuRow" + Num((float)k));
+        MyGUI::Button* button = row->createWidget<MyGUI::Button>("Kenshi_Button1", lastButton->getCoord(), MyGUI::Align::Default,
+            "SlaverModMenuOption" + Num((float)k));
+        button->setCaption(MenuCaption(actions[k], upper));
+        button->setUserString("SlaverModAction", Num((float)actions[k]));
+        if (onRelease)
+            button->eventMouseButtonReleased += MyGUI::newDelegate(OnMenuOption);
+        else
+            button->eventMouseButtonPressed += MyGUI::newDelegate(OnMenuOption);
+    }
 
-    std::string caption = action == MENU_FREE ? T("Free", "Libertar") : T("Enslave", "Escravizar");
-    MyGUI::Button* lastAsButton = lastButton->castType<MyGUI::Button>(false);
-    if (lastAsButton != 0 && IsUpperCase(lastAsButton->getCaption().asUTF8()))
-        caption = action == MENU_FREE ? T("FREE", "LIBERTAR") : T("ENSLAVE", "ESCRAVIZAR");
-    button->setCaption(caption);
-
-    // the game's options react to the press, not to a full click
-    if (!lastButton->eventMouseButtonReleased.empty() && lastButton->eventMouseButtonPressed.empty())
-        button->eventMouseButtonReleased += MyGUI::newDelegate(OnMenuOption);
-    else
-        button->eventMouseButtonPressed += MyGUI::newDelegate(OnMenuOption);
-
-    // grow the menu by one row and keep it on screen
+    // grow the menu by our rows and keep it on screen
+    int extra = rowCoord.height * (int)actions.size();
     int listHeight = list->getHeight();
-    main->setSize(main->getWidth(), main->getHeight() + rowCoord.height);
+    main->setSize(main->getWidth(), main->getHeight() + extra);
     if (list->getHeight() == listHeight)
-        list->setSize(list->getWidth(), listHeight + rowCoord.height);
+        list->setSize(list->getWidth(), listHeight + extra);
     const MyGUI::IntSize& view = MyGUI::RenderManager::getInstance().getViewSize();
     if (main->getBottom() > view.height)
         main->setPosition(main->getLeft(), view.height - main->getHeight());
@@ -1554,6 +2176,7 @@ static void StartRebellion(const std::vector<Character*>& rebels)
         if (c->isChainedMode())
             c->setChainedMode(false, hand());
         c->setFaction(rebelFaction, squad);
+        ForgetRecord(c);
         GiveRebelWeapon(c);
         g_rebels.push_back(hand(c));
         Trace("rebellion: '" + c->getName() + "' str=" + Num(StrengthOf(c)) + " now player=" + Num(IsPlayerFaction(c)) +
@@ -1573,21 +2196,32 @@ static void StartRebellion(const std::vector<Character*>& rebels)
     g_rebelTimer = 2.0f;   // attack right away
 }
 
-// Both sides of the rebellion scale: count x strongest member.
+// Strength a defiant slave needs to rise up: RebelMinStrengthDefiant at submission 0,
+// growing in a straight line to RebelMinStrength at the RebelMaxSubmission limit.
+static float RebelStrengthNeeded(float submission)
+{
+    float t = g_cfg.rebelMaxSubmission > 0.0f ? submission / g_cfg.rebelMaxSubmission : 1.0f;
+    if (t > 1.0f)
+        t = 1.0f;
+    return g_cfg.rebelMinStrengthDefiant + (g_cfg.rebelMinStrength - g_cfg.rebelMinStrengthDefiant) * t;
+}
+
+// Free side: count x strongest member. Slave side: only the defiant slaves (submission
+// below RebelMaxSubmission) take part: count x strongest x (100 - their average submission) / 100.
 struct RebellionOdds
 {
-    int freeCount, slaveCount;
-    float freeBest, slaveBest;
+    int freeCount, slaveCount, defiantCount;
+    float freeBest, slaveBest, defiantSubmission;
     float freePower, slavePower;
     float chance;
-    std::vector<Character*> rebels;   // slaves strong enough to rise up
+    std::vector<Character*> rebels;   // defiant slaves strong enough to rise up
 };
 
 static RebellionOdds ComputeOdds()
 {
     RebellionOdds o;
-    o.freeCount = o.slaveCount = 0;
-    o.freeBest = o.slaveBest = 0.0f;
+    o.freeCount = o.slaveCount = o.defiantCount = 0;
+    o.freeBest = o.slaveBest = o.defiantSubmission = 0.0f;
     const lektor<Character*>& all = ou->player->getAllPlayerCharacters();
     for (uint32_t i = 0; i < all.size(); i++)
     {
@@ -1598,9 +2232,15 @@ static RebellionOdds ComputeOdds()
         if (IsOurSlave(c))
         {
             o.slaveCount++;
+            float sub = SubmissionOf(c);
+            if (sub >= g_cfg.rebelMaxSubmission)
+                continue;
+            o.defiantCount++;
+            o.defiantSubmission += sub;
+            Trace("  defiant '" + c->getName() + "' submission=" + Num(sub) + " str=" + Num(str) + " needs " + Num(RebelStrengthNeeded(sub)));
             if (str > o.slaveBest)
                 o.slaveBest = str;
-            if (str >= g_cfg.rebelMinStrength)
+            if (str >= RebelStrengthNeeded(sub))
                 o.rebels.push_back(c);
         }
         else if (IsFreePlayerMember(c))
@@ -1610,8 +2250,10 @@ static RebellionOdds ComputeOdds()
                 o.freeBest = str;
         }
     }
+    if (o.defiantCount > 0)
+        o.defiantSubmission /= o.defiantCount;
     o.freePower = o.freeCount * o.freeBest;
-    o.slavePower = o.slaveCount * o.slaveBest;
+    o.slavePower = o.defiantCount * o.slaveBest * (100.0f - o.defiantSubmission) / 100.0f;
     o.chance = 0.0f;
     if (o.slavePower > o.freePower)
     {
@@ -1639,8 +2281,9 @@ static void CheckRebellion(bool force)
     float roll = (float)rand() / (float)RAND_MAX;
     bool rebel = force || roll < chance;
     Trace("rebellion check: free " + Num((float)freeCount) + " x str " + Num(freeBest) + " = " + Num(freePower) +
-          " | slaves " + Num((float)slaveCount) + " x str " + Num(slaveBest) + " = " + Num(slavePower) +
-          " | chance=" + Num(chance) + " roll=" + Num(roll) + " force=" + Num(force) + " rebels>=" + Num(g_cfg.rebelMinStrength) +
+          " | slaves " + Num((float)slaveCount) + ", defiant " + Num((float)o.defiantCount) + " (avg submission " + Num(o.defiantSubmission) +
+          ") x str " + Num(slaveBest) + " = " + Num(slavePower) +
+          " | chance=" + Num(chance) + " roll=" + Num(roll) + " force=" + Num(force) + " rebels(str>=" + Num(g_cfg.rebelMinStrengthDefiant) + ".." + Num(g_cfg.rebelMinStrength) + ")" +
           ": " + Num((float)rebels.size()));
 
     std::string balance = T(" (free ", " (livres ") + Num((float)(int)freePower) + T(" x slaves ", " x escravos ") + Num((float)(int)slavePower) + ")";
@@ -1652,9 +2295,14 @@ static void CheckRebellion(bool force)
             ShowNotice(T("The slaves are under control", "Os escravos estao sob controle") + balance + ".");
         return;
     }
+    if (o.defiantCount == 0)
+    {
+        ShowNotice(T("The slaves thought about rising up, but they are too submissive.", "Os escravos pensaram em se rebelar, mas sao submissos demais."));
+        return;
+    }
     if (rebels.empty())
     {
-        ShowNotice(T("The slaves tried to rise up, but none has strength ", "Os escravos tentaram se rebelar, mas nenhum tem forca ") + Num(g_cfg.rebelMinStrength) + T(" or more.", " ou mais."));
+        ShowNotice(T("The slaves tried to rise up, but none was strong enough.", "Os escravos tentaram se rebelar, mas nenhum era forte o bastante."));
         return;
     }
     StartRebellion(rebels);
@@ -1683,10 +2331,217 @@ static void UpdateRebellion()
 }
 
 // ---------------------------------------------------------------------------
+// Escape: unwatched, defiant slaves may run away. They leave the faction (back to
+// the one they were taken from, or EscapeFaction), keep the locked shackles and are
+// pushed to flee from the nearest free member until they are far enough. Knocking
+// them out lets them be enslaved again, with less submission.
+// ---------------------------------------------------------------------------
+
+static std::vector<hand> g_escapees;
+static float g_escapeeTimer = 0.0f;
+
+static TaskType EscapeGoal()
+{
+    const std::string& g = g_cfg.escapeGoal;
+    if (g == "run_away")
+        return RUN_AWAY;
+    if (g == "total")
+        return TOTAL_ESCAPE;
+    if (g == "hometown")
+        return RUN_AWAY_HOMETOWN;
+    return RUN_AWAY_FORCED;
+}
+
+static void StartEscape(Character* c, const char* why)
+{
+    SlaveRecord* found = FindRecord(c);
+    if (found == 0)
+        return;
+    SlaveRecord r = *found;   // the map entry is moved below
+    std::string name = c->getName();
+    Faction* f = OriginFaction(r.origin);
+    if (f == 0)
+        f = OriginFaction(g_cfg.escapeFaction);
+    if (f == 0)
+    {
+        Trace("escape: no faction for '" + name + "' (origin '" + r.origin + "', fallback '" + g_cfg.escapeFaction + "')");
+        return;
+    }
+    std::string keyBefore = SlaveKey(c);
+
+    for (size_t i = 0; i < g_pending.size(); )
+    {
+        if (g_pending[i].target.getCharacter() == c || g_pending[i].performer.getCharacter() == c)
+        {
+            StopActingVisuals(g_pending[i], g_pending[i].performer.getCharacter());
+            g_pending.erase(g_pending.begin() + i);
+        }
+        else
+            i++;
+    }
+    for (size_t i = 0; i < g_escorts.size(); )
+    {
+        if (g_escorts[i].slave.getCharacter() == c)
+            g_escorts.erase(g_escorts.begin() + i);
+        else
+            i++;
+    }
+
+    Platoon* platoon = f->createNewEmptyActivePlatoon(0, false, c->getPosition());
+    ActivePlatoon* squad = platoon != 0 ? platoon->getActivePlatoon() : 0;
+    c->setSlaveAIJob(false);
+    c->changeSlaveOwner(hand());
+    c->setFaction(f, squad);
+    SetSlaveState(c, g_cfg.escapeMarkEscaped ? ESCAPING_SLAVE : NOT_SLAVE);
+    if (g_cfg.escapeRemoveShackles)
+        RemoveShackles(c);   // they got out of them to run
+
+    // a home for the new squad, so the game's own AI has somewhere to take them
+    TownBase* home = f->warMgr != 0 ? f->warMgr->getNearestTown(c->getPosition()) : 0;
+    if (home != 0 && platoon != 0)
+        platoon->ownerships.setHomeTown(home, SQ_ROAMING);
+    Trace("escape: home town " + std::string(home != 0 ? "found" : "none") + " for faction '" + f->getName() + "'");
+
+    r.escaped = true;
+    r.escapedDay = GameDays();
+    r.name = name;
+    r.handle = HandleText(hand(c));
+    g_records.erase(keyBefore);
+    g_records[SlaveKey(c)] = r;
+    g_unsupervisedDays.erase(keyBefore);
+    g_escapees.push_back(hand(c));
+    g_escapeeTimer = 2.0f;   // start running right away
+    Trace("escape (" + std::string(why) + "): '" + name + "' -> '" + f->getName() + "' squad=" + Num(squad != 0) +
+          " key " + keyBefore + (SlaveKey(c) != keyBefore ? " -> " + SlaveKey(c) : "") + " player=" + Num(IsPlayerFaction(c)) +
+          " slaveState=" + Num((float)c->isSlave()) + " shackles=" + Num(WearsShackles(c)));
+    ShowNotice(name + T(" ran away! ", " fugiu! ") + SubmissionText(r.submission) + ".", true);
+}
+
+// Rolls for one slave; called about once an in-game hour with the time that passed.
+static void TryEscape(Character* c, SlaveRecord& r, double days, bool supervised)
+{
+    if (c->medical.isUnconcious() || c->inSomething == IN_PRISON || c->isChainedMode())
+        return;
+    if (g_cfg.escapeMaxSubmission <= 0.0f || r.submission >= g_cfg.escapeMaxSubmission)
+        return;
+    for (size_t i = 0; i < g_pending.size(); i++)
+        if (g_pending[i].target.getCharacter() == c)
+            return;
+    float daily = g_cfg.escapeDailyChance * (1.0f - r.submission / g_cfg.escapeMaxSubmission);
+    if (supervised)
+        daily *= g_cfg.escapeSupervisedMult;
+    bool shackled = WearsShackles(c);
+    if (shackled)
+        daily *= g_cfg.escapeShackledMult;
+    if (daily <= 0.0f)
+        return;
+    if (daily > 1.0f)
+        daily = 1.0f;
+    float chance = 1.0f - (float)pow(1.0 - daily, days);
+    float roll = (float)rand() / (float)RAND_MAX;
+    Trace("escape roll '" + c->getName() + "': submission=" + Num(r.submission) + " supervised=" + Num(supervised) +
+          " shackles=" + Num(shackled) + " daily=" + Num(daily) + " chance=" + Num(chance) + " roll=" + Num(roll));
+    if (roll < chance)
+        StartEscape(c, "roll");
+}
+
+// Forgets runaways that died or escaped more than EscapeForgetDays ago (after that, a
+// capture counts as a new slave), so the data file does not keep growing.
+static void PruneRunaways()
+{
+    double now = GameDays();
+    for (std::map<std::string, SlaveRecord>::iterator it = g_records.begin(); it != g_records.end(); )
+    {
+        SlaveRecord& r = it->second;
+        if (!r.escaped)
+        {
+            ++it;
+            continue;
+        }
+        if (r.escapedDay < 0.0)
+            r.escapedDay = now;   // escaped before the day was recorded: start counting now
+        Character* c = r.handle.empty() ? 0 : HandleFromText(r.handle).getCharacter();
+        const char* why = 0;
+        if (c != 0 && c->isDead())
+            why = "dead";
+        else if (g_cfg.escapeForgetDays > 0.0f && now - r.escapedDay > g_cfg.escapeForgetDays)
+            why = "escaped too long ago";
+        if (why != 0)
+        {
+            Trace("runaway '" + r.name + "' forgotten: " + why);
+            g_records.erase(it++);
+        }
+        else
+            ++it;
+    }
+}
+
+// After a load: runaways from the records go back on the list (the game does not keep
+// the goals the plugin gave them).
+static void RestoreRunaways()
+{
+    PruneRunaways();
+    for (std::map<std::string, SlaveRecord>::const_iterator it = g_records.begin(); it != g_records.end(); ++it)
+    {
+        if (!it->second.escaped || it->second.handle.empty())
+            continue;
+        hand h = HandleFromText(it->second.handle);
+        Character* c = h.getCharacter();
+        bool ok = c != 0 && !c->isDead() && !IsPlayerFaction(c);
+        Trace("runaway '" + it->second.name + "' [" + it->second.handle + "] " + (ok ? "found" : "not around"));
+        if (ok)
+            g_escapees.push_back(h);
+    }
+    g_escapeeTimer = 2.0f;
+}
+
+// Keeps runaways fleeing from the nearest free member until they are out of reach.
+static void UpdateEscapees(float dt)
+{
+    if (g_escapees.empty())
+        return;
+    g_escapeeTimer += dt;
+    if (g_escapeeTimer < 2.0f)
+        return;
+    g_escapeeTimer = 0.0f;
+
+    for (size_t i = 0; i < g_escapees.size(); )
+    {
+        Character* c = g_escapees[i].getCharacter();
+        if (c == 0 || c->isDead() || IsPlayerFaction(c))
+        {
+            g_escapees.erase(g_escapees.begin() + i);
+            continue;
+        }
+        if (c->medical.isUnconcious())
+        {
+            i++;
+            continue;
+        }
+        float dist = 0.0f;
+        Character* chaser = NearestFreeMember(c->getPosition(), &dist, 0, true);
+        if (chaser == 0 || dist > g_cfg.escapeSafeDistance)
+        {
+            Faction* f = c->getFaction();
+            TownBase* home = f != 0 && f->warMgr != 0 ? f->warMgr->getNearestTown(c->getPosition()) : 0;
+            if (home != 0)   // TownBase derives from RootObject first, so the pointer is the same
+                c->addGoal(TRAVEL_TO_TARGET_TOWN, reinterpret_cast<RootObjectBase*>(home));
+            Trace("runaway '" + c->getName() + "' got away (nearest member " + Num(dist) + "), heading " + (home != 0 ? "to a town" : "nowhere"));
+            g_escapees.erase(g_escapees.begin() + i);
+            continue;
+        }
+        c->addGoal(EscapeGoal(), chaser);
+        Trace("runaway '" + c->getName() + "' flees from '" + chaser->getName() + "' dist=" + Num(dist));
+        i++;
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Hooks
 // ---------------------------------------------------------------------------
 
 static bool g_loggedSlaves = false;
+static bool g_recordsReady = false;   // the load / new-game hook prepared the records for the next world
 
 // Logs once how the hook's time step compares to real time (for tuning the durations).
 static float g_calibGame = 0.0f;
@@ -1725,6 +2580,16 @@ void GameWorld_update_hook(GameWorld* thisptr, float time)
                 n++;
         Trace("world loaded: player characters=" + Num((float)all.size()) + " slaves=" + Num((float)n));
         DumpMembers("world loaded");
+        // fallback in case neither the load nor the new-game hook ran for this world
+        SaveManager* sm = SaveManager::getSingleton();
+        if (!g_recordsReady && sm != 0)
+        {
+            Trace("records: no load hook for this world, using current game '" + sm->getCurrentGame() + "'");
+            ReadRecords(sm->getCurrentGame());
+        }
+        g_recordsReady = false;
+        SyncRecords();
+        RestoreRunaways();
         // slaves made before shackles existed in this mod
         for (uint32_t i = 0; i < all.size(); i++)
             if (IsOurSlave(all.stuff[i]))
@@ -1735,14 +2600,65 @@ void GameWorld_update_hook(GameWorld* thisptr, float time)
     UpdateRebellion();
     UpdateInventoryButton();
     UpdateNotice();
+    UpdateSubmissionBar();
     if (!ou->isPaused())
     {
+        UpdateSubmission();
         ApplySlaveRules(time);
         UpdatePendingActions(time);
         UpdateRebels(time);
+        UpdateEscapees(time);
         UpdateEscorts(time);
         CalibrateTime(time);
     }
+}
+
+// Forgets everything that points into the current world, before another one is loaded.
+static void ResetWorldState(const char* why)
+{
+    Trace(std::string("reset world state: ") + why);
+    for (size_t i = 0; i < g_pending.size(); i++)
+        StopActingVisuals(g_pending[i], g_pending[i].performer.getCharacter());
+    g_pending.clear();
+    g_escorts.clear();
+    g_rebels.clear();
+    g_escapees.clear();
+    g_unsupervisedDays.clear();
+    g_discipline.clear();
+    HideSubmissionBar();
+    g_loggedSlaves = false;
+    g_lastRebellionPeriod = -1.0;
+    g_lastDriftDay = -1.0;
+}
+
+// The game writes a save: write the slave records next to it, under the same name.
+int (*SaveManager_saveGame_orig)(SaveManager*, const std::string&, const std::string&) = NULL;
+int SaveManager_saveGame_hook(SaveManager* thisptr, const std::string& location, const std::string& name)
+{
+    int result = SaveManager_saveGame_orig(thisptr, location, name);
+    Trace("game saved: '" + name + "' result=" + Num((float)result));
+    WriteRecords(name);
+    g_recordsSave = name;
+    return result;
+}
+
+int (*SaveManager_loadGame_orig)(SaveManager*, const std::string&, const std::string&) = NULL;
+int SaveManager_loadGame_hook(SaveManager* thisptr, const std::string& location, const std::string& name)
+{
+    ResetWorldState("loading a save");
+    ReadRecords(name);
+    g_recordsReady = true;
+    return SaveManager_loadGame_orig(thisptr, location, name);
+}
+
+void (*SaveManager_newGame_orig)(SaveManager*, const std::string&) = NULL;
+void SaveManager_newGame_hook(SaveManager* thisptr, const std::string& startId)
+{
+    ResetWorldState("new game");
+    g_records.clear();
+    g_recordsSave = "";
+    g_recordsReady = true;
+    SaveManager_newGame_orig(thisptr, startId);
 }
 
 // ---------------------------------------------------------------------------
@@ -1814,6 +2730,60 @@ extern "C" __declspec(dllexport) void MCM_Describe(MCM_Api* api)
     api->text(api, sec, "ShackleItemAlt", L("Alternative shackles (ID)", "Grilhão alternativo (ID)"),
               L("Used when the first one does not fit (e.g. hivers).", "Usado quando o primeiro não serve (ex.: colmeia)."), "SHACKLES-BODY", 0);
 
+    api->section(api, L("Submission", "Submissão"));
+    api->toggle(api, sec, "ShowSubmission", L("Show over the selected slave", "Mostrar sobre o escravo selecionado"),
+                L("A bar with the submission over the slave you select.", "Uma barra com a submissão sobre o escravo que você seleciona."), 1, 0);
+    api->integer(api, sec, "SubmissionStart", L("Starting submission", "Submissão inicial"),
+                 L("Submission (0-100) of a new slave.", "Submissão (0-100) de um novo escravo."), 30, 0, 100, 0);
+    api->integer(api, sec, "SubmissionPrisonerBonus", L("Bonus if caged or chained", "Bônus se estava preso ou acorrentado"),
+                 L("Added when the slave was a prisoner when enslaved.", "Somado quando o escravo estava preso ao ser escravizado."), 10, 0, 100, 0);
+    api->number(api, sec, "SubmissionDailyGain", L("Gain per day", "Ganho por dia"),
+                L("Slaves slowly get used to their condition.", "Os escravos se acostumam aos poucos com a condição."), 2.0f, 0.0f, 20.0f, 1, 0);
+    api->integer(api, sec, "SubmissionGainCap", L("Limit of the daily gain", "Limite do ganho diário"),
+                 L("Time alone does not raise submission above this.", "Só o tempo não faz a submissão passar disto."), 60, 0, 100, 0);
+
+    api->section(api, L("Supervision and escape", "Supervisão e fuga"));
+    api->toggle(api, sec, "SupervisionEnabled", L("Supervision", "Supervisão"),
+                L("Slaves need a free, awake member nearby (or a cage). Unwatched ones lose submission.", "Escravos precisam de um membro livre e acordado por perto (ou de uma jaula). Sem vigilância, perdem submissão."), 1, 0);
+    api->integer(api, sec, "SupervisionRange", L("Supervision distance", "Distância de supervisão"),
+                 L("In game units; 500 is about a short walk.", "Em unidades do jogo; 500 é uma caminhada curta."), 500, 50, 5000, 0);
+    api->number(api, sec, "SubmissionUnsupervisedLoss", L("Loss per day unwatched", "Perda por dia sem vigilância"), NULL, 5.0f, 0.0f, 50.0f, 1, 0);
+    api->toggle(api, sec, "EscapeEnabled", L("Escapes", "Fugas"),
+                L("Defiant slaves may run away, mostly when unwatched.", "Escravos rebeldes podem fugir, principalmente sem vigilância."), 1, 0);
+    api->integer(api, sec, "EscapeMaxSubmission", L("Never escape from submission", "Nunca foge a partir da submissão"), NULL, 50, 0, 101, 0);
+    api->number(api, sec, "EscapeDailyChance", L("Daily escape chance", "Chance de fuga por dia"),
+                L("For submission 0, unwatched and without shackles (0 to 1).", "Para submissão 0, sem vigilância e sem grilhões (0 a 1)."), 0.5f, 0.0f, 1.0f, 2, 0);
+    api->number(api, sec, "EscapeSupervisedMult", L("Multiplier when watched", "Multiplicador com vigilância"), NULL, 0.1f, 0.0f, 1.0f, 2, 0);
+    api->number(api, sec, "EscapeShackledMult", L("Multiplier with shackles", "Multiplicador com grilhões"), NULL, 0.5f, 0.0f, 1.0f, 2, 0);
+    api->integer(api, sec, "EscapeRecapturePenalty", L("Submission lost when recaptured", "Submissão perdida ao recapturar"), NULL, 10, 0, 100, 0);
+    api->integer(api, sec, "EscapeForgetDays", L("Forget runaways after (days)", "Esquecer fugitivos depois de (dias)"),
+                 L("After this, a captured runaway counts as a new slave. 0 = never. Dead runaways are always forgotten.",
+                   "Depois disso, um fugitivo capturado conta como escravo novo. 0 = nunca. Fugitivos mortos são sempre esquecidos."), 30, 0, 365, 0);
+    api->integer(api, sec, "EscapeSafeDistance", L("Runaway safe distance", "Distância segura do fugitivo"),
+                 L("Runaways flee until your nearest member is this far.", "O fugitivo corre até seu membro mais próximo estar a esta distância."), 1500, 200, 10000, 0);
+    api->toggle(api, sec, "EscapeRemoveShackles", L("Runaways lose the shackles", "Fugitivo perde os grilhões"),
+                L("Off: they run away still wearing them.", "Desligado: ele foge ainda com eles."), 1, 0);
+    api->text(api, sec, "EscapeFaction", L("Runaway faction if origin unknown (ID)", "Facção do fugitivo sem origem (ID)"), NULL, "51707-rebirth.mod", 0);
+
+    api->section(api, L("Punishment and reward", "Punição e recompensa"));
+    api->toggle(api, sec, "PunishEnabled", L("Punish", "Punir"),
+                L("Punish option on your slaves: submission, but it hurts.", "Opção Punir nos seus escravos: dá submissão, mas machuca."), 1, 0);
+    api->integer(api, sec, "PunishSubmission", L("Submission per punishment", "Submissão por punição"),
+                 L("Halved, then a third... for each punishment within the cooldown.", "Cai pela metade, depois um terço... a cada punição dentro do intervalo."), 15, 0, 100, 0);
+    api->integer(api, sec, "PunishDamage", L("Punishment damage", "Dano da punição"),
+                 L("Blunt damage on a limb; grows with repeated punishments.", "Dano de impacto num membro; cresce com punições repetidas."), 10, 0, 100, 0);
+    api->number(api, sec, "PunishCooldownDays", L("Punishment interval (days)", "Intervalo entre punições (dias)"), NULL, 1.0f, 0.0f, 10.0f, 1, 0);
+    api->text(api, sec, "PunishVictimAnimation", L("Slave animation while punished", "Animação do escravo ao ser punido"), NULL, "kneeling hostage idle", 0);
+    api->toggle(api, sec, "RewardEnabled", L("Reward", "Recompensar"),
+                L("Reward option on your slaves: a little submission for some cats.", "Opção Recompensar nos seus escravos: um pouco de submissão por alguns cats."), 1, 0);
+    api->integer(api, sec, "RewardSubmission", L("Submission per reward", "Submissão por recompensa"), NULL, 5, 0, 100, 0);
+    api->integer(api, sec, "RewardCost", L("Reward cost (cats)", "Custo da recompensa (cats)"), NULL, 100, 0, 100000, 0);
+    api->number(api, sec, "RewardCooldownDays", L("Reward interval (days)", "Intervalo entre recompensas (dias)"), NULL, 1.0f, 0.0f, 10.0f, 1, 0);
+    api->integer(api, sec, "CageDailyGain", L("Cage: submission per day", "Jaula: submissão por dia"),
+                 L("Extra submission for each day in a cage.", "Submissão extra por dia numa jaula."), 10, 0, 100, 0);
+    api->integer(api, sec, "CageSubmissionCap", L("Cage: limit", "Jaula: limite"),
+                 L("A cage does not raise submission above this.", "A jaula não faz a submissão passar disto."), 75, 0, 100, 0);
+
     api->section(api, L("Relations", "Relações"));
     api->number(api, sec, "RelationLoss", L("Loss when enslaving", "Perda ao escravizar"),
                 L("How much the victim's faction relation drops.", "Quanto a relação com a facção da vítima cai."), 5.0f, 0.0f, 50.0f, 1, 0);
@@ -1829,7 +2799,11 @@ extern "C" __declspec(dllexport) void MCM_Describe(MCM_Api* api)
     api->number(api, sec, "RebellionMaxChance", L("Maximum chance", "Chance máxima"),
                 L("Upper limit of the rebellion chance (0 to 1).", "Limite da chance de rebelião (0 a 1)."), 0.9f, 0.0f, 1.0f, 2, 0);
     api->integer(api, sec, "RebelMinStrength", L("Rebel minimum strength", "Força mínima do rebelde"),
-                 L("Only slaves with this strength or more rise up.", "Só escravos com esta força ou mais se rebelam."), 20, 0, 100, 0);
+                 L("Strength a slave just below the submission limit needs to rise up.", "Força que um escravo logo abaixo do limite de submissão precisa para se rebelar."), 20, 0, 100, 0);
+    api->integer(api, sec, "RebelMinStrengthDefiant", L("Rebel minimum strength at submission 0", "Força mínima do rebelde com submissão 0"),
+                 L("The less submissive, the less strength needed: from this value at 0 up to the one above.", "Quanto menos submisso, menos força precisa: deste valor com 0 até o de cima."), 10, 0, 100, 0);
+    api->integer(api, sec, "RebelMaxSubmission", L("Rebel maximum submission", "Submissão máxima do rebelde"),
+                 L("Slaves with this submission or more never rebel.", "Escravos com esta submissão ou mais nunca se rebelam."), 50, 0, 101, 0);
     api->toggle(api, sec, "RebellionHostile", L("War with the rebels", "Guerra com os rebeldes"),
                 L("The Anti-Slavers go to war with you on a rebellion.", "Os Abolicionistas entram em guerra com você na rebelião."), 1, 0);
     api->integer(api, sec, "RebelChaseRange", L("Chase distance", "Distância de perseguição"),
@@ -1846,6 +2820,10 @@ extern "C" __declspec(dllexport) void MCM_Describe(MCM_Api* api)
                 L("Debug mode only. Acts on the selected character.", "Só no modo debug. Age sobre o personagem selecionado."), "CTRL+K", 0);
     api->hotkey(api, sec, "RebellionTestKey", L("Hotkey: rebellion check", "Atalho: verificar rebelião"),
                 L("Debug mode only. Runs the rebellion check right away.", "Só no modo debug. Faz a verificação de rebelião na hora."), "CTRL+SHIFT+R", 0);
+    api->hotkey(api, sec, "SubmissionTestKey", L("Hotkey: +25 submission", "Atalho: +25 de submissão"),
+                L("Debug mode only. Raises the selected slave's submission (wraps to 0 after 100).", "Só no modo debug. Aumenta a submissão do escravo selecionado (volta a 0 depois de 100)."), "CTRL+SHIFT+S", 0);
+    api->hotkey(api, sec, "EscapeTestKey", L("Hotkey: escape now", "Atalho: fugir agora"),
+                L("Debug mode only. The selected slave runs away.", "Só no modo debug. O escravo selecionado foge."), "CTRL+SHIFT+E", 0);
     api->toggle(api, sec, "RebellionTestForce", L("Force rebellion on test", "Forçar rebelião no teste"),
                 L("The test hotkey always causes a rebellion.", "O atalho de teste sempre causa rebelião."), 0, 0);
     api->toggle(api, sec, "Debug", L("Write detailed log", "Gravar log detalhado"),
@@ -1859,7 +2837,7 @@ __declspec(dllexport) void startPlugin()
     LoadSettings();
     ParseHotkey();
     srand(GetTickCount());
-    Trace("startPlugin v1.2");
+    Trace("startPlugin v1.5");
 
     if (KenshiLib::SUCCESS != KenshiLib::AddHook(KenshiLib::GetRealAddress(&GameWorld::_NV_mainLoop_GPUSensitiveStuff), GameWorld_update_hook, (void**)&GameWorld_update_orig))
         ErrorLog("SlaverMod: could not add GameWorld update hook!");
@@ -1867,4 +2845,10 @@ __declspec(dllexport) void startPlugin()
     FindMenuFlags();
     if (KenshiLib::SUCCESS != KenshiLib::AddHook(KenshiLib::GetRealAddress(&ContextMenuGUI::show), ContextMenuGUI_show_hook, (void**)&ContextMenuGUI_show_orig))
         ErrorLog("SlaverMod: could not add context menu hook!");
+    if (KenshiLib::SUCCESS != KenshiLib::AddHook(KenshiLib::GetRealAddress(&SaveManager::saveGame), SaveManager_saveGame_hook, (void**)&SaveManager_saveGame_orig))
+        ErrorLog("SlaverMod: could not add save hook!");
+    if (KenshiLib::SUCCESS != KenshiLib::AddHook(KenshiLib::GetRealAddress(&SaveManager::loadGame), SaveManager_loadGame_hook, (void**)&SaveManager_loadGame_orig))
+        ErrorLog("SlaverMod: could not add load hook!");
+    if (KenshiLib::SUCCESS != KenshiLib::AddHook(KenshiLib::GetRealAddress(&SaveManager::newGame), SaveManager_newGame_hook, (void**)&SaveManager_newGame_orig))
+        ErrorLog("SlaverMod: could not add new game hook!");
 }

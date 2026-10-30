@@ -1,0 +1,55 @@
+# Architecture (v1.2)
+
+Everything lives in `SlaverMod.cpp` (~1870 lines). Sections, in file order:
+
+| Section | Main symbols | Notes |
+|---------|--------------|-------|
+| Local `ContextMenuGUI` class | `show`, `optionSelected` | Copied from `kenshi/gui/ContextMenu.h`, which cannot be included together with `PlayerInterface.h`. |
+| Logging | `InitModDir`, `Trace`, `Num` | `g_modDir` = folder of the DLL. `Trace` writes `SlaverMod_trace.log` (flushed per line) and `DebugLog` when `g_debug`. |
+| Language | `g_pt`, `T(en, pt)` | Plain `std::string`; MCM labels must be UTF-8, on-screen notices are ASCII (no accents) because the notice font misses them. |
+| Settings | `Settings g_cfg`, `LoadSettings`, `IniString/IniFloat/IniBool` | Read from `SlaverMod.ini` with `GetPrivateProfileString`, section `[SlaverMod]`. |
+| Notice | `ShowNotice(text, always)`, `UpdateNotice` | One reusable MyGUI panel (`Kenshi_FloatingPanelSkin`, layer `Popup`) top-centre, hidden after 4.5 s (+1.5 s per extra line). Notices sent within 200 ms (one action) stack as up to 3 lines. `ShowNotices=0` hides everything except `always=true` (the REBELLION alert). |
+| Helpers | `PlayerFaction`, `IsOurSlave`, `IsFreePlayerMember`, `IsActiveGuard`, `CountFreeMembers`, `SetSlaveState`, `IsEnslaveCandidate`, `NearestFreeMember`, `PickOwner`, `GetSlaveSquad` | "Free member" = alive, in the player faction, not a slave (may be unconscious). "Active guard" = free member that is awake. |
+| Enslave / free | `MakeSlave`, `EnslaveOwnMember`, `Enslave`, `FreeSlave` | Prisoners are recruited with `PlayerInterface::recruit` into the slave squad, then marked `IS_SLAVE`. Refuses to enslave the last free member. |
+| Shackles | `IsShackleItem`, `WearsShackles`, `TryEquipShackles`, `GiveShackles`, `RemoveShackles` | Items `SHACKLES` / `SHACKLES-BODY` (hivers). Slot 9 (boots); items in that slot are moved to the inventory or dropped. |
+| Slave rules | `ApplySlaveRules(dt)` | Every couple of game seconds: drops equipped weapons when `BanWeapons=1`. |
+| Hotkeys | `Hotkey`, `ParseKey`, `KeyPressed`, `HandleHotkey` | Only active with `DebugMode=1`: CTRL+K (instant toggle) and CTRL+SHIFT+R (rebellion check). |
+| Slave records (per save) | `SlaveRecord`, `g_records`, `SlaveKey`, `ReadRecords`, `WriteRecords`, `CreateRecord`, `FindRecord`, `ForgetRecord`, `SyncRecords`, `LegacyOrigin` | In memory `map<key, {submission, origin faction sid, name}>`, key = `hand.index-hand.serial`. File `saves\<save>.txt` next to the DLL, lines `key=submission|origin|name`. Read in the load hook, written in the save hook, matched with the world's slaves on the first frame (`SyncRecords`: missing → default record, stale → dropped). `LegacyOrigin` reads the old shared `SlaverMod_origins.ini` (v1.0–1.2) for migration only. |
+| Submission + supervision | `SubmissionOf`, `SubmissionLevel`, `SubmissionText`, `IsSupervised`, `UpdateSubmission`, `UpdateSubmissionBar`, `HideSubmissionBar`, `g_unsupervisedDays` | 0–100; levels Defiant <25, Restless <50, Obedient <75, Loyal. `UpdateSubmission` runs every ~0.05 game day (ignores jumps > 1 day): watched (caged, or `NearestFreeMember(awake)` within `SupervisionRange`) → +daily gain up to the cap; unwatched → −`SubmissionUnsupervisedLoss`/day; then `TryEscape`. One `FloatingProgressBar` over the selected slave ("- unwatched" suffix). Records carry an `escaped` flag (file field 3, `e`). |
+| Escape | `TryEscape`, `StartEscape`, `UpdateEscapees`, `EscapeGoal`, `g_escapees` | Chance per day = `EscapeDailyChance × (1 − sub/EscapeMaxSubmission)` × watched/shackled multipliers, converted to the elapsed interval. `StartEscape`: drops pending actions/escorts, new squad in the origin faction (or `EscapeFaction`, Drifters), `setFaction`, slave state `ESCAPING_SLAVE`, shackles removed (`EscapeRemoveShackles`), record kept with `escaped=true`. `UpdateEscapees` re-issues `addGoal(EscapeGoal(), nearest member)` every 2 units until `EscapeSafeDistance`. The new squad gets the faction's nearest town as home (`platoon->ownerships.setHomeTown`); once away, `addGoal(TRAVEL_TO_TARGET_TOWN, town)`. The record stores the full handle (`HandleText`, field 4) so `RestoreRunaways` puts runaways back on the list after a load (the game does not keep plugin-given goals). Recapture = normal enslave of a knocked-out runaway: `CompleteAction` sees the escaped record, keeps its origin, applies `EscapeRecapturePenalty` and skips the relation loss. |
+| Escort | `QueueEscort`, `UpdateEscorts` | Once the new slave is awake: `addOrder(BODYGUARD or FOLLOW_PLAYER_ORDER, owner)`. |
+| Pending actions | `PendingAction`, `StartAction`, `ToggleSlave`, `UpdatePendingActions`, `CompleteAction`, `StartActingVisuals/Update/Stop` | States: approach (move order, timeout) → acting (animation `medic` + floating progress bar for `ActionSeconds`) → complete. Cancelled when `ActionStillValid` fails. Performer = the selected member nearest to the target (`getNearestSelectedCharacterTo`), else the main selected character, else the nearest free member. |
+| Relations | `ApplyRelationLoss`, `ApplyRelationGain` | `affectRelations` on the victim's / origin faction. Gain is forced below the loss. |
+| Inventory button | `UpdateInventoryButton`, `UpdateButtonIn`, `OnSlaveButton` | Optional (`ShowButton=1`), off by default. |
+| Order menu | `ContextMenuGUI_show_hook`, `AddSlaveOption`, `MenuActionsFor`, `MenuCaption`, `OnMenuOption`, `FindMenuFlags` | Adds one row per `SlaveAction` (Enslave; or Free/Punish/Reward on own slaves) to the hold-right-click menu. Each button stores its action in the user string `SlaverModAction`. See KENSHI_API.md → Order menu. |
+| Punishment / reward | `Punish`, `Reward`, `DisciplineState`, `g_discipline` | Run as pending actions (`ACT_PUNISH`/`ACT_REWARD`) through `StartAction`. Punish: blunt `Damages` on a random flesh limb (`HealthPartStatus::applyDamage`), submission ÷ (1+streak), damage × (1+streak) within `PunishCooldownDays`. Reward: `performer->takeMoney(RewardCost)`. Streaks/cooldowns are memory only (reset on load). Cage bonus lives in `UpdateSubmission`. |
+| Rebellion | `CheckRebellion`, `ComputeOdds`, `StartRebellion`, `GiveRebelWeapon`, `UpdateRebels`, `UpdateRebellion` | Every `RebellionDays` in-game days (`GameDays()`). Rebels move to `RebelFaction` in a new squad, get an Iron Club, war is declared, and `UpdateRebels` re-issues `MELEE_ATTACK` goals. |
+| Hooks | `GameWorld_update_hook`, `CalibrateTime`, `SaveManager_saveGame_hook`, `SaveManager_loadGame_hook`, `SaveManager_newGame_hook`, `ResetWorldState` | Per-frame entry point (below). Save → `WriteRecords(name)`. Load → `ResetWorldState` + `ReadRecords(name)`. New game → reset + empty records. `ResetWorldState` drops everything holding handles into the old world (pending actions, escorts, rebels, bar) and re-arms the first-frame logic. |
+| MCM | `ReloadSettings`, `MCM_Describe` | Exported for ModConfigMenu; MCM writes the ini and calls `ReloadSettings`. |
+| Entry | `startPlugin` | Loads settings, installs both hooks. |
+
+## Per-frame loop (`GameWorld_update_hook`)
+
+```
+orig(world, time)
+if no player: return
+first frame with characters (once per loaded world):
+    log; if no load/new-game hook ran: ReadRecords(SaveManager::getCurrentGame()); SyncRecords(); give shackles to old slaves
+HandleHotkey(); UpdateRebellion(); UpdateInventoryButton(); UpdateNotice(); UpdateSubmissionBar();
+if not paused:
+    UpdateSubmission(); ApplySlaveRules(time); UpdatePendingActions(time); UpdateRebels(time); UpdateEscapees(time); UpdateEscorts(time); CalibrateTime(time)
+```
+
+`time` is the hook's time step: game-speed dependent and **not** real seconds. Timers that should follow the game clock
+use `GameDays()` (`ou->getTimeStamp_inGameHours().getTotalDays()`).
+
+## Persistent data today
+
+| Data | Where | Notes |
+|------|-------|-------|
+| Slave state, owner, faction, squad, items | Kenshi's own save | — |
+| Submission and origin faction of each slave | `saves\<save>.txt` (since v1.3) | Written only when the game saves, so quitting without saving discards changes, like the game itself. |
+| Origins from v1.0–1.2 | `SlaverMod_origins.ini` | Read-only fallback, shared by all saves. |
+| Last rebellion check, last submission drift | memory only | Resynced after every load (a load never triggers a check). |
+
+New per-slave attributes go into `SlaveRecord` (and its read/write functions), not into new files.

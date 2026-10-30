@@ -13,3 +13,7 @@ ModConfigMenu.h
 # per-player data written by the plugin
 SlaverMod_origins.ini
 SlaverMod_trace*.log
+
+# personal scratch (old trace logs moved here by tools/deploy.ps1)
+local/
+saves/
