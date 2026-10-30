@@ -35,7 +35,7 @@ Candidates not tried yet: `Character` damage functions in `CharBody.h` / `Medica
 | Prisoner | `c->inSomething == IN_PRISON`, `c->isChainedMode()`, `c->setChainedMode(false, hand)` |
 | Position / size | `c->getPosition()` (`Ogre::Vector3`), see `ReachDistance()` |
 | Strength | `c->getStats()->getStat(STAT_STRENGTH, true)` (see `StrengthOf`) |
-| Race | `c->getRace()` (`RaceData*`, `kenshi/RaceData.h`) — not used yet; check its `data->stringID`. |
+| Race | `c->getRace()->data->stringID` (`RaceData*`, `kenshi/RaceData.h`). Vanilla IDs: Greenlander `17-gamedata.quack`, Scorchlander `18019-gamedata.base`, Shek `5276-chareditor.mod`, Hive Worker/Soldier/Prince `18960`/`18961-gamedata.base`/`5346-stick_people.mod` (South Hive `57772`/`57771`/`57770-Newwworld.mod`), Skeleton `17946-stick_people.mod`, QueenBirth queen `57335-Newwworld.mod`. List: rtype 7 records (`tools/re/race.py`). |
 | Handle | `hand h(c)`; `h.getCharacter()`; `h.index`, `h.serial` |
 
 ## Slave state

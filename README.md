@@ -17,6 +17,7 @@ A [RE_Kenshi](https://github.com/BFrizzleFoShizzle/RE_Kenshi) plugin that lets t
 - **New slaves follow and guard** whoever enslaved them (native `BODYGUARD` order, or follow only).
 - **Relations.** Enslaving someone from another faction lowers your relation with it (default −5). Freeing gives a little back (default +2, always less than the loss).
 - **Submission** (0–100) for every slave: Defiant, Restless, Obedient or Loyal. New slaves start at 30 (+10 if they were caged or chained) and slowly get used to their condition while watched (+2 per day, up to 60). Select a slave to see a bar with it over their head. Saved with each save game, in the mod's `saves` folder.
+- **Races and subraces** take slavery differently (table in `SlaverMod_races.ini`, editable): Hive Worker Drones start at 60 and rarely run, Soldier Drones at 45, Princes at 20, Shek at 10 (proud: they lose submission fast, run more and punishment does little), the QueenBirth Hive Queen at 5, Skeletons barely care about punishment. Other races use the defaults.
 - **Supervision.** A slave is watched when a free, awake member is nearby (or when caged). Unwatched slaves lose submission (−5 per day) and the bar over them says *unwatched*.
 - **Escape.** Slaves below 50 submission may run away, mostly when unwatched (shackles halve the chance; caged, chained or unconscious slaves never run). A runaway goes back to the faction they were taken from (Drifters if unknown), gets out of the shackles and flees. Knock them out to enslave them again: they come back with 10 less submission. Runaways are forgotten 30 days after escaping (or when they die).
 - **Punishment and reward.** The right-click menu over one of your slaves also offers **Punish** (+15 submission and some blunt damage on a limb; repeating it within a day gives less and hurts more) and **Reward** (+5 submission for 100 cats, once a day). A slave in a **cage** gains +10 submission per day, up to 75.
@@ -39,7 +40,7 @@ Works with the base game: every item and faction it uses is vanilla. Also tested
 
 ## Installation
 
-1. Subscribe on the [Steam Workshop](https://steamcommunity.com/sharedfiles/filedetails/?id=3828708454), or copy the `SlaverMod` folder (`SlaverMod.dll`, `SlaverMod.mod`, `RE_Kenshi.json`, `SlaverMod.ini`) into `Kenshi/mods/`.
+1. Subscribe on the [Steam Workshop](https://steamcommunity.com/sharedfiles/filedetails/?id=3828708454), or copy the `SlaverMod` folder (`SlaverMod.dll`, `SlaverMod.mod`, `RE_Kenshi.json`, `SlaverMod.ini`, `SlaverMod_races.ini`) into `Kenshi/mods/`.
 2. Enable **SlaverMod** in the launcher's mod list.
 3. Adjust the options in `SlaverMod.ini` (commented) or in *Options > MCM*. For Portuguese, set `Language=pt`.
 
@@ -101,6 +102,7 @@ Plugin [RE_Kenshi](https://github.com/BFrizzleFoShizzle/RE_Kenshi) que deixa a f
 - **O recém-escravizado segue e protege** quem o escravizou (ordem nativa `BODYGUARD`, ou só seguir).
 - **Relações.** Escravizar alguém de outra facção reduz a relação com ela (padrão −5). Libertar devolve um pouco (padrão +2, sempre menos que a perda).
 - **Submissão** (0–100) de cada escravo: Rebelde, Inquieto, Obediente ou Leal. Escravos novos começam com 30 (+10 se estavam presos ou acorrentados) e se acostumam aos poucos enquanto vigiados (+2 por dia, até 60). Selecione um escravo para ver a barra sobre a cabeça dele. Salva junto com cada save, na pasta `saves` do mod.
+- **Raças e sub-raças** reagem diferente à escravidão (tabela editável em `SlaverMod_races.ini`): o Operário da colmeia começa com 60 e quase não foge, o Soldado com 45, o Príncipe com 20, o Shek com 10 (orgulhoso: perde submissão rápido, foge mais e a punição adianta pouco), a Rainha do QueenBirth com 5, e Esqueletos quase não ligam para punição. As outras raças usam os valores padrão.
 - **Supervisão.** O escravo está vigiado quando há um membro livre e acordado por perto (ou quando está numa jaula). Sem vigilância ele perde submissão (−5 por dia), e a barra sobre ele mostra *sem vigilância*.
 - **Fuga.** Escravos com submissão abaixo de 50 podem fugir, principalmente sem vigilância (grilhões cortam a chance pela metade; presos em jaula, acorrentados ou desmaiados nunca fogem). O fugitivo volta para a facção de onde veio (Drifters se for desconhecida), se livra dos grilhões e corre. Derrube-o para escravizar de novo: ele volta com 10 de submissão a menos. Fugitivos são esquecidos 30 dias depois da fuga (ou quando morrem).
 - **Punição e recompensa.** O menu do botão direito sobre um escravo seu também tem **Punir** (+15 de submissão e um pouco de dano de impacto num membro; repetir no mesmo dia rende menos e machuca mais) e **Recompensar** (+5 de submissão por 100 cats, uma vez por dia). Escravo numa **jaula** ganha +10 de submissão por dia, até 75.

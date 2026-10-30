@@ -118,7 +118,10 @@ Punir demais pode baixar a submissão de escravos com submissão alta, ou deixar
 **Para pesquisar:** como aplicar dano controlado (`MedicalSystem` / `CharBody`) e uma animação de ataque sem iniciar
 combate de verdade.
 
-## Fase 4 — Raças e sub-raças (v1.6)
+## Fase 4 — Raças e sub-raças (v1.6) ✅
+
+**Testada no jogo.** Tabela embutida + `SlaverMod_races.ini` (Start, Cap, Gain, Loss, Escape,
+Punish por ID de raça; `[default]` para as demais). Liga/desliga com `RaceTraits`.
 
 Uma tabela em `SlaverMod_races.ini`, editável, com estes campos por raça:
 

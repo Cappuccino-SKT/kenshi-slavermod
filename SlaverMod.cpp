@@ -22,6 +22,7 @@
 #include <kenshi/SaveManager.h>
 #include <kenshi/FactionWarMgr.h>
 #include <kenshi/Damages.h>
+#include <kenshi/RaceData.h>
 
 #include <kenshi/Animation/AnimationClass.h>
 #include <kenshi/util/hand.h>
@@ -192,6 +193,7 @@ struct Settings
     std::string rewardAnimation;
     float cageDailyGain;               // extra submission per day in a cage
     float cageSubmissionCap;
+    bool raceTraits;                   // races and subraces take slavery differently (SlaverMod_races.ini)
     std::string escapeTestKey;
     float relationLoss;
     float relationGain;
@@ -294,6 +296,7 @@ static void LoadSettings()
     g_cfg.rewardAnimation = IniString("RewardAnimation", "");
     g_cfg.cageDailyGain = IniFloat("CageDailyGain", 10.0f);
     g_cfg.cageSubmissionCap = IniFloat("CageSubmissionCap", 75.0f);
+    g_cfg.raceTraits = IniBool("RaceTraits", true);
     g_cfg.escapeTestKey = IniString("EscapeTestKey", "CTRL+SHIFT+E");
     g_cfg.relationLoss = IniFloat("RelationLoss", 5.0f);
     g_cfg.relationGain = IniFloat("RelationGain", 2.0f);
@@ -321,7 +324,7 @@ static void LoadSettings()
           " safe=" + Num(g_cfg.escapeSafeDistance) + " recapture=" + Num(g_cfg.escapeRecapturePenalty) + " forget=" + Num(g_cfg.escapeForgetDays) +
           " punish=" + Num(g_cfg.punishEnabled) + "/" + Num(g_cfg.punishSubmission) + "/" + Num(g_cfg.punishDamage) + "/" + Num(g_cfg.punishCooldownDays) +
           "d anim='" + g_cfg.punishAnimation + "'/'" + g_cfg.punishVictimAnimation + "' reward=" + Num(g_cfg.rewardEnabled) + "/" + Num(g_cfg.rewardSubmission) +
-          "/" + Num((float)g_cfg.rewardCost) + "cats/" + Num(g_cfg.rewardCooldownDays) + "d cage=" + Num(g_cfg.cageDailyGain) + "/" + Num(g_cfg.cageSubmissionCap) + " relationLoss=" + Num(g_cfg.relationLoss) + " relationGain=" + Num(g_cfg.relationGain) +
+          "/" + Num((float)g_cfg.rewardCost) + "cats/" + Num(g_cfg.rewardCooldownDays) + "d cage=" + Num(g_cfg.cageDailyGain) + "/" + Num(g_cfg.cageSubmissionCap) + " races=" + Num(g_cfg.raceTraits) + " relationLoss=" + Num(g_cfg.relationLoss) + " relationGain=" + Num(g_cfg.relationGain) +
           " escort=" + Num(g_cfg.slaveEscort) + "/" + g_cfg.escortMode);
 }
 
@@ -1045,10 +1048,108 @@ static Faction* OriginFaction(const std::string& sid)
     return sid.empty() || ou->factionMgr == 0 ? 0 : ou->factionMgr->getFactionByStringID(sid);
 }
 
+// ---------------------------------------------------------------------------
+// Race traits: how each race and subrace takes slavery. Built-in values below,
+// overridden or extended by SlaverMod_races.ini (one [race string ID] section each).
+// Start = starting submission, Cap = limit of the daily gain (-1 = SubmissionGainCap),
+// Gain / Loss / Escape / Punish = multipliers on submission gained, submission lost
+// unwatched, escape chance and punishment effect.
+// ---------------------------------------------------------------------------
+
+struct RaceTraits
+{
+    std::string name;
+    float start, cap, gain, loss, escape, punish;
+};
+
+static std::map<std::string, RaceTraits> g_races;
+static RaceTraits g_defaultRace;
+
+static void AddRace(const char* sid, const char* name, float start, float cap, float gain, float loss, float escape, float punish)
+{
+    RaceTraits t;
+    t.name = name;
+    t.start = start; t.cap = cap; t.gain = gain; t.loss = loss; t.escape = escape; t.punish = punish;
+    g_races[sid] = t;
+}
+
+static void LoadRaces()
+{
+    g_races.clear();
+    g_defaultRace.name = "default";
+    g_defaultRace.start = g_cfg.submissionStart;
+    g_defaultRace.cap = -1.0f;
+    g_defaultRace.gain = g_defaultRace.loss = g_defaultRace.escape = g_defaultRace.punish = 1.0f;
+
+    //       string ID                   name                             start  cap  gain loss escape punish
+    AddRace("17-gamedata.quack",        "Greenlander",                    30, -1, 1.0f, 1.0f, 1.0f, 1.0f);
+    AddRace("18019-gamedata.base",      "Scorchlander",                   25, -1, 1.0f, 1.0f, 1.1f, 1.0f);
+    AddRace("5276-chareditor.mod",      "Shek",                           10, 50, 0.6f, 1.5f, 1.4f, 0.5f);
+    AddRace("18960-gamedata.base",      "Hive Worker Drone",              60, 85, 1.5f, 0.5f, 0.4f, 1.2f);
+    AddRace("57772-Newwworld.mod",      "Hive Worker Drone South Hive",   60, 85, 1.5f, 0.5f, 0.4f, 1.2f);
+    AddRace("18961-gamedata.base",      "Hive Soldier Drone",             45, 70, 1.2f, 0.8f, 0.7f, 1.0f);
+    AddRace("57771-Newwworld.mod",      "Hive Soldier Drone South Hive",  45, 70, 1.2f, 0.8f, 0.7f, 1.0f);
+    AddRace("5346-stick_people.mod",    "Hive Prince",                    20, -1, 0.8f, 1.2f, 1.2f, 0.8f);
+    AddRace("57770-Newwworld.mod",      "Hive Prince South Hive",         20, -1, 0.8f, 1.2f, 1.2f, 0.8f);
+    AddRace("57335-Newwworld.mod",      "Hive Queen (QueenBirth)",         5, 40, 0.4f, 1.5f, 1.5f, 0.4f);
+    AddRace("17946-stick_people.mod",   "Skeleton",                       25, -1, 0.8f, 1.0f, 1.0f, 0.3f);
+    AddRace("57778-Newwworld.mod",      "Skeleton P4 Unit",               25, -1, 0.8f, 1.0f, 1.0f, 0.3f);
+    AddRace("57782-Newwworld.mod",      "Skeleton Soldierbot",            25, -1, 0.8f, 1.0f, 1.0f, 0.3f);
+    AddRace("57774-Newwworld.mod",      "Skeleton Screamer MkI",          25, -1, 0.8f, 1.0f, 1.0f, 0.3f);
+
+    // SlaverMod_races.ini: [default] and any [string ID] section
+    std::string file = g_modDir + "SlaverMod_races.ini";
+    char names[16384] = {0};
+    DWORD n = GetPrivateProfileSectionNamesA(names, sizeof(names), file.c_str());
+    int fromFile = 0;
+    for (const char* sec = names; n > 0 && *sec != 0; sec += strlen(sec) + 1)
+    {
+        std::string sid = sec;
+        bool isDefault = sid == "default";
+        RaceTraits base = isDefault ? g_defaultRace : (g_races.count(sid) ? g_races[sid] : g_defaultRace);
+        char buf[256];
+        RaceTraits t = base;
+        GetPrivateProfileStringA(sec, "Name", base.name.c_str(), buf, sizeof(buf), file.c_str()); t.name = buf;
+        const char* keys[6] = { "Start", "Cap", "Gain", "Loss", "Escape", "Punish" };
+        float* values[6] = { &t.start, &t.cap, &t.gain, &t.loss, &t.escape, &t.punish };
+        for (int k = 0; k < 6; k++)
+        {
+            GetPrivateProfileStringA(sec, keys[k], "", buf, sizeof(buf), file.c_str());
+            if (buf[0] != 0)
+                *values[k] = (float)atof(buf);
+        }
+        if (isDefault)
+            g_defaultRace = t;
+        else
+            g_races[sid] = t;
+        fromFile++;
+    }
+    Trace("races: " + Num((float)g_races.size()) + " known, " + Num((float)fromFile) + " section(s) from SlaverMod_races.ini");
+}
+
+static std::string RaceID(Character* c)
+{
+    RaceData* race = c != 0 ? c->getRace() : 0;
+    return race != 0 && race->data != 0 ? race->data->stringID : "";
+}
+
+static const RaceTraits& TraitsOf(Character* c)
+{
+    if (!g_cfg.raceTraits)
+        return g_defaultRace;
+    std::map<std::string, RaceTraits>::const_iterator it = g_races.find(RaceID(c));
+    return it != g_races.end() ? it->second : g_defaultRace;
+}
+
+static float GainCapOf(const RaceTraits& t)
+{
+    return t.cap >= 0.0f ? t.cap : g_cfg.submissionGainCap;
+}
+
 static float SubmissionOf(Character* c)
 {
     SlaveRecord* r = FindRecord(c);
-    return r != 0 ? r->submission : g_cfg.submissionStart;
+    return r != 0 ? r->submission : TraitsOf(c).start;
 }
 
 static std::string SubmissionLevel(float s)
@@ -1083,7 +1184,7 @@ static void SyncRecords()
         SlaveRecord* r = FindRecord(c);
         if (r == 0)
         {
-            r = &CreateRecord(c, LegacyOrigin(c), g_cfg.submissionStart);
+            r = &CreateRecord(c, LegacyOrigin(c), TraitsOf(c).start);
             created++;
         }
         else if (r->name != c->getName())
@@ -1150,6 +1251,7 @@ static void UpdateSubmission()
         SlaveRecord* r = FindRecord(c);
         if (r == 0)
             continue;
+        const RaceTraits& race = TraitsOf(c);
         float dist = 0.0f;
         bool supervised = !g_cfg.supervisionEnabled || IsSupervised(c, &dist);
         float& alone = g_unsupervisedDays[SlaveKey(c)];
@@ -1157,16 +1259,17 @@ static void UpdateSubmission()
         if (supervised)
         {
             alone = 0.0f;
-            if (r->submission < g_cfg.submissionGainCap)
+            float cap = GainCapOf(race);
+            if (r->submission < cap)
             {
-                r->submission += (float)(g_cfg.submissionDailyGain * days);
-                if (r->submission > g_cfg.submissionGainCap)
-                    r->submission = g_cfg.submissionGainCap;
+                r->submission += (float)(g_cfg.submissionDailyGain * race.gain * days);
+                if (r->submission > cap)
+                    r->submission = cap;
             }
             // time in a cage breaks them faster, up to CageSubmissionCap
             if (c->inSomething == IN_PRISON && r->submission < g_cfg.cageSubmissionCap)
             {
-                r->submission += (float)(g_cfg.cageDailyGain * days);
+                r->submission += (float)(g_cfg.cageDailyGain * race.gain * days);
                 if (r->submission > g_cfg.cageSubmissionCap)
                     r->submission = g_cfg.cageSubmissionCap;
             }
@@ -1174,7 +1277,7 @@ static void UpdateSubmission()
         else
         {
             alone += (float)days;
-            r->submission = ClampSubmission(r->submission - (float)(g_cfg.submissionUnsupervisedLoss * days));
+            r->submission = ClampSubmission(r->submission - (float)(g_cfg.submissionUnsupervisedLoss * race.loss * days));
         }
         if (!supervised || (int)before != (int)r->submission)
             Trace("slave '" + c->getName() + "' supervised=" + Num(supervised) + " guard dist=" + Num(dist) +
@@ -1453,7 +1556,7 @@ static void Punish(Character* performer, Character* target)
     d.punishStreak = now - d.lastPunishDay < g_cfg.punishCooldownDays ? d.punishStreak + 1 : 0;
     d.lastPunishDay = now;
 
-    float gain = g_cfg.punishSubmission / (1.0f + d.punishStreak);
+    float gain = g_cfg.punishSubmission * TraitsOf(target).punish / (1.0f + d.punishStreak);
     float damage = g_cfg.punishDamage * (1.0f + d.punishStreak);
     MedicalSystem::HealthPartStatus* limbs[4] = { target->medical.leftArm, target->medical.rightArm, target->medical.leftLeg, target->medical.rightLeg };
     std::vector<MedicalSystem::HealthPartStatus*> flesh;
@@ -1494,7 +1597,7 @@ static void Reward(Character* performer, Character* target)
     }
     d.lastRewardDay = now;
     float before = r->submission;
-    r->submission = ClampSubmission(r->submission + g_cfg.rewardSubmission);
+    r->submission = ClampSubmission(r->submission + g_cfg.rewardSubmission * TraitsOf(target).gain);
     Trace("reward '" + target->getName() + "' by '" + performer->getName() + "' for " + Num((float)g_cfg.rewardCost) +
           " cats: submission " + Num(before) + " -> " + Num(r->submission));
     ShowNotice(performer->getName() + T(" rewarded ", " recompensou ") + target->getName() + " (" + Num((float)g_cfg.rewardCost) + " cats). " +
@@ -1532,7 +1635,8 @@ static void CompleteAction(SlaveAction action, Character* performer, Character* 
         EnslaveOwnMember(target, performer);
         if (IsOurSlave(target))
         {
-            SlaveRecord& r = CreateRecord(target, "", g_cfg.submissionStart);
+            Trace("race of '" + target->getName() + "': " + RaceID(target) + " -> " + TraitsOf(target).name);
+            SlaveRecord& r = CreateRecord(target, "", TraitsOf(target).start);
             ShowNotice(target->getName() + T(" is now a slave. ", " agora e escravo(a). ") + SubmissionText(r.submission) + ".");
             GiveShackles(target);
             QueueEscort(target, performer);
@@ -1542,7 +1646,9 @@ static void CompleteAction(SlaveAction action, Character* performer, Character* 
     Faction* victimFaction = target->getFaction();   // before recruiting moves them to ours
     std::string origin = victimFaction != 0 && victimFaction->getData() != 0 ? victimFaction->getData()->stringID : "";
     bool wasPrisoner = target->inSomething == IN_PRISON || target->isChainedMode();   // before unchaining
-    float start = g_cfg.submissionStart + (wasPrisoner ? g_cfg.submissionPrisonerBonus : 0.0f);
+    const RaceTraits& race = TraitsOf(target);
+    float start = race.start + (wasPrisoner ? g_cfg.submissionPrisonerBonus : 0.0f);
+    Trace("race of '" + target->getName() + "': " + RaceID(target) + " -> " + race.name);
     SlaveRecord* runaway = FindRecord(target);
     bool recaptured = runaway != 0 && runaway->escaped;
     if (recaptured)
@@ -2427,7 +2533,7 @@ static void TryEscape(Character* c, SlaveRecord& r, double days, bool supervised
     for (size_t i = 0; i < g_pending.size(); i++)
         if (g_pending[i].target.getCharacter() == c)
             return;
-    float daily = g_cfg.escapeDailyChance * (1.0f - r.submission / g_cfg.escapeMaxSubmission);
+    float daily = g_cfg.escapeDailyChance * TraitsOf(c).escape * (1.0f - r.submission / g_cfg.escapeMaxSubmission);
     if (supervised)
         daily *= g_cfg.escapeSupervisedMult;
     bool shackled = WearsShackles(c);
@@ -2669,6 +2775,7 @@ void SaveManager_newGame_hook(SaveManager* thisptr, const std::string& startId)
 static void __cdecl ReloadSettings()
 {
     LoadSettings();
+    LoadRaces();
     ParseHotkey();
 }
 
@@ -2734,11 +2841,14 @@ extern "C" __declspec(dllexport) void MCM_Describe(MCM_Api* api)
     api->toggle(api, sec, "ShowSubmission", L("Show over the selected slave", "Mostrar sobre o escravo selecionado"),
                 L("A bar with the submission over the slave you select.", "Uma barra com a submissão sobre o escravo que você seleciona."), 1, 0);
     api->integer(api, sec, "SubmissionStart", L("Starting submission", "Submissão inicial"),
-                 L("Submission (0-100) of a new slave.", "Submissão (0-100) de um novo escravo."), 30, 0, 100, 0);
+                 L("Submission (0-100) of a new slave whose race has no value of its own.", "Submissão (0-100) de um escravo novo cuja raça não tem valor próprio."), 30, 0, 100, 0);
     api->integer(api, sec, "SubmissionPrisonerBonus", L("Bonus if caged or chained", "Bônus se estava preso ou acorrentado"),
                  L("Added when the slave was a prisoner when enslaved.", "Somado quando o escravo estava preso ao ser escravizado."), 10, 0, 100, 0);
     api->number(api, sec, "SubmissionDailyGain", L("Gain per day", "Ganho por dia"),
                 L("Slaves slowly get used to their condition.", "Os escravos se acostumam aos poucos com a condição."), 2.0f, 0.0f, 20.0f, 1, 0);
+    api->toggle(api, sec, "RaceTraits", L("Race differences", "Diferenças entre raças"),
+                L("Each race and subrace starts with its own submission and gains, loses and escapes at its own pace. Table: SlaverMod_races.ini.",
+                  "Cada raça e sub-raça começa com sua própria submissão e ganha, perde e foge no seu ritmo. Tabela: SlaverMod_races.ini."), 1, 0);
     api->integer(api, sec, "SubmissionGainCap", L("Limit of the daily gain", "Limite do ganho diário"),
                  L("Time alone does not raise submission above this.", "Só o tempo não faz a submissão passar disto."), 60, 0, 100, 0);
 
@@ -2835,9 +2945,10 @@ __declspec(dllexport) void startPlugin()
 {
     InitModDir();
     LoadSettings();
+    LoadRaces();
     ParseHotkey();
     srand(GetTickCount());
-    Trace("startPlugin v1.5");
+    Trace("startPlugin v1.6");
 
     if (KenshiLib::SUCCESS != KenshiLib::AddHook(KenshiLib::GetRealAddress(&GameWorld::_NV_mainLoop_GPUSensitiveStuff), GameWorld_update_hook, (void**)&GameWorld_update_orig))
         ErrorLog("SlaverMod: could not add GameWorld update hook!");

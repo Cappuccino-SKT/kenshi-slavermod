@@ -48,9 +48,9 @@ powershell -ExecutionPolicy Bypass -File tools\deploy.ps1 -Build
 ## Release
 
 1. Bump the version in `startPlugin()` (`Trace("startPlugin vX.Y")`), README and `workshop/description.txt` if features changed.
-2. Commit, push, then `gh release create vX.Y dist/SlaverMod-vX.Y.zip` (zip = `SlaverMod/` with dll, RE_Kenshi.json, .mod, public .ini).
+2. Commit, push, then `gh release create vX.Y dist/SlaverMod-vX.Y.zip` (zip = `SlaverMod/` with dll, RE_Kenshi.json, .mod, public .ini and `SlaverMod_races.ini`).
 3. Workshop update (Felipe does it in the FCS):
-   - Before: copy the personal `SlaverMod.ini` to `C:\KenshiDev\SlaverMod_pessoal`, move `SlaverMod_origins.ini`, the `saves\` folder and logs there, put the public ini (`mod/SlaverMod/SlaverMod.ini`) in the game folder.
+   - Before: copy the personal `SlaverMod.ini` to `C:\KenshiDev\SlaverMod_pessoal`, move `SlaverMod_origins.ini`, the `saves\` folder and logs there, put the public ini files (`mod/SlaverMod/SlaverMod.ini` and `SlaverMod_races.ini`) in the game folder.
    - In the FCS info dialog: the Steam ID box shows a placeholder `123456789` until refreshed; the upload still uses `<id>` from `_SlaverMod.info` (3828708454). The status bar must say "Uploading...", not "Creating...".
    - **Do not click any tag** in that dialog: it rebuilds the tag list from the checkboxes and drops the custom `RE_Kenshi` tag (kept only in `_SlaverMod.info`).
    - The FCS replaces the Workshop description with the short `.mod` description: paste `workshop/description.txt` on the Workshop page again after every upload.
