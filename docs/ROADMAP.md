@@ -170,7 +170,7 @@ líder, pano para os caçadores).
 - "I'm looking to buy slaves" → `CHOOSE_SLAVES_BUYING` (janela de compra);
 - "I want to sell some slaves" → `CHOOSE_SLAVES_SELLING` (janela de venda).
 A versão de pesquisa registra no log as ações de diálogo de dinheiro/escravos (gancho em `Dialogue::_doActions`) e
-quem entra/sai da facção do jogador (`trade research:`), para decidir o desenho com dados do jogo.
+quem entra/sai da facção do jogador (`watch:`), para decidir o desenho com dados do jogo.
 
 Resultado do teste do jogo base: a janela de venda lista os membros do esquadrão; o vendido vira escravo do traficante
 mas continua na facção do jogador (dá para vender de novo sem fim); comprar (c.1000 cada) liberta o escravo, que vai

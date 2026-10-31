@@ -3477,9 +3477,8 @@ static void UpdateTradeWindow()
 }
 
 // ---------------------------------------------------------------------------
-// Slave trade research (phase 6): logs what the game's own slave shop does, so
-// the trade can be designed on facts. Dialogue actions about money and slaves, and
-// every character that joins or leaves the player's faction.
+// Watch (log only): dialogue actions about money and slaves, and every character
+// that joins or leaves the player's faction. Also where our trade window takes over.
 // ---------------------------------------------------------------------------
 
 static const char* SlaveDialogActionName(int key)
@@ -3539,7 +3538,7 @@ void Dialogue_doActions_hook(Dialogue* thisptr, DialogLineData* line)
         return;
     Character* me = thisptr != 0 ? thisptr->me : 0;
     Character* target = thisptr != 0 ? thisptr->conversationTarget.getCharacter() : 0;
-    Trace("trade research: dialog of '" + (me != 0 ? me->getName() : std::string("?")) + "' (" +
+    Trace("watch: dialog of '" + (me != 0 ? me->getName() : std::string("?")) + "' (" +
           (me != 0 && me->getFaction() != 0 ? me->getFaction()->getName() : std::string("?")) + ") with '" +
           (target != 0 ? target->getName() : std::string("?")) + "':" + found + " money " + Num((float)before) + " -> " + Num((float)PlayerMoney()));
 }
@@ -3655,13 +3654,13 @@ static void WatchMembers(float dt, bool reset)
         {
             std::map<std::string, std::string>::const_iterator old = g_members.find(it->first);
             if (old == g_members.end())
-                Trace("trade research: joined [" + it->first + "] " + it->second + " record=" + Num(g_records.count(it->first) > 0) + " money=" + Num((float)PlayerMoney()));
+                Trace("watch: joined [" + it->first + "] " + it->second + " record=" + Num(g_records.count(it->first) > 0) + " money=" + Num((float)PlayerMoney()));
             else if (old->second != it->second)
-                Trace("trade research: changed [" + it->first + "] " + old->second + " -> " + it->second);
+                Trace("watch: changed [" + it->first + "] " + old->second + " -> " + it->second);
         }
         for (std::map<std::string, std::string>::const_iterator it = g_members.begin(); it != g_members.end(); ++it)
             if (now.find(it->first) == now.end())
-                Trace("trade research: left [" + it->first + "] " + it->second + " record=" + Num(g_records.count(it->first) > 0) + " money=" + Num((float)PlayerMoney()));
+                Trace("watch: left [" + it->first + "] " + it->second + " record=" + Num(g_records.count(it->first) > 0) + " money=" + Num((float)PlayerMoney()));
     }
     g_members.swap(now);
 }
