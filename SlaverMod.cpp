@@ -23,6 +23,7 @@
 #include <kenshi/FactionWarMgr.h>
 #include <kenshi/Damages.h>
 #include <kenshi/RaceData.h>
+#include <kenshi/Dialogue.h>
 
 #include <kenshi/Animation/AnimationClass.h>
 #include <kenshi/util/hand.h>
@@ -34,6 +35,8 @@
 #include <mygui/MyGUI_TextBox.h>
 #include <mygui/MyGUI_Delegate.h>
 #include <mygui/MyGUI_RenderManager.h>
+#include <mygui/MyGUI_Window.h>
+#include <mygui/MyGUI_MultiListBox.h>
 
 #include <core/Functions.h>
 
@@ -180,12 +183,19 @@ struct Settings
     float escapeSafeDistance;
     float escapeRecapturePenalty;
     float escapeForgetDays;            // runaways are forgotten after this many game days (0 = never)
+    float freeStayMinSubmission;       // freed slaves at or above it stay in the faction; below it they go home
+    std::string freedSquadTemplate;    // squad template whose AI the freed get (default: UC escaped slave, like runaways)
+    std::string escapeSquadTemplate;   // squad template whose AI runaways get (default: UC escaped slave)
+    std::string freedGoal;             // how the freed who leave move away: run_away | forced | total | hometown
     bool punishEnabled;
     float punishSubmission;            // first punishment; each one within PunishCooldownDays gives less
     float punishDamage;                // blunt damage on a limb; grows with repeated punishments
     float punishCooldownDays;
     std::string punishAnimation;       // performer
     std::string punishVictimAnimation; // slave
+    std::string punishAnimBlade, punishAnimHeavy, punishAnimUnarmed;   // swings by weapon type ('|' = first that exists)
+    std::string punishHitAnimation;    // the slave flinches at each swing (one picked at random)
+    bool speech;                       // speech bubbles for slavers and slaves
     bool rewardEnabled;
     float rewardSubmission;
     int rewardCost;                    // cats
@@ -194,6 +204,11 @@ struct Settings
     float cageDailyGain;               // extra submission per day in a cage
     float cageSubmissionCap;
     bool raceTraits;                   // races and subraces take slavery differently (SlaverMod_races.ini)
+    bool tradeWindow;                  // our buy / sell window at slave traders
+    bool protectSlaves;                // other factions' slavers leave the player's slaves alone
+    bool allowStealingSlaves;          // enslave other factions' slaves (off: they are their owners' property)
+    bool disableCarriedSale;           // hide the fixed 400 cats offer for a carried person
+    float tradeBaseValue, tradeStatValue, tradeBuyMult, tradeSellMult, tradeBoughtBonus, tradeRadius;
     std::string escapeTestKey;
     float relationLoss;
     float relationGain;
@@ -283,12 +298,21 @@ static void LoadSettings()
     g_cfg.escapeSafeDistance = IniFloat("EscapeSafeDistance", 1500.0f);
     g_cfg.escapeRecapturePenalty = IniFloat("EscapeRecapturePenalty", 10.0f);
     g_cfg.escapeForgetDays = IniFloat("EscapeForgetDays", 30.0f);
+    g_cfg.freeStayMinSubmission = IniFloat("FreeStayMinSubmission", 90.0f);
+    g_cfg.freedSquadTemplate = IniString("FreedSquadTemplate", "54294-rebirth.mod");
+    g_cfg.escapeSquadTemplate = IniString("EscapeSquadTemplate", "54294-rebirth.mod");
+    g_cfg.freedGoal = IniString("FreedGoal", "forced");
     g_cfg.punishEnabled = IniBool("PunishEnabled", true);
     g_cfg.punishSubmission = IniFloat("PunishSubmission", 15.0f);
     g_cfg.punishDamage = IniFloat("PunishDamage", 10.0f);
     g_cfg.punishCooldownDays = IniFloat("PunishCooldownDays", 1.0f);
     g_cfg.punishAnimation = IniString("PunishAnimation", "");
     g_cfg.punishVictimAnimation = IniString("PunishVictimAnimation", "kneeling hostage idle");
+    g_cfg.punishAnimBlade = IniString("PunishAnimBlade", "chop down static");
+    g_cfg.punishAnimHeavy = IniString("PunishAnimHeavy", "chop down static");
+    g_cfg.punishAnimUnarmed = IniString("PunishAnimUnarmed", "chop down static");
+    g_cfg.punishHitAnimation = IniString("PunishHitAnimation", "");
+    g_cfg.speech = IniBool("Speech", true);
     g_cfg.rewardEnabled = IniBool("RewardEnabled", true);
     g_cfg.rewardSubmission = IniFloat("RewardSubmission", 5.0f);
     g_cfg.rewardCost = (int)IniFloat("RewardCost", 100.0f);
@@ -297,6 +321,16 @@ static void LoadSettings()
     g_cfg.cageDailyGain = IniFloat("CageDailyGain", 10.0f);
     g_cfg.cageSubmissionCap = IniFloat("CageSubmissionCap", 75.0f);
     g_cfg.raceTraits = IniBool("RaceTraits", true);
+    g_cfg.tradeWindow = IniBool("TradeWindow", true);
+    g_cfg.protectSlaves = IniBool("ProtectSlaves", true);
+    g_cfg.allowStealingSlaves = IniBool("AllowStealingSlaves", false);
+    g_cfg.disableCarriedSale = IniBool("DisableCarriedSale", true);
+    g_cfg.tradeBaseValue = IniFloat("TradeBaseValue", 300.0f);
+    g_cfg.tradeStatValue = IniFloat("TradeStatValue", 12.0f);
+    g_cfg.tradeBuyMult = IniFloat("TradeBuyMult", 2.0f);
+    g_cfg.tradeSellMult = IniFloat("TradeSellMult", 1.0f);
+    g_cfg.tradeBoughtBonus = IniFloat("TradeBoughtBonus", 15.0f);
+    g_cfg.tradeRadius = IniFloat("TradeRadius", 1500.0f);
     g_cfg.escapeTestKey = IniString("EscapeTestKey", "CTRL+SHIFT+E");
     g_cfg.relationLoss = IniFloat("RelationLoss", 5.0f);
     g_cfg.relationGain = IniFloat("RelationGain", 2.0f);
@@ -321,10 +355,12 @@ static void LoadSettings()
           " unwatchedLoss=" + Num(g_cfg.submissionUnsupervisedLoss) + " escape=" + Num(g_cfg.escapeEnabled) + " max=" + Num(g_cfg.escapeMaxSubmission) +
           " daily=" + Num(g_cfg.escapeDailyChance) + " watched=" + Num(g_cfg.escapeSupervisedMult) + " shackled=" + Num(g_cfg.escapeShackledMult) +
           " faction=" + g_cfg.escapeFaction + " mark=" + Num(g_cfg.escapeMarkEscaped) + " unshackle=" + Num(g_cfg.escapeRemoveShackles) + " goal=" + g_cfg.escapeGoal +
-          " safe=" + Num(g_cfg.escapeSafeDistance) + " recapture=" + Num(g_cfg.escapeRecapturePenalty) + " forget=" + Num(g_cfg.escapeForgetDays) +
+          " safe=" + Num(g_cfg.escapeSafeDistance) + " recapture=" + Num(g_cfg.escapeRecapturePenalty) + " forget=" + Num(g_cfg.escapeForgetDays) + " freeStay=" + Num(g_cfg.freeStayMinSubmission) + " freedAI=" + g_cfg.freedSquadTemplate + " escapeAI=" + g_cfg.escapeSquadTemplate +
           " punish=" + Num(g_cfg.punishEnabled) + "/" + Num(g_cfg.punishSubmission) + "/" + Num(g_cfg.punishDamage) + "/" + Num(g_cfg.punishCooldownDays) +
-          "d anim='" + g_cfg.punishAnimation + "'/'" + g_cfg.punishVictimAnimation + "' reward=" + Num(g_cfg.rewardEnabled) + "/" + Num(g_cfg.rewardSubmission) +
-          "/" + Num((float)g_cfg.rewardCost) + "cats/" + Num(g_cfg.rewardCooldownDays) + "d cage=" + Num(g_cfg.cageDailyGain) + "/" + Num(g_cfg.cageSubmissionCap) + " races=" + Num(g_cfg.raceTraits) + " relationLoss=" + Num(g_cfg.relationLoss) + " relationGain=" + Num(g_cfg.relationGain) +
+          "d anim='" + g_cfg.punishAnimation + "'/'" + g_cfg.punishVictimAnimation + "' speech=" + Num(g_cfg.speech) + " reward=" + Num(g_cfg.rewardEnabled) + "/" + Num(g_cfg.rewardSubmission) +
+          "/" + Num((float)g_cfg.rewardCost) + "cats/" + Num(g_cfg.rewardCooldownDays) + "d cage=" + Num(g_cfg.cageDailyGain) + "/" + Num(g_cfg.cageSubmissionCap) + " races=" + Num(g_cfg.raceTraits) + " trade=" + Num(g_cfg.tradeWindow) + " protect=" + Num(g_cfg.protectSlaves) + " steal=" + Num(g_cfg.allowStealingSlaves) + " noCarriedSale=" + Num(g_cfg.disableCarriedSale) +
+          " value=" + Num(g_cfg.tradeBaseValue) + "+" + Num(g_cfg.tradeStatValue) + "/stat buy x" + Num(g_cfg.tradeBuyMult) + " sell x" + Num(g_cfg.tradeSellMult) +
+          " bought+" + Num(g_cfg.tradeBoughtBonus) + " radius=" + Num(g_cfg.tradeRadius) + " relationLoss=" + Num(g_cfg.relationLoss) + " relationGain=" + Num(g_cfg.relationGain) +
           " escort=" + Num(g_cfg.slaveEscort) + "/" + g_cfg.escortMode);
 }
 
@@ -460,6 +496,13 @@ static bool IsEnslaveCandidate(Character* c, std::string* why)
     if (c == 0) { if (why) *why = T("no character", "nenhum personagem"); return false; }
     if (c->isDead()) { if (why) *why = T("the character is dead", "personagem morto"); return false; }
     if (IsPlayerFaction(c)) { if (why) *why = T("already in your faction", "ja e da sua faccao"); return false; }
+    // someone else's slave is their property: no stealing (a runaway, ESCAPING_SLAVE, is fair game)
+    if (c->isSlave() == IS_SLAVE && !g_cfg.allowStealingSlaves)
+    {
+        Character* owner = c->slaveOwner.getCharacter();
+        if (why) *why = T("is a slave of ", "e escravo(a) de ") + (owner != 0 && owner->getFaction() != 0 ? owner->getFaction()->getName() : T("someone else", "outra pessoa"));
+        return false;
+    }
 
     bool prisoner = c->inSomething == IN_PRISON;
     bool chained = c->isChainedMode();
@@ -638,7 +681,6 @@ static void FreeSlave(Character* target)
     SetSlaveState(target, NOT_SLAVE);
     target->changeSlaveOwner(hand());
     Trace("freed '" + name + "' slaveState=" + Num((float)target->isSlave()));
-    ShowNotice(name + T(" was freed and stays in your faction.", " foi libertado(a) e continua na sua faccao."));
 }
 
 // ---------------------------------------------------------------------------
@@ -1043,6 +1085,12 @@ static void ForgetRecord(Character* c)
     g_records.erase(SlaveKey(c));
 }
 
+// A squad template from the game data, used only for its AI packages (the squad stays empty).
+static GameData* SquadTemplate(const std::string& sid)
+{
+    return sid.empty() ? 0 : ou->gamedata.getData(sid, SQUAD_TEMPLATE);
+}
+
 static Faction* OriginFaction(const std::string& sid)
 {
     return sid.empty() || ou->factionMgr == 0 ? 0 : ou->factionMgr->getFactionByStringID(sid);
@@ -1060,6 +1108,7 @@ struct RaceTraits
 {
     std::string name;
     float start, cap, gain, loss, escape, punish;
+    float value;   // price multiplier in the slave trade
 };
 
 static std::map<std::string, RaceTraits> g_races;
@@ -1070,6 +1119,7 @@ static void AddRace(const char* sid, const char* name, float start, float cap, f
     RaceTraits t;
     t.name = name;
     t.start = start; t.cap = cap; t.gain = gain; t.loss = loss; t.escape = escape; t.punish = punish;
+    t.value = 1.0f;
     g_races[sid] = t;
 }
 
@@ -1079,7 +1129,7 @@ static void LoadRaces()
     g_defaultRace.name = "default";
     g_defaultRace.start = g_cfg.submissionStart;
     g_defaultRace.cap = -1.0f;
-    g_defaultRace.gain = g_defaultRace.loss = g_defaultRace.escape = g_defaultRace.punish = 1.0f;
+    g_defaultRace.gain = g_defaultRace.loss = g_defaultRace.escape = g_defaultRace.punish = g_defaultRace.value = 1.0f;
 
     //       string ID                   name                             start  cap  gain loss escape punish
     AddRace("17-gamedata.quack",        "Greenlander",                    30, -1, 1.0f, 1.0f, 1.0f, 1.0f);
@@ -1110,9 +1160,9 @@ static void LoadRaces()
         char buf[256];
         RaceTraits t = base;
         GetPrivateProfileStringA(sec, "Name", base.name.c_str(), buf, sizeof(buf), file.c_str()); t.name = buf;
-        const char* keys[6] = { "Start", "Cap", "Gain", "Loss", "Escape", "Punish" };
-        float* values[6] = { &t.start, &t.cap, &t.gain, &t.loss, &t.escape, &t.punish };
-        for (int k = 0; k < 6; k++)
+        const char* keys[7] = { "Start", "Cap", "Gain", "Loss", "Escape", "Punish", "Value" };
+        float* values[7] = { &t.start, &t.cap, &t.gain, &t.loss, &t.escape, &t.punish, &t.value };
+        for (int k = 0; k < 7; k++)
         {
             GetPrivateProfileStringA(sec, keys[k], "", buf, sizeof(buf), file.c_str());
             if (buf[0] != 0)
@@ -1328,6 +1378,7 @@ struct EscortOrder
     hand owner;
 };
 static std::vector<EscortOrder> g_escorts;
+static std::vector<hand> g_leavers;   // freed slaves walking away (pushed like runaways)
 static float g_escortTimer = 0.0f;
 
 static void QueueEscort(Character* slave, Character* owner)
@@ -1372,6 +1423,122 @@ static void UpdateEscorts(float dt)
 
 enum SlaveAction { ACT_ENSLAVE, ACT_FREE, ACT_PUNISH, ACT_REWARD };
 
+// ---------------------------------------------------------------------------
+// Speech: short lines in speech bubbles (Character::say) when slaves are taken,
+// punished, rewarded, freed, bought, sold, run away or rise up. Built-in lines (many
+// from the game's own slavers and slaves), replaced by SlaverMod_lines.ini when it has
+// the key in the [en] / [pt] section. Variants are separated by '|'.
+// ---------------------------------------------------------------------------
+
+struct Speech
+{
+    hand who;
+    std::string text;
+    DWORD at;
+};
+
+static std::vector<Speech> g_speech;
+static std::map<std::string, std::vector<std::string> > g_lines;
+
+static std::vector<std::string> SplitBar(const std::string& text)
+{
+    std::vector<std::string> out;
+    size_t start = 0;
+    while (start <= text.size())
+    {
+        size_t bar = text.find('|', start);
+        std::string part = text.substr(start, bar == std::string::npos ? std::string::npos : bar - start);
+        if (!part.empty())
+            out.push_back(part);
+        if (bar == std::string::npos)
+            break;
+        start = bar + 1;
+    }
+    return out;
+}
+
+static void LoadLines()
+{
+    const char* table[][3] = {
+        // key                 English                                                                                     Portuguese
+        { "EnslaveMaster",   "You're mine now.|You'll make a good slave.|Now you work for ME.|You belong to me now.",
+                             "Agora voce e meu.|Voce vai dar um bom escravo.|Agora voce trabalha pra MIM.|Voce me pertence agora." },
+        { "EnslaveSlave",    "N- no! Leave me alone!|No, I won't go!|Not the shackles...|No... please...",
+                             "N- nao! Me deixa em paz!|Nao, eu nao vou!|Os grilhoes nao...|Nao... por favor..." },
+        { "RecaptureMaster", "Thought you could run, huh?|Back in the shackles.|You'll pay for running.",
+                             "Achou que podia fugir, ne?|De volta aos grilhoes.|Voce vai pagar por ter fugido." },
+        { "PunishMaster",    "Bad slave!|Back down, slave!|Disobedient slave!|You'll learn your place.|Stupid slave!",
+                             "Escravo ruim!|Abaixa a cabeca, escravo!|Escravo desobediente!|Voce vai aprender o seu lugar.|Escravo estupido!" },
+        { "PunishSlave",     "Ahh!|Please, stop!|I'll obey! I'll obey!|Argh!|Mercy...",
+                             "Aah!|Por favor, para!|Eu obedeco! Eu obedeco!|Argh!|Piedade..." },
+        { "RewardMaster",    "Here. Don't say I never gave you anything.|Good work. Take this.|Keep it up and there's more.",
+                             "Toma. Nao diga que eu nunca te dei nada.|Bom trabalho. Pega isso.|Continua assim que tem mais." },
+        { "RewardSlave",     "Thank you, boss...|You lead, I'll follow, boss.|...Thanks.",
+                             "Obrigado, chefe...|Voce lidera, eu sigo, chefe.|...Valeu." },
+        { "FreeMaster",      "Go. You're free.|Get out of here before I change my mind.|You've earned it.",
+                             "Vai. Voce esta livre.|Some daqui antes que eu mude de ideia.|Voce mereceu." },
+        { "FreeSlave",       "Freedom!|I never wanna see another cage again!|Guess I owe you.|I'm free...",
+                             "Liberdade!|Nunca mais quero ver uma jaula!|Acho que te devo essa.|Estou livre..." },
+        { "FreeSlaveStays",  "I'll stay. You lead, I'll follow, boss.|Where else would I go? I'm staying.|I'll stay with you.",
+                             "Eu fico. Voce lidera, eu sigo, chefe.|Pra onde mais eu iria? Eu fico.|Vou ficar com voces." },
+        { "BoughtSlave",     "Nice meetin' ya, 'boss'...|You buying my freedom? Or you buying ME?|New master, same shackles...",
+                             "Prazer, 'chefe'...|Voce comprou minha liberdade? Ou comprou a MIM?|Dono novo, mesmos grilhoes..." },
+        { "SoldSlave",       "No! Don't sell me!|You bastard...|Not the cages again...",
+                             "Nao! Nao me vende!|Seu desgracado...|As jaulas de novo nao..." },
+        { "EscapeSlave",     "I'm free!|Freedom!|Screw this! I serve no one!|Run for it!",
+                             "Estou livre!|Liberdade!|Chega! Nao sirvo a ninguem!|Corre!" },
+        { "EscapeMaster",    "Slave! Stop!|A slave is getting away! Stop them!|Slave! You'll be punished for this!",
+                             "Escravo! Para!|Um escravo esta fugindo! Pega!|Escravo! Voce vai ser punido por isso!" },
+        { "RebellionSlave",  "Screw this! I serve no one!|Rise up! Break the chains!|Kill the masters!|No more shackles!",
+                             "Chega! Nao sirvo a ninguem!|Levantem! Quebrem as correntes!|Matem os donos!|Chega de grilhoes!" },
+    };
+    g_lines.clear();
+    std::string file = g_modDir + "SlaverMod_lines.ini";
+    const char* section = g_pt ? "pt" : "en";
+    int fromFile = 0;
+    for (size_t i = 0; i < sizeof(table) / sizeof(table[0]); i++)
+    {
+        char buf[2048] = {0};
+        GetPrivateProfileStringA(section, table[i][0], "", buf, sizeof(buf), file.c_str());
+        if (buf[0] != 0)
+            fromFile++;
+        g_lines[table[i][0]] = SplitBar(buf[0] != 0 ? buf : table[i][g_pt ? 2 : 1]);
+    }
+    Trace("lines: " + Num((float)g_lines.size()) + " keys, " + Num((float)fromFile) + " from SlaverMod_lines.ini [" + section + "]");
+}
+
+// Queues one line of `key` for `who`, said after delayMs (if they can still talk then).
+static void Say(Character* who, const char* key, DWORD delayMs)
+{
+    if (!g_cfg.speech || who == 0)
+        return;
+    std::map<std::string, std::vector<std::string> >::const_iterator it = g_lines.find(key);
+    if (it == g_lines.end() || it->second.empty())
+        return;
+    Speech sp;
+    sp.who = hand(who);
+    sp.text = it->second[rand() % it->second.size()];
+    sp.at = GetTickCount() + delayMs;
+    g_speech.push_back(sp);
+}
+
+static void UpdateSpeech()
+{
+    DWORD now = GetTickCount();
+    for (size_t i = 0; i < g_speech.size(); )
+    {
+        if (now < g_speech[i].at)
+        {
+            i++;
+            continue;
+        }
+        Character* c = g_speech[i].who.getCharacter();
+        if (c != 0 && !c->isDead() && !c->medical.isUnconcious())
+            c->say(g_speech[i].text);
+        g_speech.erase(g_speech.begin() + i);
+    }
+}
+
 struct PendingAction
 {
     hand performer;
@@ -1383,19 +1550,132 @@ struct PendingAction
     float stallTimer;
     Ogre::Vector3 orderedPos;
     FloatingProgressBar* bar;   // shown over the performer while working
+    std::string anim;           // performer animation while working (chosen when they start)
+    DWORD nextSwing;            // punishing: when to swing again (attacks do not loop)
+    DWORD flinchUntil;          // punishing: the slave plays a hit reaction until then
+    std::string flinch;         // that reaction
 };
 
 static std::vector<PendingAction> g_pending;
 static bool g_loggedReach = false;
 
-// Crouching first-aid animation + floating progress bar while the performer works.
-static const std::string& PerformerAnimation(SlaveAction action)
+static std::string Lower(std::string s)
+{
+    for (size_t i = 0; i < s.size(); i++)
+        s[i] = (char)tolower((unsigned char)s[i]);
+    return s;
+}
+
+// Animations are run by the name of their ANIMATION record; the skeleton's clip is the
+// record's "anim name". Both are indexed (lower case) -> record name, once.
+static std::map<std::string, std::string> g_animNames;
+
+static void IndexAnimations()
+{
+    if (!g_animNames.empty())
+        return;
+    lektor<GameData*> list;
+    ou->gamedata.getDataOfType(list, ANIMATION);
+    int logged = 0;
+    for (uint32_t i = 0; i < list.size(); i++)
+    {
+        GameData* gd = list.stuff[i];
+        if (gd == 0)
+            continue;
+        std::string clip;
+        boost::unordered::unordered_map<std::string, std::string, boost::hash<std::string>, std::equal_to<std::string>,
+            Ogre::STLAllocator<std::pair<std::string const, std::string>, Ogre::GeneralAllocPolicy> >::const_iterator it = gd->sdata.find("anim name");
+        if (it != gd->sdata.end())
+            clip = it->second;
+        if (!g_animNames.count(Lower(gd->name)))
+            g_animNames[Lower(gd->name)] = gd->name;
+        if (!clip.empty() && !g_animNames.count(Lower(clip)))
+            g_animNames[Lower(clip)] = gd->name;
+        std::string both = Lower(gd->name + " " + clip);
+        if (logged < 150 && (both.find("attack") != std::string::npos || both.find("chop") != std::string::npos || both.find("swing") != std::string::npos ||
+                             both.find("punch") != std::string::npos || both.find("kick") != std::string::npos || both.find("blow") != std::string::npos))
+        {
+            Trace("animation record '" + gd->name + "' clip '" + clip + "'");
+            logged++;
+        }
+    }
+    Trace("animations indexed: " + Num((float)list.size()) + " record(s)");
+}
+
+// The first animation of a '|' list (record or clip names) that this character can play.
+static std::string FirstAnimation(Character* c, const std::string& list)
+{
+    IndexAnimations();
+    AnimationClass* anim = c != 0 ? c->getAnimationClass() : 0;
+    std::vector<std::string> names = SplitBar(list);
+    for (size_t i = 0; i < names.size(); i++)
+    {
+        std::map<std::string, std::string>::const_iterator it = g_animNames.find(Lower(names[i]));
+        std::string record = it != g_animNames.end() ? it->second : names[i];
+        if (anim != 0 && anim->getAnimationData(record) != 0)
+            return record;
+    }
+    return "";
+}
+
+// Weapon type from the equipped weapon's data ("skill category"); unarmed without one.
+static WeaponCategory EquippedWeaponCategory(Character* c, bool* armed)
+{
+    *armed = false;
+    if (c->inventory == 0)
+        return SKILL_UNARMED;
+    lektor<Item*> weapons;
+    c->inventory->getEquippedWeapons(weapons);
+    for (uint32_t i = 0; i < weapons.size(); i++)
+    {
+        Item* w = weapons.stuff[i];
+        if (w == 0 || w->data == 0)
+            continue;
+        *armed = true;
+        boost::unordered::unordered_map<std::string, int, boost::hash<std::string>, std::equal_to<std::string>,
+            Ogre::STLAllocator<std::pair<std::string const, int>, Ogre::GeneralAllocPolicy> >::const_iterator it = w->data->idata.find("skill category");
+        if (it != w->data->idata.end())
+            return (WeaponCategory)it->second;
+    }
+    return *armed ? SKILL_BLUNT : SKILL_UNARMED;
+}
+
+// Punishing swings the weapon in hand: blades, heavy/blunt weapons, or fists.
+static std::string PunishAnimationFor(Character* performer)
+{
+    if (!g_cfg.punishAnimation.empty())
+        return g_cfg.punishAnimation;   // fixed by the player
+    bool armed = false;
+    WeaponCategory cat = EquippedWeaponCategory(performer, &armed);
+    const std::string& list = !armed || cat == SKILL_UNARMED ? g_cfg.punishAnimUnarmed
+                            : (cat == SKILL_BLUNT || cat == SKILL_HEAVY || cat == ATTACK_POLEARMS) ? g_cfg.punishAnimHeavy
+                            : g_cfg.punishAnimBlade;
+    std::string chosen = FirstAnimation(performer, list);
+    if (chosen.empty())
+        chosen = FirstAnimation(performer, g_cfg.punishAnimUnarmed);
+    Trace("punish animation for '" + performer->getName() + "': armed=" + Num(armed) + " weapon type=" + Num((float)cat) + " -> '" + chosen + "'");
+    return chosen;
+}
+
+// Crouching first-aid animation (or a swing, when punishing) + floating progress bar while the performer works.
+static std::string PerformerAnimation(SlaveAction action, Character* performer)
 {
     if (action == ACT_PUNISH)
-        return g_cfg.punishAnimation;
+        return performer != 0 ? PunishAnimationFor(performer) : "";
     if (action == ACT_REWARD)
         return g_cfg.rewardAnimation;
     return g_cfg.actionAnimation;
+}
+
+static const char* MasterLineKey(SlaveAction action)
+{
+    switch (action)
+    {
+    case ACT_FREE: return "FreeMaster";
+    case ACT_PUNISH: return "PunishMaster";
+    case ACT_REWARD: return "RewardMaster";
+    default: return "EnslaveMaster";
+    }
 }
 
 static const std::string& TargetAnimation(SlaveAction action)
@@ -1431,6 +1711,12 @@ static void StopAnimation(Character* c, const std::string& name)
 
 static void StartActingVisuals(PendingAction& p, Character* performer)
 {
+    p.anim = PerformerAnimation(p.action, performer);
+    p.nextSwing = 0;
+    p.flinchUntil = 0;
+    Say(performer, MasterLineKey(p.action), 0);
+    if (p.action == ACT_ENSLAVE)
+        Say(p.target.getCharacter(), "EnslaveSlave", 1600);
     if (g_cfg.progressBar && gui != 0 && p.bar == 0)
     {
         p.bar = gui->createFloatingProgressBar();
@@ -1445,8 +1731,30 @@ static void StartActingVisuals(PendingAction& p, Character* performer)
 
 static void UpdateActingVisuals(PendingAction& p, Character* performer)
 {
-    RunAnimation(performer, PerformerAnimation(p.action));
-    RunAnimation(p.target.getCharacter(), TargetAnimation(p.action));
+    if (p.action != ACT_PUNISH)
+        RunAnimation(performer, p.anim);
+    else if (GetTickCount() >= p.nextSwing)
+    {
+        StopAnimation(performer, p.anim);
+        RunAnimation(performer, p.anim);   // one swing, then again a moment later
+        p.nextSwing = GetTickCount() + 1300;
+        // the slave flinches from the blow
+        Character* slave = p.target.getCharacter();
+        std::vector<std::string> hits = SplitBar(g_cfg.punishHitAnimation);
+        if (slave != 0 && !hits.empty())
+        {
+            StopAnimation(slave, p.flinch);
+            p.flinch = FirstAnimation(slave, hits[rand() % hits.size()]);
+            if (!p.flinch.empty())
+            {
+                StopAnimation(slave, TargetAnimation(p.action));
+                RunAnimation(slave, p.flinch);
+                p.flinchUntil = GetTickCount() + 600;
+            }
+        }
+    }
+    if (GetTickCount() >= p.flinchUntil)
+        RunAnimation(p.target.getCharacter(), TargetAnimation(p.action));
     if (p.bar != 0)
     {
         float progress = g_cfg.actionSeconds > 0.0f ? p.acting / g_cfg.actionSeconds : 1.0f;
@@ -1457,8 +1765,9 @@ static void UpdateActingVisuals(PendingAction& p, Character* performer)
 
 static void StopActingVisuals(PendingAction& p, Character* performer)
 {
-    StopAnimation(performer, PerformerAnimation(p.action));
+    StopAnimation(performer, p.anim);
     StopAnimation(p.target.getCharacter(), TargetAnimation(p.action));
+    StopAnimation(p.target.getCharacter(), p.flinch);
     if (p.bar != 0 && gui != 0)
         gui->destroy(p.bar);
     p.bar = 0;
@@ -1604,28 +1913,71 @@ static void Reward(Character* performer, Character* target)
                SubmissionText(r->submission) + ".");
 }
 
+// A freed slave below FreeStayMinSubmission goes home: back to the faction they were
+// taken from (or EscapeFaction when unknown), in a squad of their own heading to its
+// nearest town. Returns that faction, or 0 when they stay.
+static Faction* SendFreedHome(Character* c, const std::string& originSid)
+{
+    Faction* f = OriginFaction(originSid);
+    if (f == 0)
+        f = OriginFaction(g_cfg.escapeFaction);
+    if (f == 0 || f == PlayerFaction())
+        return 0;
+    for (size_t i = 0; i < g_escorts.size(); )
+    {
+        if (g_escorts[i].slave.getCharacter() == c)
+            g_escorts.erase(g_escorts.begin() + i);
+        else
+            i++;
+    }
+    // the squad template gives the new squad the game's own wandering AI
+    GameData* ai = SquadTemplate(g_cfg.freedSquadTemplate);
+    Platoon* platoon = f->createNewEmptyActivePlatoon(ai, false, c->getPosition());
+    ActivePlatoon* squad = platoon != 0 ? platoon->getActivePlatoon() : 0;
+    c->setFaction(f, squad);
+    TownBase* home = f->warMgr != 0 ? f->warMgr->getNearestTown(c->getPosition()) : 0;
+    if (home != 0 && platoon != 0)
+        platoon->ownerships.setHomeTown(home, SQ_ROAMING);
+    if (home != 0)   // TownBase derives from RootObject first, so the pointer is the same
+        c->addGoal(TRAVEL_TO_TARGET_TOWN, reinterpret_cast<RootObjectBase*>(home));
+    g_leavers.push_back(hand(c));
+    Trace("freed '" + c->getName() + "' goes home to '" + f->getName() + "' (town " + (home != 0 ? "found" : "none") +
+          ", AI template " + (ai != 0 ? g_cfg.freedSquadTemplate : std::string("none")) + ") player=" + Num(IsPlayerFaction(c)));
+    return IsPlayerFaction(c) ? 0 : f;
+}
+
 static void CompleteAction(SlaveAction action, Character* performer, Character* target)
 {
     if (action == ACT_PUNISH)
     {
         Punish(performer, target);
+        Say(target, "PunishSlave", 500);
         return;
     }
     if (action == ACT_REWARD)
     {
         Reward(performer, target);
+        Say(target, "RewardSlave", 700);
         return;
     }
     if (action == ACT_FREE)
     {
         SlaveRecord* record = FindRecord(target);
-        Faction* origin = OriginFaction(record != 0 ? record->origin : LegacyOrigin(target));
+        std::string originSid = record != 0 ? record->origin : LegacyOrigin(target);
+        Faction* origin = OriginFaction(originSid);
+        float submission = SubmissionOf(target);
         std::string name = target->getName();
         RemoveShackles(target);
         FreeSlave(target);
         if (!IsOurSlave(target))
         {
             ForgetRecord(target);
+            Faction* gone = submission < g_cfg.freeStayMinSubmission ? SendFreedHome(target, originSid) : 0;
+            if (gone != 0)
+                ShowNotice(name + T(" was freed and goes back to ", " foi libertado(a) e volta para ") + gone->getName() + ".");
+            else
+                ShowNotice(name + T(" was freed and stays in your faction (", " foi libertado(a) e fica na sua faccao (") + SubmissionLevel(submission) + ").");
+            Say(target, gone != 0 ? "FreeSlave" : "FreeSlaveStays", 700);
             ApplyRelationGain(origin, name);
         }
         return;
@@ -1662,7 +2014,10 @@ static void CompleteAction(SlaveAction action, Character* performer, Character* 
     {
         SlaveRecord& r = CreateRecord(target, origin, start);
         if (recaptured)
+        {
             ShowNotice(name + T(" was recaptured. ", " foi recapturado(a). ") + SubmissionText(r.submission) + ".");
+            Say(performer, "RecaptureMaster", 300);
+        }
         else
             ShowNotice(name + T(" is now a slave. ", " agora e escravo(a). ") + SubmissionText(r.submission) + ".");
         GiveShackles(target);
@@ -2298,6 +2653,8 @@ static void StartRebellion(const std::vector<Character*>& rebels)
         Trace("rebellion: '" + rebelFaction->getName() + "' wasEnemy=" + Num(wasEnemy) + " now enemy=" + Num(rebelFaction->relations->isEnemy(pf)) +
               " relation=" + Num(rebelFaction->relations->getFactionRelation(pf)));
     }
+    for (size_t r = 0; r < rebels.size() && r < 3; r++)
+        Say(rebels[r], "RebellionSlave", (DWORD)(r * 700));
     ShowNotice(T("REBELLION! ", "REBELIAO! ") + Num((float)rebels.size()) + T(" slave(s) rose up and joined ", " escravo(s) se rebelaram e se juntaram a ") + rebelFaction->getName() + "!", true);
     g_rebelTimer = 2.0f;   // attack right away
 }
@@ -2446,9 +2803,8 @@ static void UpdateRebellion()
 static std::vector<hand> g_escapees;
 static float g_escapeeTimer = 0.0f;
 
-static TaskType EscapeGoal()
+static TaskType GoalFromName(const std::string& g)
 {
-    const std::string& g = g_cfg.escapeGoal;
     if (g == "run_away")
         return RUN_AWAY;
     if (g == "total")
@@ -2456,6 +2812,11 @@ static TaskType EscapeGoal()
     if (g == "hometown")
         return RUN_AWAY_HOMETOWN;
     return RUN_AWAY_FORCED;
+}
+
+static TaskType EscapeGoal()
+{
+    return GoalFromName(g_cfg.escapeGoal);
 }
 
 static void StartEscape(Character* c, const char* why)
@@ -2493,12 +2854,14 @@ static void StartEscape(Character* c, const char* why)
             i++;
     }
 
-    Platoon* platoon = f->createNewEmptyActivePlatoon(0, false, c->getPosition());
+    GameData* ai = SquadTemplate(g_cfg.escapeSquadTemplate);   // the game's escaped-slave AI
+    Platoon* platoon = f->createNewEmptyActivePlatoon(ai, false, c->getPosition());
     ActivePlatoon* squad = platoon != 0 ? platoon->getActivePlatoon() : 0;
     c->setSlaveAIJob(false);
     c->changeSlaveOwner(hand());
     c->setFaction(f, squad);
     SetSlaveState(c, g_cfg.escapeMarkEscaped ? ESCAPING_SLAVE : NOT_SLAVE);
+    Trace("escape: AI template " + (ai != 0 ? g_cfg.escapeSquadTemplate : std::string("none")));
     if (g_cfg.escapeRemoveShackles)
         RemoveShackles(c);   // they got out of them to run
 
@@ -2521,6 +2884,11 @@ static void StartEscape(Character* c, const char* why)
           " key " + keyBefore + (SlaveKey(c) != keyBefore ? " -> " + SlaveKey(c) : "") + " player=" + Num(IsPlayerFaction(c)) +
           " slaveState=" + Num((float)c->isSlave()) + " shackles=" + Num(WearsShackles(c)));
     ShowNotice(name + T(" ran away! ", " fugiu! ") + SubmissionText(r.submission) + ".", true);
+    Say(c, "EscapeSlave", 0);
+    float guardDist = 0.0f;
+    Character* guard = NearestFreeMember(c->getPosition(), &guardDist, c, true);
+    if (guard != 0 && guardDist <= g_cfg.supervisionRange * 2.0f)
+        Say(guard, "EscapeMaster", 1200);
 }
 
 // Rolls for one slave; called about once an in-game hour with the time that passed.
@@ -2602,21 +2970,16 @@ static void RestoreRunaways()
 }
 
 // Keeps runaways fleeing from the nearest free member until they are out of reach.
-static void UpdateEscapees(float dt)
+// Pushes everyone in `list` away from the nearest free member until they are out of
+// reach, then sends them to their faction's nearest town.
+static void PushAway(std::vector<hand>& list, TaskType goal, const char* label)
 {
-    if (g_escapees.empty())
-        return;
-    g_escapeeTimer += dt;
-    if (g_escapeeTimer < 2.0f)
-        return;
-    g_escapeeTimer = 0.0f;
-
-    for (size_t i = 0; i < g_escapees.size(); )
+    for (size_t i = 0; i < list.size(); )
     {
-        Character* c = g_escapees[i].getCharacter();
+        Character* c = list[i].getCharacter();
         if (c == 0 || c->isDead() || IsPlayerFaction(c))
         {
-            g_escapees.erase(g_escapees.begin() + i);
+            list.erase(list.begin() + i);
             continue;
         }
         if (c->medical.isUnconcious())
@@ -2632,14 +2995,26 @@ static void UpdateEscapees(float dt)
             TownBase* home = f != 0 && f->warMgr != 0 ? f->warMgr->getNearestTown(c->getPosition()) : 0;
             if (home != 0)   // TownBase derives from RootObject first, so the pointer is the same
                 c->addGoal(TRAVEL_TO_TARGET_TOWN, reinterpret_cast<RootObjectBase*>(home));
-            Trace("runaway '" + c->getName() + "' got away (nearest member " + Num(dist) + "), heading " + (home != 0 ? "to a town" : "nowhere"));
-            g_escapees.erase(g_escapees.begin() + i);
+            Trace(std::string(label) + " '" + c->getName() + "' got away (nearest member " + Num(dist) + "), heading " + (home != 0 ? "to a town" : "nowhere"));
+            list.erase(list.begin() + i);
             continue;
         }
-        c->addGoal(EscapeGoal(), chaser);
-        Trace("runaway '" + c->getName() + "' flees from '" + chaser->getName() + "' dist=" + Num(dist));
+        c->addGoal(goal, chaser);
+        Trace(std::string(label) + " '" + c->getName() + "' moves away from '" + chaser->getName() + "' dist=" + Num(dist));
         i++;
     }
+}
+
+static void UpdateEscapees(float dt)
+{
+    if (g_escapees.empty() && g_leavers.empty())
+        return;
+    g_escapeeTimer += dt;
+    if (g_escapeeTimer < 2.0f)
+        return;
+    g_escapeeTimer = 0.0f;
+    PushAway(g_escapees, EscapeGoal(), "runaway");
+    PushAway(g_leavers, GoalFromName(g_cfg.freedGoal), "freed");
 }
 
 // ---------------------------------------------------------------------------
@@ -2647,6 +3022,9 @@ static void UpdateEscapees(float dt)
 // ---------------------------------------------------------------------------
 
 static bool g_loggedSlaves = false;
+static void WatchMembers(float dt, bool reset);
+static void UpdateTradeWindow();
+static void CloseTradeWindow();
 static bool g_recordsReady = false;   // the load / new-game hook prepared the records for the next world
 
 // Logs once how the hook's time step compares to real time (for tuning the durations).
@@ -2707,6 +3085,8 @@ void GameWorld_update_hook(GameWorld* thisptr, float time)
     UpdateInventoryButton();
     UpdateNotice();
     UpdateSubmissionBar();
+    UpdateTradeWindow();
+    UpdateSpeech();
     if (!ou->isPaused())
     {
         UpdateSubmission();
@@ -2715,8 +3095,575 @@ void GameWorld_update_hook(GameWorld* thisptr, float time)
         UpdateRebels(time);
         UpdateEscapees(time);
         UpdateEscorts(time);
+        WatchMembers(time, false);
         CalibrateTime(time);
     }
+}
+
+// ---------------------------------------------------------------------------
+// Slave trade window: replaces the game's buy / sell slave windows at slave traders.
+// "I'm looking to buy slaves" lists the trader's slaves nearby; "I want to sell some
+// slaves" lists your slaves. Prices come from the slave's stats, race and submission.
+// Bought slaves join your slave squad; sold ones go to the trader's faction.
+// ---------------------------------------------------------------------------
+
+struct TradeOffer
+{
+    hand who;
+    int price;
+};
+
+static MyGUI::Window* g_tradeWindow = NULL;
+static MyGUI::MultiListBox* g_tradeList = NULL;
+static MyGUI::TextBox* g_tradeInfo = NULL;
+static MyGUI::Button* g_tradeDo = NULL;
+static bool g_tradeBuying = false;
+static hand g_tradeTrader;
+static hand g_tradeCustomer;
+static std::vector<TradeOffer> g_tradeOffers;
+
+static float StatOf(Character* c, StatsEnumerated s)
+{
+    CharStats* stats = c->getStats();
+    return stats != 0 ? stats->getStat(s, true) : 0.0f;
+}
+
+// Worth of a slave: TradeBaseValue + TradeStatValue x (strength, toughness, dexterity,
+// melee attack and defence, labouring) x race value x (0.75 + submission / 200).
+static float SlaveValue(Character* c, float submission)
+{
+    float stats = StatOf(c, STAT_STRENGTH) + StatOf(c, STAT_TOUGHNESS) + StatOf(c, STAT_DEXTERITY) +
+                  StatOf(c, STAT_MELEE_ATTACK) + StatOf(c, STAT_MELEE_DEFENCE) + StatOf(c, STAT_LABOURING);
+    float value = g_cfg.tradeBaseValue + g_cfg.tradeStatValue * stats;
+    return value * TraitsOf(c).value * (0.75f + ClampSubmission(submission) / 200.0f);
+}
+
+static int BuyPrice(Character* c)
+{
+    return (int)(SlaveValue(c, TraitsOf(c).start + g_cfg.tradeBoughtBonus) * g_cfg.tradeBuyMult + 0.5f);
+}
+
+static int SellPrice(Character* c)
+{
+    return (int)(SlaveValue(c, SubmissionOf(c)) * g_cfg.tradeSellMult + 0.5f);
+}
+
+static Faction* SlavesFaction()
+{
+    return ou->factionMgr != 0 ? ou->factionMgr->getFactionByStringID("57740-rebirth.mod") : 0;
+}
+
+// The trader's slaves around them: slaves of the trader's faction, or owned by someone of it,
+// or of the generic "Slaves" faction. Searched in every faction, since a captive keeps theirs.
+static void FindSlavesForSale(Character* trader, std::vector<Character*>& out)
+{
+    Faction* tf = trader->getFaction();
+    Faction* slaves = SlavesFaction();
+    std::map<std::string, bool> seen;
+    const lektor<Faction*>& factions = ou->factionMgr->participants;
+    for (uint32_t i = 0; i < factions.size(); i++)
+    {
+        Faction* f = factions.stuff[i];
+        if (f == 0 || f == PlayerFaction())
+            continue;
+        lektor<RootObject*> found;
+        f->getCharactersInArea(found, trader->getPosition(), g_cfg.tradeRadius, false);
+        for (uint32_t k = 0; k < found.size(); k++)
+        {
+            Character* c = found.stuff[k] != 0 ? hand(found.stuff[k]).getCharacter() : 0;
+            if (c == 0 || c == trader || c->isDead() || IsPlayerFaction(c) || seen.count(SlaveKey(c)))
+                continue;
+            seen[SlaveKey(c)] = true;
+            if (c->isSlave() != IS_SLAVE)
+                continue;
+            Character* owner = c->slaveOwner.getCharacter();
+            Faction* of = owner != 0 ? owner->getFaction() : 0;
+            bool forSale = c->getFaction() == tf || of == tf || (slaves != 0 && c->getFaction() == slaves);
+            Trace("trade: slave '" + c->getName() + "' faction='" + (c->getFaction() != 0 ? c->getFaction()->getName() : std::string("?")) +
+                  "' owner='" + (owner != 0 ? owner->getName() : std::string("-")) + "' forSale=" + Num(forSale));
+            if (forSale)
+                out.push_back(c);
+        }
+    }
+}
+
+static void CloseTradeWindow()
+{
+    if (g_tradeWindow != NULL)
+        MyGUI::Gui::getInstance().destroyWidget(g_tradeWindow);
+    g_tradeWindow = NULL;
+    g_tradeList = NULL;
+    g_tradeInfo = NULL;
+    g_tradeDo = NULL;
+    g_tradeOffers.clear();
+}
+
+static void UpdateTradeInfo()
+{
+    if (g_tradeInfo == NULL)
+        return;
+    Character* customer = g_tradeCustomer.getCharacter();
+    std::string text = T("Your money: ", "Seu dinheiro: ") + Num((float)(customer != 0 ? customer->getMoney() : 0)) + " cats";
+    size_t sel = g_tradeList != NULL ? g_tradeList->getIndexSelected() : MyGUI::ITEM_NONE;
+    if (sel != MyGUI::ITEM_NONE && sel < g_tradeOffers.size())
+        text += "   |   " + (g_tradeBuying ? T("Price: ", "Preco: ") : T("You get: ", "Voce recebe: ")) + Num((float)g_tradeOffers[sel].price) + " cats";
+    if (g_tradeOffers.empty())
+        text = (g_tradeBuying ? T("The trader has no slaves for sale here.", "O traficante nao tem escravos a venda aqui.")
+                              : T("You have no slaves to sell.", "Voce nao tem escravos para vender.")) + "   " + text;
+    g_tradeInfo->setCaption(text);
+}
+
+static void FillTradeList()
+{
+    g_tradeOffers.clear();
+    g_tradeList->removeAllItems();
+    Character* trader = g_tradeTrader.getCharacter();
+    if (trader == 0)
+        return;
+    std::vector<Character*> people;
+    if (g_tradeBuying)
+        FindSlavesForSale(trader, people);
+    else
+    {
+        const lektor<Character*>& all = ou->player->getAllPlayerCharacters();
+        for (uint32_t i = 0; i < all.size(); i++)
+            if (IsOurSlave(all.stuff[i]) && !all.stuff[i]->isDead())
+                people.push_back(all.stuff[i]);
+    }
+    for (size_t i = 0; i < people.size(); i++)
+    {
+        Character* c = people[i];
+        TradeOffer o;
+        o.who = hand(c);
+        o.price = g_tradeBuying ? BuyPrice(c) : SellPrice(c);
+        g_tradeOffers.push_back(o);
+        float sub = g_tradeBuying ? TraitsOf(c).start + g_cfg.tradeBoughtBonus : SubmissionOf(c);
+        size_t row = g_tradeList->getItemCount();
+        g_tradeList->addItem(c->getName());
+        g_tradeList->setSubItemNameAt(1, row, TraitsOf(c).name);
+        g_tradeList->setSubItemNameAt(2, row, Num((float)(int)StatOf(c, STAT_STRENGTH)));
+        g_tradeList->setSubItemNameAt(3, row, Num((float)(int)StatOf(c, STAT_TOUGHNESS)));
+        g_tradeList->setSubItemNameAt(4, row, Num((float)(int)StatOf(c, STAT_MELEE_ATTACK)));
+        g_tradeList->setSubItemNameAt(5, row, Num((float)(int)(sub + 0.5f)) + " " + SubmissionLevel(sub));
+        g_tradeList->setSubItemNameAt(6, row, Num((float)o.price));
+    }
+    Trace("trade: " + std::string(g_tradeBuying ? "buy" : "sell") + " list has " + Num((float)g_tradeOffers.size()) + " slave(s)");
+    UpdateTradeInfo();
+}
+
+static void BuySlave(Character* customer, Character* trader, Character* c, int price)
+{
+    if (customer->getMoney() < price)
+    {
+        ShowNotice(T("Not enough money to buy ", "Dinheiro insuficiente para comprar ") + c->getName() + ".");
+        return;
+    }
+    std::string name = c->getName();
+    ActivePlatoon* squad = GetSlaveSquad();
+    Platoon* previous = ou->player->getCurrentPlatoon();
+    if (squad != 0 && squad->me != 0)
+        ou->player->setCurrentPlatoon(squad->me);
+    SetSlaveState(c, NOT_SLAVE);   // the game will not recruit someone else's slave
+    c->changeSlaveOwner(hand());
+    if (c->inSomething == IN_PRISON)
+    {
+        // cages are UseableStuff, which derives from Building first: same pointer
+        UseableStuff* cage = reinterpret_cast<UseableStuff*>(c->inWhat.getBuilding());
+        c->setPrisonMode(false, cage);
+        Trace("trade: '" + name + "' let out of the cage (cage=" + Num(cage != 0) + ", still in prison=" + Num(c->inSomething == IN_PRISON) + ")");
+    }
+    if (c->isChainedMode())
+        c->setChainedMode(false, hand(customer));
+    Character* arr[1] = { c };
+    lektor<Character*> list;
+    list.stuff = arr;
+    list.count = 1;
+    list.maxSize = 1;
+    ou->player->recruit(list, false);
+    list.stuff = nullptr;
+    list.count = 0;
+    list.maxSize = 0;
+    if (previous != 0)
+        ou->player->setCurrentPlatoon(previous);
+    if (!IsPlayerFaction(c))
+    {
+        SetSlaveState(c, IS_SLAVE);
+        c->changeSlaveOwner(hand(trader));
+        Trace("trade: recruit of '" + name + "' refused");
+        ShowNotice(T("The game refused the purchase of ", "O jogo recusou a compra de ") + name + ".");
+        return;
+    }
+    customer->takeMoney(price);
+    MakeSlave(c, customer);
+    SlaveRecord& r = CreateRecord(c, "", TraitsOf(c).start + g_cfg.tradeBoughtBonus);
+    GiveShackles(c);
+    QueueEscort(c, customer);
+    Say(c, "BoughtSlave", 800);
+    Trace("trade: bought '" + name + "' for " + Num((float)price) + " cats, money now " + Num((float)customer->getMoney()));
+    ShowNotice(customer->getName() + T(" bought ", " comprou ") + name + T(" for ", " por ") + Num((float)price) + " cats. " + SubmissionText(r.submission) + ".");
+}
+
+// The player's cats belong to the faction, not to a squad.
+static void GivePlayerMoney(int amount)
+{
+    Faction* pf = PlayerFaction();
+    if (pf != 0 && pf->factionOwnerships != 0)
+        pf->factionOwnerships->addMoney(amount);
+}
+
+static void SellSlave(Character* customer, Character* trader, Character* c, int price)
+{
+    std::string name = c->getName();
+    Faction* f = trader->getFaction();
+    if (f == 0)
+        return;
+    for (size_t i = 0; i < g_pending.size(); )
+    {
+        if (g_pending[i].target.getCharacter() == c)
+        {
+            StopActingVisuals(g_pending[i], g_pending[i].performer.getCharacter());
+            g_pending.erase(g_pending.begin() + i);
+        }
+        else
+            i++;
+    }
+    for (size_t i = 0; i < g_escorts.size(); )
+    {
+        if (g_escorts[i].slave.getCharacter() == c)
+            g_escorts.erase(g_escorts.begin() + i);
+        else
+            i++;
+    }
+
+    // put them down first if one of ours is carrying them
+    const lektor<Character*>& all = ou->player->getAllPlayerCharacters();
+    for (uint32_t i = 0; i < all.size(); i++)
+    {
+        Character* carrier = all.stuff[i];
+        if (carrier != 0 && carrier->isCarryingSomething && carrier->getCarryingObject().getCharacter() == c)
+        {
+            carrier->dropCarriedObject(false, false);
+            Trace("trade: '" + carrier->getName() + "' put '" + name + "' down");
+        }
+    }
+
+    // join the shop's own slaves (their faction and squad, which has the slave AI);
+    // with none around, a new squad of the trader's faction
+    std::vector<Character*> shop;
+    FindSlavesForSale(trader, shop);
+    Character* fellow = 0;
+    for (size_t i = 0; i < shop.size() && fellow == 0; i++)
+        if (shop[i] != c && shop[i]->getPlatoon() != 0 && shop[i]->slaveOwner.getCharacter() == trader)
+            fellow = shop[i];
+    for (size_t i = 0; i < shop.size() && fellow == 0; i++)
+        if (shop[i] != c && shop[i]->getPlatoon() != 0)
+            fellow = shop[i];
+    Faction* toFaction = fellow != 0 ? fellow->getFaction() : f;
+    ActivePlatoon* squad = fellow != 0 ? fellow->getPlatoon() : 0;
+    if (squad == 0)
+    {
+        Platoon* platoon = f->createNewEmptyActivePlatoon(0, false, c->getPosition());
+        squad = platoon != 0 ? platoon->getActivePlatoon() : 0;
+    }
+    c->setFaction(toFaction, squad);
+    SetSlaveState(c, IS_SLAVE);
+    c->changeSlaveOwner(hand(trader));
+    c->setSlaveAIJob(true);
+    c->addGoal(SLAVE_GET_IN_MY_MASTERS_CAGE, trader);
+    ForgetRecord(c);
+    if (IsPlayerFaction(c))
+    {
+        Trace("trade: '" + name + "' did not leave the faction");
+        ShowNotice(T("The game refused the sale of ", "O jogo recusou a venda de ") + name + ".");
+        return;
+    }
+    Say(c, "SoldSlave", 300);
+    int before = customer->getMoney();
+    GivePlayerMoney(price);
+    Trace("trade: sold '" + name + "' to '" + (toFaction != 0 ? toFaction->getName() : std::string("?")) + "' (squad of " +
+          (fellow != 0 ? "'" + fellow->getName() + "'" : std::string("a new squad")) + ") for " + Num((float)price) +
+          " cats, money " + Num((float)before) + " -> " + Num((float)customer->getMoney()));
+    ShowNotice(customer->getName() + T(" sold ", " vendeu ") + name + T(" for ", " por ") + Num((float)price) + " cats.");
+}
+
+static void OnTradeDo(MyGUI::Widget* sender)
+{
+    size_t sel = g_tradeList != NULL ? g_tradeList->getIndexSelected() : MyGUI::ITEM_NONE;
+    Character* customer = g_tradeCustomer.getCharacter();
+    Character* trader = g_tradeTrader.getCharacter();
+    if (sel == MyGUI::ITEM_NONE || sel >= g_tradeOffers.size() || customer == 0 || trader == 0)
+        return;
+    Character* c = g_tradeOffers[sel].who.getCharacter();
+    if (c != 0 && !c->isDead())
+    {
+        if (g_tradeBuying)
+            BuySlave(customer, trader, c, g_tradeOffers[sel].price);
+        else
+            SellSlave(customer, trader, c, g_tradeOffers[sel].price);
+    }
+    if (g_tradeList != NULL)
+        FillTradeList();
+}
+
+static void OnTradeClose(MyGUI::Widget* sender)
+{
+    CloseTradeWindow();
+}
+
+static void OnTradeWindowButton(MyGUI::Window* sender, const std::string& name)
+{
+    if (name == "close")
+        CloseTradeWindow();
+}
+
+static void OnTradeSelect(MyGUI::MultiListBox* sender, size_t index)
+{
+    UpdateTradeInfo();
+}
+
+static void OpenTradeWindow(Character* trader, Character* customer, bool buying)
+{
+    CloseTradeWindow();
+    MyGUI::Gui* mg = MyGUI::Gui::getInstancePtr();
+    if (mg == NULL || trader == 0 || customer == 0)
+        return;
+    g_tradeTrader = hand(trader);
+    g_tradeCustomer = hand(customer);
+    g_tradeBuying = buying;
+
+    const int w = 760, h = 460;
+    const MyGUI::IntSize& view = MyGUI::RenderManager::getInstance().getViewSize();
+    g_tradeWindow = mg->createWidget<MyGUI::Window>("Kenshi_WindowCX", (view.width - w) / 2, (view.height - h) / 2, w, h,
+                                                    MyGUI::Align::Default, "Window", "SlaverModTrade");
+    if (g_tradeWindow == NULL)
+        return;
+    g_tradeWindow->setCaption(buying ? T("BUYING SLAVES - ", "COMPRANDO ESCRAVOS - ") + trader->getName()
+                                     : T("SELLING SLAVES - ", "VENDENDO ESCRAVOS - ") + trader->getName());
+    g_tradeWindow->eventWindowButtonPressed += MyGUI::newDelegate(OnTradeWindowButton);
+    const MyGUI::IntCoord client = g_tradeWindow->getClientCoord();
+    int cw = client.width, ch = client.height;
+
+    g_tradeList = g_tradeWindow->createWidget<MyGUI::MultiListBox>("Kenshi_MultiListBox", 8, 8, cw - 16, ch - 90, MyGUI::Align::Stretch, "SlaverModTradeList");
+    const char* en[7] = { "Name", "Race", "Str", "Tough", "Attack", "Submission", "Price" };
+    const char* pt[7] = { "Nome", "Raca", "For", "Rob", "Ataque", "Submissao", "Preco" };
+    const float widths[7] = { 0.22f, 0.22f, 0.07f, 0.08f, 0.09f, 0.18f, 0.14f };
+    for (int i = 0; i < 7; i++)
+        g_tradeList->addColumn(T(en[i], pt[i]), (int)((cw - 40) * widths[i]));
+    g_tradeList->eventListChangePosition += MyGUI::newDelegate(OnTradeSelect);
+
+    g_tradeInfo = g_tradeWindow->createWidget<MyGUI::TextBox>("Kenshi_GenericTextBoxFlat", 8, ch - 76, cw - 16, 28, MyGUI::Align::Default, "SlaverModTradeInfo");
+    g_tradeDo = g_tradeWindow->createWidget<MyGUI::Button>("Kenshi_Button1", cw - 360, ch - 42, 170, 34, MyGUI::Align::Default, "SlaverModTradeDo");
+    g_tradeDo->setCaption(buying ? T("BUY", "COMPRAR") : T("SELL", "VENDER"));
+    g_tradeDo->eventMouseButtonClick += MyGUI::newDelegate(OnTradeDo);
+    MyGUI::Button* close = g_tradeWindow->createWidget<MyGUI::Button>("Kenshi_Button1", cw - 182, ch - 42, 170, 34, MyGUI::Align::Default, "SlaverModTradeClose");
+    close->setCaption(T("CLOSE", "FECHAR"));
+    close->eventMouseButtonClick += MyGUI::newDelegate(OnTradeClose);
+
+    FillTradeList();
+    Trace("trade window: " + std::string(buying ? "buy" : "sell") + " with '" + trader->getName() + "' (" +
+          (trader->getFaction() != 0 ? trader->getFaction()->getName() : std::string("?")) + ") for '" + customer->getName() + "'");
+}
+
+// Closes the window when the trader or the customer is gone or they walked away.
+static void UpdateTradeWindow()
+{
+    if (g_tradeWindow == NULL)
+        return;
+    Character* trader = g_tradeTrader.getCharacter();
+    Character* customer = g_tradeCustomer.getCharacter();
+    if (trader == 0 || customer == 0 || trader->isDead() || customer->isDead() ||
+        (trader->getPosition() - customer->getPosition()).length() > g_cfg.tradeRadius)
+        CloseTradeWindow();
+}
+
+// ---------------------------------------------------------------------------
+// Slave trade research (phase 6): logs what the game's own slave shop does, so
+// the trade can be designed on facts. Dialogue actions about money and slaves, and
+// every character that joins or leaves the player's faction.
+// ---------------------------------------------------------------------------
+
+static const char* SlaveDialogActionName(int key)
+{
+    switch (key)
+    {
+    case DA_TAKE_MONEY: return "TAKE_MONEY";
+    case DA_GIVE_MONEY: return "GIVE_MONEY";
+    case DA_GIVE_TARGET_MY_SLAVES: return "GIVE_TARGET_MY_SLAVES";
+    case DA_TAG_ESCAPED_SLAVE: return "TAG_ESCAPED_SLAVE";
+    case DA_FREE_TARGET_SLAVE: return "FREE_TARGET_SLAVE";
+    case DA_ENSLAVE_TARGETS_CARRIED_PERSON: return "ENSLAVE_TARGETS_CARRIED_PERSON";
+    case CHOOSE_SLAVES_SELLING: return "CHOOSE_SLAVES_SELLING";
+    case CHOOSE_SLAVES_BUYING: return "CHOOSE_SLAVES_BUYING";
+    case CHOOSE_PRISONER_BAIL: return "CHOOSE_PRISONER_BAIL";
+    case DA_PLAYER_SELL_PRISONERS: return "PLAYER_SELL_PRISONERS";
+    case DA_REMOVE_SLAVE_STATUS: return "REMOVE_SLAVE_STATUS";
+    default: return 0;
+    }
+}
+
+static int PlayerMoney()
+{
+    const lektor<Character*>& all = ou->player->getAllPlayerCharacters();
+    return all.size() > 0 && all.stuff[0] != 0 ? all.stuff[0]->getMoney() : 0;
+}
+
+void (*Dialogue_doActions_orig)(Dialogue*, DialogLineData*) = NULL;
+void Dialogue_doActions_hook(Dialogue* thisptr, DialogLineData* line)
+{
+    const lektor<DialogLineData::DialogAction*>* actions = line != 0 ? line->getActions() : 0;
+    std::string found;
+    int trade = -1;   // CHOOSE_SLAVES_BUYING / SELLING: our window instead of the game's
+    if (actions != 0)
+        for (uint32_t i = 0; i < actions->size(); i++)
+        {
+            DialogLineData::DialogAction* a = actions->stuff[i];
+            if (a != 0 && (a->key == CHOOSE_SLAVES_BUYING || a->key == CHOOSE_SLAVES_SELLING))
+                trade = a->key;
+            const char* name = a != 0 ? SlaveDialogActionName(a->key) : 0;
+            if (name != 0)
+                found += std::string(" ") + name + "(" + Num((float)a->value) + ")";
+        }
+    if (trade >= 0 && g_cfg.tradeWindow && thisptr != 0 && ou != 0 && ou->player != 0 && actions->size() == 1)
+    {
+        Character* trader = thisptr->me;
+        Character* customer = thisptr->conversationTarget.getCharacter();
+        if (trader != 0 && customer != 0 && IsPlayerFaction(customer) && !IsPlayerFaction(trader))
+        {
+            OpenTradeWindow(trader, customer, trade == CHOOSE_SLAVES_BUYING);
+            return;
+        }
+    }
+    int before = found.empty() || ou == 0 || ou->player == 0 ? 0 : PlayerMoney();
+    Dialogue_doActions_orig(thisptr, line);
+    if (found.empty() || ou == 0 || ou->player == 0)
+        return;
+    Character* me = thisptr != 0 ? thisptr->me : 0;
+    Character* target = thisptr != 0 ? thisptr->conversationTarget.getCharacter() : 0;
+    Trace("trade research: dialog of '" + (me != 0 ? me->getName() : std::string("?")) + "' (" +
+          (me != 0 && me->getFaction() != 0 ? me->getFaction()->getName() : std::string("?")) + ") with '" +
+          (target != 0 ? target->getName() : std::string("?")) + "':" + found + " money " + Num((float)before) + " -> " + Num((float)PlayerMoney()));
+}
+
+// The fixed-price offer for a carried person ("I'll give you 400 Cats"): with the trade
+// window on, the lines that need DC_CARRYING_SOMEONE_TO_ENSLAVE are never chosen.
+bool (*DialogLineData_checkConditions_orig)(DialogLineData*, Dialogue*, Character*, bool) = NULL;
+bool DialogLineData_checkConditions_hook(DialogLineData* thisptr, Dialogue* dialog, Character* target, bool isWordswap)
+{
+    if (g_cfg.disableCarriedSale && thisptr != 0)
+        for (uint32_t i = 0; i < thisptr->conditions.size(); i++)
+        {
+            DialogLineData::DialogCondition* c = thisptr->conditions.stuff[i];
+            if (c != 0 && c->key == DC_CARRYING_SOMEONE_TO_ENSLAVE)
+                return false;
+        }
+    return DialogLineData_checkConditions_orig(thisptr, dialog, target, isWordswap);
+}
+
+// ---------------------------------------------------------------------------
+// Other factions' slavers treat any slave around as theirs: they walk up to "process"
+// the player's slaves, look for them to ship, punish or cage. Their target finders are
+// hooked so a slave of the player is never a valid target for anyone else's AI.
+// ---------------------------------------------------------------------------
+
+// Copied from kenshi/AI/AI.h, which redefines CharacterMessage and cannot be included here:
+// only the target finders hooked below and the squad pointer (vtable at 0x0, platoon at 0x10).
+class AI
+{
+public:
+    float findSomeoneWhoWouldMakeAGoodSlave(const hand& in, hand& out, bool justAsking);// public RVA = 0x8CC550
+    float findBadSlaves(const hand& in, hand& out, bool justAsking);// public RVA = 0x8CBE80
+    float findNewSlaveOrPrisonerToProcess(const hand& in, hand& out, bool justAsking);// public RVA = 0x8CA960
+    float findRandomOneOfMySlaves(const hand& in, hand& out, bool justAsking);// public RVA = 0x8CC190
+    float findConsciousSlaveInTown(const hand& in, hand& out, bool justAsking);// public RVA = 0x8CAD00
+    float findConsciousSlaveInTownForShipping(const hand& in, hand& out, bool justAsking);// public RVA = 0x8CAE50
+    float findConsciousSlaveInTown_unholy(const hand& in, hand& out, bool justAsking);// public RVA = 0x8CFC60
+    float findKOedSlaveOfMine(const hand& in, hand& out, bool justAsking);// public RVA = 0x8CC7A0
+    void* vtable_;
+    float meiDistance; // 0x8 Member
+    float meiDistanceTolerance; // 0xC Member
+    Platoon* platoon; // 0x10 Member
+};
+
+static std::map<std::string, bool> g_loggedBlocks;
+
+static bool BlockSlaverTarget(AI* ai, hand& out, const char* finder)
+{
+    Character* t = out.getCharacter();
+    if (t == 0 || !IsOurSlave(t))
+        return false;
+    Faction* f = ai != 0 && ai->platoon != 0 ? ai->platoon->getFaction() : 0;
+    if (f == 0 || f == PlayerFaction())
+        return false;
+    std::string key = std::string(finder) + "|" + f->getName() + "|" + SlaveKey(t);
+    if (!g_loggedBlocks.count(key))
+    {
+        g_loggedBlocks[key] = true;
+        Trace("protect: '" + f->getName() + "' AI (" + finder + ") wanted '" + t->getName() + "', blocked");
+    }
+    out.setNull();
+    return true;
+}
+
+#define SLAVER_FINDER_HOOK(fn) \
+float (*AI_##fn##_orig)(AI*, const hand&, hand&, bool) = NULL; \
+float AI_##fn##_hook(AI* ai, const hand& in, hand& out, bool justAsking) \
+{ \
+    float score = AI_##fn##_orig(ai, in, out, justAsking); \
+    if (g_cfg.protectSlaves && BlockSlaverTarget(ai, out, #fn)) \
+        return 0.0f; \
+    return score; \
+}
+
+SLAVER_FINDER_HOOK(findNewSlaveOrPrisonerToProcess)
+SLAVER_FINDER_HOOK(findBadSlaves)
+SLAVER_FINDER_HOOK(findRandomOneOfMySlaves)
+SLAVER_FINDER_HOOK(findConsciousSlaveInTown)
+SLAVER_FINDER_HOOK(findConsciousSlaveInTownForShipping)
+SLAVER_FINDER_HOOK(findConsciousSlaveInTown_unholy)
+SLAVER_FINDER_HOOK(findKOedSlaveOfMine)
+SLAVER_FINDER_HOOK(findSomeoneWhoWouldMakeAGoodSlave)
+
+// Who is in the player's faction, and as what, compared every couple of seconds.
+static std::map<std::string, std::string> g_members;   // key -> "name|slaveState"
+static float g_memberTimer = 0.0f;
+
+static void WatchMembers(float dt, bool reset)
+{
+    if (reset)
+    {
+        g_members.clear();
+        g_memberTimer = 0.0f;
+        return;
+    }
+    g_memberTimer += dt;
+    if (g_memberTimer < 2.0f)
+        return;
+    g_memberTimer = 0.0f;
+    std::map<std::string, std::string> now;
+    const lektor<Character*>& all = ou->player->getAllPlayerCharacters();
+    for (uint32_t i = 0; i < all.size(); i++)
+    {
+        Character* c = all.stuff[i];
+        if (c == 0)
+            continue;
+        now[SlaveKey(c)] = c->getName() + "|" + Num((float)c->isSlave()) + "|" + RaceID(c);
+    }
+    bool first = g_members.empty();
+    if (!first)
+    {
+        for (std::map<std::string, std::string>::const_iterator it = now.begin(); it != now.end(); ++it)
+        {
+            std::map<std::string, std::string>::const_iterator old = g_members.find(it->first);
+            if (old == g_members.end())
+                Trace("trade research: joined [" + it->first + "] " + it->second + " record=" + Num(g_records.count(it->first) > 0) + " money=" + Num((float)PlayerMoney()));
+            else if (old->second != it->second)
+                Trace("trade research: changed [" + it->first + "] " + old->second + " -> " + it->second);
+        }
+        for (std::map<std::string, std::string>::const_iterator it = g_members.begin(); it != g_members.end(); ++it)
+            if (now.find(it->first) == now.end())
+                Trace("trade research: left [" + it->first + "] " + it->second + " record=" + Num(g_records.count(it->first) > 0) + " money=" + Num((float)PlayerMoney()));
+    }
+    g_members.swap(now);
 }
 
 // Forgets everything that points into the current world, before another one is loaded.
@@ -2729,8 +3676,12 @@ static void ResetWorldState(const char* why)
     g_escorts.clear();
     g_rebels.clear();
     g_escapees.clear();
+    g_leavers.clear();
     g_unsupervisedDays.clear();
     g_discipline.clear();
+    g_speech.clear();
+    WatchMembers(0.0f, true);
+    CloseTradeWindow();
     HideSubmissionBar();
     g_loggedSlaves = false;
     g_lastRebellionPeriod = -1.0;
@@ -2776,6 +3727,7 @@ static void __cdecl ReloadSettings()
 {
     LoadSettings();
     LoadRaces();
+    LoadLines();
     ParseHotkey();
 }
 
@@ -2846,6 +3798,9 @@ extern "C" __declspec(dllexport) void MCM_Describe(MCM_Api* api)
                  L("Added when the slave was a prisoner when enslaved.", "Somado quando o escravo estava preso ao ser escravizado."), 10, 0, 100, 0);
     api->number(api, sec, "SubmissionDailyGain", L("Gain per day", "Ganho por dia"),
                 L("Slaves slowly get used to their condition.", "Os escravos se acostumam aos poucos com a condição."), 2.0f, 0.0f, 20.0f, 1, 0);
+    api->integer(api, sec, "FreeStayMinSubmission", L("Freed slaves stay from submission", "Libertado fica a partir da submissão"),
+                 L("Freed slaves with this submission or more stay in your faction; the others go back to their own. 0 = everyone stays.",
+                   "Libertados com esta submissão ou mais ficam na sua facção; os outros voltam para a deles. 0 = todos ficam."), 90, 0, 101, 0);
     api->toggle(api, sec, "RaceTraits", L("Race differences", "Diferenças entre raças"),
                 L("Each race and subrace starts with its own submission and gains, loses and escapes at its own pace. Table: SlaverMod_races.ini.",
                   "Cada raça e sub-raça começa com sua própria submissão e ganha, perde e foge no seu ritmo. Tabela: SlaverMod_races.ini."), 1, 0);
@@ -2883,6 +3838,9 @@ extern "C" __declspec(dllexport) void MCM_Describe(MCM_Api* api)
     api->integer(api, sec, "PunishDamage", L("Punishment damage", "Dano da punição"),
                  L("Blunt damage on a limb; grows with repeated punishments.", "Dano de impacto num membro; cresce com punições repetidas."), 10, 0, 100, 0);
     api->number(api, sec, "PunishCooldownDays", L("Punishment interval (days)", "Intervalo entre punições (dias)"), NULL, 1.0f, 0.0f, 10.0f, 1, 0);
+    api->toggle(api, sec, "Speech", L("Speech bubbles", "Falas"),
+                L("Slavers and slaves say a line when enslaving, punishing, rewarding, freeing, trading, escaping and rebelling (SlaverMod_lines.ini).",
+                  "Escravistas e escravos falam ao escravizar, punir, recompensar, libertar, negociar, fugir e se rebelar (SlaverMod_lines.ini)."), 1, 0);
     api->text(api, sec, "PunishVictimAnimation", L("Slave animation while punished", "Animação do escravo ao ser punido"), NULL, "kneeling hostage idle", 0);
     api->toggle(api, sec, "RewardEnabled", L("Reward", "Recompensar"),
                 L("Reward option on your slaves: a little submission for some cats.", "Opção Recompensar nos seus escravos: um pouco de submissão por alguns cats."), 1, 0);
@@ -2893,6 +3851,24 @@ extern "C" __declspec(dllexport) void MCM_Describe(MCM_Api* api)
                  L("Extra submission for each day in a cage.", "Submissão extra por dia numa jaula."), 10, 0, 100, 0);
     api->integer(api, sec, "CageSubmissionCap", L("Cage: limit", "Jaula: limite"),
                  L("A cage does not raise submission above this.", "A jaula não faz a submissão passar disto."), 75, 0, 100, 0);
+
+    api->section(api, L("Slave trade", "Comércio de escravos"));
+    api->toggle(api, sec, "TradeWindow", L("SlaverMod trade window", "Janela de comércio do SlaverMod"),
+                L("Replaces the game's buy / sell slave windows at slave traders.", "Substitui as janelas de compra e venda de escravos dos traficantes."), 1, 0);
+    api->toggle(api, sec, "ProtectSlaves", L("Other slavers leave your slaves alone", "Outros escravistas deixam seus escravos em paz"),
+                L("Slavers of other factions no longer try to process, cage or ship your slaves.", "Escravistas de outras facções deixam de tentar processar, prender ou levar seus escravos."), 1, 0);
+    api->toggle(api, sec, "AllowStealingSlaves", L("Allow stealing slaves", "Permitir roubar escravos"),
+                L("Lets you enslave other factions' slaves. Off: only runaways and free people.", "Deixa escravizar os escravos de outras facções. Desligado: só fugitivos e pessoas livres."), 0, 0);
+    api->toggle(api, sec, "DisableCarriedSale", L("No fixed 400 cats offer", "Sem a oferta fixa de 400 cats"),
+                L("Traders no longer offer 400 cats for someone you carry: enslave them and sell them in the window.",
+                  "Os traficantes deixam de oferecer 400 cats por quem você carrega: escravize e venda pela janela."), 1, 0);
+    api->integer(api, sec, "TradeBaseValue", L("Base value", "Valor base"), L("Worth of any slave before stats.", "Quanto vale qualquer escravo antes dos atributos."), 300, 0, 10000, 0);
+    api->number(api, sec, "TradeStatValue", L("Value per stat point", "Valor por ponto de atributo"),
+                L("Strength, toughness, dexterity, melee attack, melee defence and labouring.", "Força, robustez, destreza, ataque e defesa corpo a corpo e trabalho braçal."), 12.0f, 0.0f, 200.0f, 1, 0);
+    api->number(api, sec, "TradeBuyMult", L("Buying price multiplier", "Multiplicador do preço de compra"), NULL, 2.0f, 0.1f, 10.0f, 2, 0);
+    api->number(api, sec, "TradeSellMult", L("Selling price multiplier", "Multiplicador do preço de venda"), NULL, 1.0f, 0.1f, 10.0f, 2, 0);
+    api->integer(api, sec, "TradeBoughtBonus", L("Submission bonus when bought", "Bônus de submissão ao comprar"),
+                 L("Bought slaves are already broken in: race start + this.", "Escravos comprados já vêm domados: inicial da raça + isto."), 15, 0, 100, 0);
 
     api->section(api, L("Relations", "Relações"));
     api->number(api, sec, "RelationLoss", L("Loss when enslaving", "Perda ao escravizar"),
@@ -2946,9 +3922,10 @@ __declspec(dllexport) void startPlugin()
     InitModDir();
     LoadSettings();
     LoadRaces();
+    LoadLines();
     ParseHotkey();
     srand(GetTickCount());
-    Trace("startPlugin v1.7");
+    Trace("startPlugin v1.8");
 
     if (KenshiLib::SUCCESS != KenshiLib::AddHook(KenshiLib::GetRealAddress(&GameWorld::_NV_mainLoop_GPUSensitiveStuff), GameWorld_update_hook, (void**)&GameWorld_update_orig))
         ErrorLog("SlaverMod: could not add GameWorld update hook!");
@@ -2960,6 +3937,26 @@ __declspec(dllexport) void startPlugin()
         ErrorLog("SlaverMod: could not add save hook!");
     if (KenshiLib::SUCCESS != KenshiLib::AddHook(KenshiLib::GetRealAddress(&SaveManager::loadGame), SaveManager_loadGame_hook, (void**)&SaveManager_loadGame_orig))
         ErrorLog("SlaverMod: could not add load hook!");
+    if (KenshiLib::SUCCESS != KenshiLib::AddHook(KenshiLib::GetRealAddress(&Dialogue::_doActions), Dialogue_doActions_hook, (void**)&Dialogue_doActions_orig))
+        ErrorLog("SlaverMod: could not add dialogue hook!");
+    if (KenshiLib::SUCCESS != KenshiLib::AddHook(KenshiLib::GetRealAddress(&AI::findNewSlaveOrPrisonerToProcess), AI_findNewSlaveOrPrisonerToProcess_hook, (void**)&AI_findNewSlaveOrPrisonerToProcess_orig))
+        ErrorLog("SlaverMod: could not add AI hook findNewSlaveOrPrisonerToProcess!");
+    if (KenshiLib::SUCCESS != KenshiLib::AddHook(KenshiLib::GetRealAddress(&AI::findBadSlaves), AI_findBadSlaves_hook, (void**)&AI_findBadSlaves_orig))
+        ErrorLog("SlaverMod: could not add AI hook findBadSlaves!");
+    if (KenshiLib::SUCCESS != KenshiLib::AddHook(KenshiLib::GetRealAddress(&AI::findRandomOneOfMySlaves), AI_findRandomOneOfMySlaves_hook, (void**)&AI_findRandomOneOfMySlaves_orig))
+        ErrorLog("SlaverMod: could not add AI hook findRandomOneOfMySlaves!");
+    if (KenshiLib::SUCCESS != KenshiLib::AddHook(KenshiLib::GetRealAddress(&AI::findConsciousSlaveInTown), AI_findConsciousSlaveInTown_hook, (void**)&AI_findConsciousSlaveInTown_orig))
+        ErrorLog("SlaverMod: could not add AI hook findConsciousSlaveInTown!");
+    if (KenshiLib::SUCCESS != KenshiLib::AddHook(KenshiLib::GetRealAddress(&AI::findConsciousSlaveInTownForShipping), AI_findConsciousSlaveInTownForShipping_hook, (void**)&AI_findConsciousSlaveInTownForShipping_orig))
+        ErrorLog("SlaverMod: could not add AI hook findConsciousSlaveInTownForShipping!");
+    if (KenshiLib::SUCCESS != KenshiLib::AddHook(KenshiLib::GetRealAddress(&AI::findConsciousSlaveInTown_unholy), AI_findConsciousSlaveInTown_unholy_hook, (void**)&AI_findConsciousSlaveInTown_unholy_orig))
+        ErrorLog("SlaverMod: could not add AI hook findConsciousSlaveInTown_unholy!");
+    if (KenshiLib::SUCCESS != KenshiLib::AddHook(KenshiLib::GetRealAddress(&AI::findKOedSlaveOfMine), AI_findKOedSlaveOfMine_hook, (void**)&AI_findKOedSlaveOfMine_orig))
+        ErrorLog("SlaverMod: could not add AI hook findKOedSlaveOfMine!");
+    if (KenshiLib::SUCCESS != KenshiLib::AddHook(KenshiLib::GetRealAddress(&AI::findSomeoneWhoWouldMakeAGoodSlave), AI_findSomeoneWhoWouldMakeAGoodSlave_hook, (void**)&AI_findSomeoneWhoWouldMakeAGoodSlave_orig))
+        ErrorLog("SlaverMod: could not add AI hook findSomeoneWhoWouldMakeAGoodSlave!");
+    if (KenshiLib::SUCCESS != KenshiLib::AddHook(KenshiLib::GetRealAddress(&DialogLineData::checkConditions), DialogLineData_checkConditions_hook, (void**)&DialogLineData_checkConditions_orig))
+        ErrorLog("SlaverMod: could not add dialogue condition hook!");
     if (KenshiLib::SUCCESS != KenshiLib::AddHook(KenshiLib::GetRealAddress(&SaveManager::newGame), SaveManager_newGame_hook, (void**)&SaveManager_newGame_orig))
         ErrorLog("SlaverMod: could not add new game hook!");
 }

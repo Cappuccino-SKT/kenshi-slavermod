@@ -162,7 +162,23 @@ líder, pano para os caçadores).
 - **Relação:** começa amistosa com os Traficantes de Escravos.
 - **Para pesquisar:** qual acampamento usar, como montar o modelo de esquadrão (personagens e itens) e se o início pode definir relações entre facções.
 
-## Fase 6 — Comércio de escravos (v1.8)
+## Fase 6 — Comércio de escravos (v1.8) ✅
+
+**Pesquisa (v1.8-research).** O jogo base já tem, nos traficantes de escravos:
+- carregar alguém desmaiado até o traficante → "Ah, got a fresh slave for me, eh? I'll give you 400 Cats" (preço fixo:
+  `DA_GIVE_MONEY 400` + `DA_ENSLAVE_TARGETS_CARRIED_PERSON`, condição `DC_CARRYING_SOMEONE_TO_ENSLAVE`);
+- "I'm looking to buy slaves" → `CHOOSE_SLAVES_BUYING` (janela de compra);
+- "I want to sell some slaves" → `CHOOSE_SLAVES_SELLING` (janela de venda).
+A versão de pesquisa registra no log as ações de diálogo de dinheiro/escravos (gancho em `Dialogue::_doActions`) e
+quem entra/sai da facção do jogador (`trade research:`), para decidir o desenho com dados do jogo.
+
+Resultado do teste do jogo base: a janela de venda lista os membros do esquadrão; o vendido vira escravo do traficante
+mas continua na facção do jogador (dá para vender de novo sem fim); comprar (c.1000 cada) liberta o escravo, que vai
+embora; recomprar custa ~4x o preço de venda.
+
+**v1.8 — janela própria, testada no jogo.** Intercepta as duas falas e abre a janela do SlaverMod (lista, preço por
+atributos/raça/submissão, compra vira escravo do mod, venda sai de verdade). Oferta fixa de 400 desligada (hook em
+`checkConditions`). Opções na seção "Comércio de escravos".
 
 **Pesquisa primeiro:**
 
@@ -183,3 +199,12 @@ líder, pano para os caçadores).
 - **Comprar** escravos dos comerciantes. Eles têm escravos presos que entram no seu grupo já como escravos, com a submissão da raça.
 - Comerciantes com estoque que se renova com o tempo.
 - Interface: opção no menu do botão direito perto de um comerciante, ou uma janela de comércio. Decidir depois da pesquisa.
+
+Depois dos testes também entraram na v1.8: venda paga no caixa da facção, carregado é posto no chão, vendido entra no
+grupo dos escravos da loja (IA de escravo); comprado sai da jaula; libertado abaixo de 90 de submissão volta para a
+facção de origem e se afasta (`FreedGoal=forced`, IA "UC escaped slave"); escravistas de outras facções não mexem nos
+seus escravos (`ProtectSlaves`, hooks nos `AI::find...`); não dá para escravizar escravos de outras facções
+(`AllowStealingSlaves=0`); falas em balão (`SlaverMod_lines.ini`); punição com o golpe `chop down static` (o jogo não
+expõe animações de ataque por arma).
+
+Todas as 6 fases estão concluídas.

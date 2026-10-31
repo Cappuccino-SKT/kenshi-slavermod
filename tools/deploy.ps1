@@ -3,7 +3,7 @@
 #   -Build   runs tools\build_plugin.bat first
 # The game must be closed: Windows locks the loaded DLL.
 # SlaverMod.mod (game data: records such as game starts) always comes from the repository.
-# SlaverMod.ini and SlaverMod_races.ini are only copied when the game folder has none, so personal settings survive.
+# SlaverMod.ini, SlaverMod_races.ini and SlaverMod_lines.ini are only copied when the game folder has none, so personal settings survive.
 # The previous SlaverMod_trace.log is moved to local\logs (gitignored) with a timestamp.
 param(
     [string]$KenshiDir = $(if ($env:KENSHI_DIR) { $env:KENSHI_DIR } else { 'C:\Program Files (x86)\Steam\steamapps\common\Kenshi' }),
@@ -42,5 +42,7 @@ $ini = Join-Path $dest 'SlaverMod.ini'
 if (-not (Test-Path $ini)) { Copy-Item (Join-Path $repo 'mod\SlaverMod\SlaverMod.ini') $dest }
 $races = Join-Path $dest 'SlaverMod_races.ini'
 if (-not (Test-Path $races)) { Copy-Item (Join-Path $repo 'mod\SlaverMod\SlaverMod_races.ini') $dest }
+$lines = Join-Path $dest 'SlaverMod_lines.ini'
+if (-not (Test-Path $lines)) { Copy-Item (Join-Path $repo 'mod\SlaverMod\SlaverMod_lines.ini') $dest }
 
 Write-Host "Deployed to $dest"

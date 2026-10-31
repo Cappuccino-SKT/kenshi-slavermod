@@ -57,6 +57,16 @@ list.stuff = nullptr; list.count = 0; list.maxSize = 0;   // do not let lektor f
 ou->player->setCurrentPlatoon(previous);
 ```
 
+## Dialogue
+
+- `Dialogue::_doActions(DialogLineData*)` runs a line's effects; hooked (v1.8-research) to log money/slave actions.
+  `line->getActions()` → `lektor<DialogLineData::DialogAction*>` (`key` = `DialogActionEnum` in `kenshi/Dialogue.h`, `value`).
+  `Dialogue::me` is the speaker, `conversationTarget` the other side.
+- Slave shop actions: `DA_GIVE_MONEY`(value cats), `DA_ENSLAVE_TARGETS_CARRIED_PERSON`, `CHOOSE_SLAVES_SELLING`,
+  `CHOOSE_SLAVES_BUYING`, `DA_PLAYER_SELL_PRISONERS`, `DA_REMOVE_SLAVE_STATUS`, `DA_FREE_TARGET_SLAVE`.
+  Condition `DC_CARRYING_SOMEONE_TO_ENSLAVE`. Lines: `54505-Dialogue.mod` (offer 400), `54529`/`54530-Dialogue.mod` (buy/sell).
+- Enum names are not in the executable; decode numbers with the headers (`DialogActionEnum`, `DialogConditionEnum` in Enums.h).
+
 ## Distances
 
 World units: a human's radius is about 4 (logged by the approach code), so 1 unit is roughly 10 cm.
@@ -85,6 +95,9 @@ f->relations->getFactionRelation(pf);       // -100..100
 f->relations->affectRelations(pf, amount, 1.0f);
 f->relations->isEnemy(pf); f->relations->declareWar(pf);
 Platoon* p = f->createNewEmptyActivePlatoon(0, false, pos);   // new squad of faction f
+// with a SQUAD_TEMPLATE GameData instead of 0 the squad gets that template's AI packages, e.g.
+// "Lost Wanderer" 3330-gamedata.base (wander between towns), "UC escaped slave" 54294-rebirth.mod
+c->setPrisonMode(false, reinterpret_cast<UseableStuff*>(c->inWhat.getBuilding()));   // out of a cage
 c->setFaction(f, p->getActivePlatoon());                      // move a character into it
 ```
 
@@ -115,7 +128,11 @@ slot must be removed first, or `equipItem` fails.
 MedicalSystem::HealthPartStatus* limb = c->medical.leftArm;   // also rightArm, leftLeg, rightLeg; getPart(...)
 if (!limb->isRobotic()) limb->applyDamage(Damages(cut, blunt, pierce, bleedMult, armourPenetration));
 int cats = c->getMoney();  c->takeMoney(n);   // player characters: the faction's money
+PlayerFaction()->factionOwnerships->addMoney(n);   // give the player cats (squad ownerships do not count)
+carrier->dropCarriedObject(false, false);          // put down whoever they carry (carrier->getCarryingObject())
 ```
+
+Weapon attacks are **not** ANIMATION records: combat plays them through combat techniques, so `runAnimation` cannot use them. Of the 367 ANIMATION records, the only strike is `chop down static`; hit reactions are `mid blow`, `mid blow light`, `back blow light`, `back blow high`, `GROUNDED_BlowBack_*`. The skeleton clip names (`chop left`, `heavy swing`, `badpunch`...) have no record. `FreedGoal`/`EscapeGoal`: `RUN_AWAY` does not move a character who is not afraid; `RUN_AWAY_FORCED` does.
 
 Animation records (rtype 24) readable from `rebirth.mod`/`Dialogue.mod` include `medic`, `kneeling hostage idle`,
 `idle_stand_confident`, `carry me`...; there is no punch/kick animation record (unarmed hits are combat techniques).
@@ -153,6 +170,7 @@ gui->destroy(bar);
 - `kenshi/gui/ContextMenu.h` with `PlayerInterface.h` → copy the class locally.
 - `kenshi/Building/Building.h` with `Platoon.h` → `BuildingDesignation` redefined. Read fields by offset instead
   (e.g. `Building::specialFunction` at +0x158) and declare needed methods locally.
+- `kenshi/AI/AI.h` redefines `CharacterMessage` → declare a local `class AI` with only the needed methods (same signatures link to KenshiLib) and members by offset (vptr 0x0, `Platoon* platoon` 0x10). Its `find...(const hand& in, hand& out, bool justAsking)` target finders return a score and the target in `out`.
 - `kenshi/Town.h` includes `Building/Building.h` → same conflict. Keep `TownBase` forward-declared; it derives from `RootObject` first, so `reinterpret_cast<RootObjectBase*>(town)` gives the subject for `addGoal`.
 - `OgreConfig.h` not found → add `Include\ogre` to the include path (done in `build_plugin.bat`).
 
