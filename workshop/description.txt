@@ -16,6 +16,7 @@ A RE_Kenshi plugin that lets your faction own slaves, using Kenshi's own slave s
 [*][b]Slave trade window:[/b] at slave traders, buy their slaves (they join you, shackled) or sell yours (they really leave). Prices follow stats, race and submission. Other slavers leave your slaves alone.
 [*][b]Speech bubbles[/b] for slavers and slaves (SlaverMod_lines.ini).
 [*][b]New game start "Slave Hunters":[/b] a leader and five hunters with rusty clubs at a random slaver camp, friendly with the Slave Traders.
+[*][b]Your own people enslaved by others[/b] (the Rebirth start, slavers who catch you) are left to the game. [i]Enabled=0[/i] (MCM: Mod active) switches the whole mod off.
 [*][b]In-game settings[/b] with ModConfigMenu (optional), or the commented SlaverMod.ini. Debug test hotkeys are off by default.
 [/list]
 
@@ -49,6 +50,7 @@ Plugin RE_Kenshi que deixa a sua facção ter escravos usando o sistema de escra
 [*][b]Janela de comércio:[/b] nos traficantes, compre os escravos deles (entram no seu grupo, com grilhões) ou venda os seus (saem de verdade). O preço segue atributos, raça e submissão. Outros escravistas deixam seus escravos em paz.
 [*][b]Falas em balão[/b] para escravistas e escravos (SlaverMod_lines.ini).
 [*][b]Novo início "Slave Hunters":[/b] um líder e cinco caçadores com porretes enferrujados num acampamento de traficantes sorteado, com boa relação com os Traficantes.
+[*][b]Seus personagens escravizados por outros[/b] (início do Rebirth, escravistas que pegam você) ficam por conta do jogo. [i]Enabled=0[/i] (MCM: Mod ativo) desliga o mod inteiro.
 [*][b]Opções dentro do jogo[/b] com o ModConfigMenu (opcional), ou no SlaverMod.ini comentado. Os atalhos de teste do modo debug vêm desligados.
 [/list]
 

@@ -160,6 +160,7 @@ struct Settings
     std::string shackleItemAlt;
     std::string actionAnimation;
     bool progressBar;
+    bool enabled;       // 0 = the mod leaves every character alone (e.g. while your own people are enslaved)
     bool showNotices;   // 0 = only the rebellion alert is shown
     bool showSubmission;
     float submissionStart;
@@ -275,6 +276,7 @@ static void LoadSettings()
     g_cfg.shackleItemAlt = IniString("ShackleItemAlt", "SHACKLES-BODY");
     g_cfg.actionAnimation = IniString("ActionAnimation", "medic");
     g_cfg.progressBar = IniBool("ProgressBar", true);
+    g_cfg.enabled = IniBool("Enabled", true);
     g_cfg.showNotices = IniBool("ShowNotices", true);
     g_cfg.showSubmission = IniBool("ShowSubmission", true);
     g_cfg.submissionStart = IniFloat("SubmissionStart", 30.0f);
@@ -439,11 +441,25 @@ static bool IsPlayerFaction(Character* c)
     return c != 0 && pf != 0 && c->getFaction() == pf;
 }
 
+// Whose slave this is: the owner's faction, or the faction the game itself records
+// (a player character enslaved by an NPC faction, e.g. the Rebirth start, has no player owner).
+static Faction* SlaveOwnerFaction(Character* c)
+{
+    Character* owner = c->slaveOwner.getCharacter();
+    if (owner != 0 && owner->getFaction() != 0)
+        return owner->getFaction();
+    StateBroadcastData* sb = c->getStateBroadcast();
+    return sb != 0 ? sb->isSlaveOf : 0;
+}
+
+// A slave in the player's faction that the player owns. Player characters enslaved by
+// someone else are left to the game.
 static bool IsOurSlave(Character* c)
 {
-    if (c == 0 || !IsPlayerFaction(c))
+    if (!g_cfg.enabled || c == 0 || !IsPlayerFaction(c) || c->isSlave() != IS_SLAVE)
         return false;
-    return c->isSlave() == IS_SLAVE;
+    Faction* of = SlaveOwnerFaction(c);
+    return of == 0 || of == PlayerFaction();
 }
 
 // A living, non-slave member. Being knocked out does not stop someone from owning slaves.
@@ -2448,7 +2464,7 @@ static std::string MenuCaption(SlaveAction action, bool upper)
 // Appends our rows to the menu the game just built, copying the geometry of its last row.
 static void AddSlaveOption(ContextMenuGUI* menu)
 {
-    if (!g_cfg.contextMenu || ou == 0 || ou->player == 0 || menu == 0)
+    if (!g_cfg.enabled || !g_cfg.contextMenu || ou == 0 || ou->player == 0 || menu == 0)
         return;
     MyGUI::Widget* main = menu->getMainWidget();
     MyGUI::Widget* list = menu->optionsList;
@@ -3522,7 +3538,7 @@ void Dialogue_doActions_hook(Dialogue* thisptr, DialogLineData* line)
             if (name != 0)
                 found += std::string(" ") + name + "(" + Num((float)a->value) + ")";
         }
-    if (trade >= 0 && g_cfg.tradeWindow && thisptr != 0 && ou != 0 && ou->player != 0 && actions->size() == 1)
+    if (trade >= 0 && g_cfg.enabled && g_cfg.tradeWindow && thisptr != 0&& ou != 0 && ou->player != 0 && actions->size() == 1)
     {
         Character* trader = thisptr->me;
         Character* customer = thisptr->conversationTarget.getCharacter();
@@ -3548,7 +3564,7 @@ void Dialogue_doActions_hook(Dialogue* thisptr, DialogLineData* line)
 bool (*DialogLineData_checkConditions_orig)(DialogLineData*, Dialogue*, Character*, bool) = NULL;
 bool DialogLineData_checkConditions_hook(DialogLineData* thisptr, Dialogue* dialog, Character* target, bool isWordswap)
 {
-    if (g_cfg.disableCarriedSale && thisptr != 0)
+    if (g_cfg.enabled && g_cfg.disableCarriedSale && thisptr != 0)
         for (uint32_t i = 0; i < thisptr->conditions.size(); i++)
         {
             DialogLineData::DialogCondition* c = thisptr->conditions.stuff[i];
@@ -3645,10 +3661,22 @@ static void WatchMembers(float dt, bool reset)
         Character* c = all.stuff[i];
         if (c == 0)
             continue;
-        now[SlaveKey(c)] = c->getName() + "|" + Num((float)c->isSlave()) + "|" + RaceID(c);
+        std::string state = c->getName() + "|" + Num((float)c->isSlave()) + "|" + RaceID(c);
+        if (c->isSlave() == IS_SLAVE)
+        {
+            Faction* of = SlaveOwnerFaction(c);
+            state += std::string("|slave of ") + (of != 0 ? of->getName() : std::string("-")) + (IsOurSlave(c) ? " (ours)" : " (not ours)");
+        }
+        now[SlaveKey(c)] = state;
     }
     bool first = g_members.empty();
-    if (!first)
+    if (first)
+    {
+        for (std::map<std::string, std::string>::const_iterator it = now.begin(); it != now.end(); ++it)
+            if (it->second.find("|slave of ") != std::string::npos)
+                Trace("watch: slave [" + it->first + "] " + it->second);
+    }
+    else
     {
         for (std::map<std::string, std::string>::const_iterator it = now.begin(); it != now.end(); ++it)
         {
@@ -3750,6 +3778,9 @@ extern "C" __declspec(dllexport) void MCM_Describe(MCM_Api* api)
                 L("Enslave/Free in the order menu (hold the right mouse button over the target).", "Escravizar/Libertar no menu de ordens (segure o botão direito sobre o alvo)."), 1, 0);
     api->toggle(api, sec, "ShowButton", L("Inventory button", "Botão no inventário"),
                 L("Also shows the ENSLAVE/FREE button in the inventory window.", "Mostra também o botão ESCRAVIZAR/LIBERTAR na janela de inventário."), 0, 0);
+    api->toggle(api, sec, "Enabled", L("Mod active", "Mod ativo"),
+                L("Off: the mod leaves every character alone (no menu options, submission, escapes, rebellions or protection). Your own people enslaved by another faction are already left alone.",
+                  "Desligado: o mod não mexe em ninguém (sem opções no menu, submissão, fugas, rebeliões ou proteção). Seus personagens escravizados por outra facção já são ignorados."), 1, 0);
     api->toggle(api, sec, "ShowNotices", L("On-screen messages", "Mensagens na tela"),
                 L("Messages at the top of the screen (enslaved, freed, rebellion check...). The REBELLION alert is always shown.",
                   "Mensagens no topo da tela (escravizado, libertado, verificação de rebelião...). O alerta de REBELIÃO sempre aparece."), 1, 0);
@@ -3924,7 +3955,7 @@ __declspec(dllexport) void startPlugin()
     LoadLines();
     ParseHotkey();
     srand(GetTickCount());
-    Trace("startPlugin v1.8");
+    Trace("startPlugin v1.9");
 
     if (KenshiLib::SUCCESS != KenshiLib::AddHook(KenshiLib::GetRealAddress(&GameWorld::_NV_mainLoop_GPUSensitiveStuff), GameWorld_update_hook, (void**)&GameWorld_update_orig))
         ErrorLog("SlaverMod: could not add GameWorld update hook!");

@@ -194,3 +194,10 @@ gui->destroy(bar);
   handles; `index-serial` is used as the key. The record also keeps the name, and a name change is logged.
 - Still to confirm with the trace log: that quicksave/autosave go through `saveGame`, that loading from the main menu
   goes through `loadGame`, and that `name` is the plain save name.
+
+## Whose slave is it
+
+`IsOurSlave` = player faction + `IS_SLAVE` + owner faction is the player's (or unknown). Owner faction comes from
+`c->slaveOwner.getCharacter()->getFaction()`, else `getStateBroadcast()->isSlaveOf`. Player characters enslaved by an
+NPC faction (Rebirth start) are in the player faction with `IS_SLAVE` too; before v1.9 the mod treated them as its
+slaves and blocked the guards' slave finders. The `watch:` trace prints `slave of <faction> (ours|not ours)`.
