@@ -36,6 +36,10 @@ A [RE_Kenshi](https://github.com/BFrizzleFoShizzle/RE_Kenshi) plugin that lets t
 - **On-screen messages** in a single box at the top of the screen that fades after a few seconds. `ShowNotices=0` hides them; the REBELLION alert is always shown.
 - **Debug mode** (off by default): test hotkeys **CTRL+K** (enslave/free the selected character), **CTRL+SHIFT+R** (rebellion check right away), **CTRL+SHIFT+S** (+25 submission on the selected slave) and **CTRL+SHIFT+E** (the selected slave runs away).
 
+## Tip: bounties
+
+Slavery doesn't get in the way of bounties. Knock the target out, enslave them and walk them to the town; to hand them in, free them, pick them up and turn them in as usual. With several, leave them outside town with a member guarding them and hand them in one at a time. A faction that wants your enslaved bounty attacks them on sight, so keep them away from it until you carry them in.
+
 ## Requirements
 
 - Kenshi 1.0.65 (tested on the Steam version).
@@ -126,6 +130,10 @@ Plugin [RE_Kenshi](https://github.com/BFrizzleFoShizzle/RE_Kenshi) que deixa a f
 - **Seus personagens escravizados por outra facção** (início do Rebirth, escravistas que pegam você) ficam por conta do jogo: sem submissão, fuga ou proteção. `Enabled=0` (MCM: *Mod ativo*) desliga o mod inteiro na mão.
 - **Mensagens na tela** numa única caixa no topo, que some depois de alguns segundos. `ShowNotices=0` esconde; o alerta de REBELIÃO sempre aparece.
 - **Modo debug** (desligado por padrão): atalhos de teste **CTRL+K** (escravizar ou libertar o personagem selecionado), **CTRL+SHIFT+R** (verificar rebelião na hora), **CTRL+SHIFT+S** (+25 de submissão no escravo selecionado) e **CTRL+SHIFT+E** (o escravo selecionado foge).
+
+### Dica: recompensas
+
+A escravidão não atrapalha as recompensas. Derrube o alvo, escravize e leve andando até a cidade; para entregar, liberte, pegue no ombro e entregue normalmente. Com várias, deixe todos fora da cidade com um membro vigiando e entregue um de cada vez. A facção que quer o seu procurado ataca ele quando o reconhece, então mantenha-o longe dela até levá-lo no ombro.
 
 ### Requisitos
 

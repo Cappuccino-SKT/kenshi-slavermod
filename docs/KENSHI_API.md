@@ -201,3 +201,13 @@ gui->destroy(bar);
 `c->slaveOwner.getCharacter()->getFaction()`, else `getStateBroadcast()->isSlaveOf`. Player characters enslaved by an
 NPC faction (Rebirth start) are in the player faction with `IS_SLAVE` too; before v1.9 the mod treated them as its
 slaves and blocked the guards' slave finders. The `watch:` trace prints `slave of <faction> (ours|not ours)`.
+
+## The game turns far-away slaves into escaped slaves
+
+`StateBroadcastData::periodicUpdate` (Steam 0x5A44C0): while `IS_SLAVE`, if the `slaveOwner` character is dead/gone
+(and not just unloaded), or the slave is outside a town (`currentTownLocation` null) and more than ~3536 units
+(squared distance 12,500,000) from the owner, it calls `setSlaveState(ESCAPING_SLAVE)`. Since v1.10 the mod hands the
+owner to the nearest free member every 2 s (`KeepOwnerNearby`, when the current owner is over 1000 units away) and
+handles any recorded slave of ours the game flipped (`RestoreFlippedSlave`): with no free member within that range,
+not held (cage, chains, knocked out) and below `EscapeMaxSubmission`, it runs away for real (`StartEscape`); otherwise
+it goes back to `IS_SLAVE`. `SyncRecords` only restores (saves made while flipped). Trace lines start with `owner:`.

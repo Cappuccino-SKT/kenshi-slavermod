@@ -20,6 +20,10 @@ A RE_Kenshi plugin that lets your faction own slaves, using Kenshi's own slave s
 [*][b]In-game settings[/b] with ModConfigMenu (optional), or the commented SlaverMod.ini. Debug test hotkeys are off by default.
 [/list]
 
+[h2]Tip: bounties[/h2]
+Slavery doesn't get in the way of bounties (tested by a player with Razor in Black Desert City). Knock the target out, enslave them and walk them to the town; to hand them in, free them, pick them up and turn them in as usual. With several bounties, leave them outside town with a member guarding them and hand them in one at a time.
+[b]Careful:[/b] a faction that wants your enslaved bounty attacks them on sight, so keep them away from it until you carry them in.
+
 [h2]Requirements[/h2]
 [list]
 [*]RE_Kenshi 0.3.x
@@ -53,6 +57,10 @@ Plugin RE_Kenshi que deixa a sua facção ter escravos usando o sistema de escra
 [*][b]Seus personagens escravizados por outros[/b] (início do Rebirth, escravistas que pegam você) ficam por conta do jogo. [i]Enabled=0[/i] (MCM: Mod ativo) desliga o mod inteiro.
 [*][b]Opções dentro do jogo[/b] com o ModConfigMenu (opcional), ou no SlaverMod.ini comentado. Os atalhos de teste do modo debug vêm desligados.
 [/list]
+
+[h2]Dica: recompensas[/h2]
+A escravidão não atrapalha as recompensas (um jogador testou com o Razor na Black Desert City). Derrube o alvo, escravize e leve andando até a cidade; para entregar, liberte, pegue no ombro e entregue normalmente. Com várias recompensas, deixe todos fora da cidade com um membro vigiando e entregue um de cada vez.
+[b]Cuidado:[/b] a facção que quer o seu procurado ataca ele quando o reconhece, então mantenha-o longe dela até levá-lo no ombro.
 
 [h2]Requisitos[/h2]
 [list]

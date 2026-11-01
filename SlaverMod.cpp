@@ -814,44 +814,6 @@ static void RemoveShackles(Character* c)
 }
 
 // ---------------------------------------------------------------------------
-// Slave rules, checked every couple of game seconds
-// ---------------------------------------------------------------------------
-
-static float g_ruleTimer = 0.0f;
-
-static void ApplySlaveRules(float dt)
-{
-    g_ruleTimer += dt;
-    if (g_ruleTimer < 2.0f)
-        return;
-    g_ruleTimer = 0.0f;
-
-    const lektor<Character*>& all = ou->player->getAllPlayerCharacters();
-    for (uint32_t i = 0; i < all.size(); i++)
-    {
-        Character* c = all.stuff[i];
-        if (!IsOurSlave(c) || c->isDead())
-            continue;
-
-        // weapons: slaves drop any equipped weapon
-        if (g_cfg.banWeapons && c->inventory != 0 && c->inventory->hasWeaponEquipped())
-        {
-            lektor<Item*> weapons;
-            c->inventory->getEquippedWeapons(weapons);
-            for (uint32_t w = 0; w < weapons.size(); w++)
-            {
-                Item* it = weapons.stuff[w];
-                if (it == 0)
-                    continue;
-                Trace("'" + c->getName() + "' dropped weapon '" + it->getName() + "'");
-                c->inventory->dropItem(it);
-            }
-            ShowNotice(c->getName() + T(" is a slave and cannot use weapons.", " e escravo(a) e nao pode usar armas."));
-        }
-    }
-}
-
-// ---------------------------------------------------------------------------
 // Hotkey (default CTRL+K) acting on the clicked/selected non-player character
 // ---------------------------------------------------------------------------
 
@@ -1231,6 +1193,119 @@ static std::string SubmissionText(float s)
     return T("Submission ", "Submissao ") + Num((float)(int)(s + 0.5f)) + " (" + SubmissionLevel(s) + ")";
 }
 
+// ---------------------------------------------------------------------------
+// Slave rules, checked every couple of game seconds
+// ---------------------------------------------------------------------------
+
+static float g_ruleTimer = 0.0f;
+
+// The game's own rule (StateBroadcastData::periodicUpdate): a slave outside a town that is
+// more than ~3500 units from its slaveOwner character, or whose owner died, turns into an
+// escaped slave. Our slaves are watched by the whole faction, so the owner is handed to the
+// nearest free member whenever the current one is away; escapes are decided by our own rules.
+static const float OWNER_SWITCH_RANGE = 1000.0f;
+
+static void KeepOwnerNearby(Character* c)
+{
+    float nearD = 0.0f;
+    Character* nearest = NearestFreeMember(c->getPosition(), &nearD, c, false);
+    if (nearest == 0)
+        return;
+    Character* owner = c->slaveOwner.getCharacter();
+    float ownerD = owner != 0 && owner != c && IsFreePlayerMember(owner) ? (owner->getPosition() - c->getPosition()).length() : 1e30f;
+    if (nearest == owner || ownerD <= OWNER_SWITCH_RANGE || nearD >= ownerD)
+        return;
+    c->changeSlaveOwner(hand(nearest));
+    Trace("owner: '" + c->getName() + "' now owned by '" + nearest->getName() + "' (" + Num(nearD) + " away, previous " +
+          (ownerD < 1e29f ? Num(ownerD) : std::string("gone")) + ")");
+}
+
+// Knocked out, caged, or tied up by the game. The mod's shackles also put the game in
+// "chained" mode, but shackled slaves can still run (at EscapeShackledMult).
+static bool IsHeld(Character* c)
+{
+    return c->medical.isUnconcious() || c->inSomething == IN_PRISON || (c->isChainedMode() && !WearsShackles(c));
+}
+
+// Distance at which the game gives up on the owner (sqrt of the 12,500,000 it compares).
+static const float GAME_ESCAPE_RANGE = 3536.0f;
+static std::map<std::string, bool> g_flipLogged;   // keeps the 2 s "stays" line from repeating
+
+static void StartEscape(Character* c, const char* why);
+
+// One of our slaves the game turned into an escaped slave while still in the faction.
+// With no free member anywhere near, nothing holds them: they run (unless caged, chained,
+// knocked out or at EscapeMaxSubmission and above). Otherwise they go back to being a slave.
+static bool RestoreFlippedSlave(Character* c, bool mayRun)
+{
+    if (!g_cfg.enabled || c == 0 || c->isDead() || !IsPlayerFaction(c) || c->isSlave() != ESCAPING_SLAVE)
+        return false;
+    SlaveRecord* r = FindRecord(c);
+    Faction* of = SlaveOwnerFaction(c);
+    if (r == 0 || r->escaped || (of != 0 && of != PlayerFaction()))
+        return false;   // a runaway of ours, or one of the player's people escaping someone else
+    float nearD = 0.0f;
+    Character* nearest = NearestFreeMember(c->getPosition(), &nearD, c, false);
+    bool alone = nearest == 0 || nearD > GAME_ESCAPE_RANGE;
+    bool held = IsHeld(c);
+    bool willing = g_cfg.escapeEnabled && g_cfg.escapeMaxSubmission > 0.0f && r->submission < g_cfg.escapeMaxSubmission;
+    std::string key = SlaveKey(c);
+    if (mayRun && alone && !held && willing)
+    {
+        Trace("owner: '" + c->getName() + "' left alone (nearest free member " + (nearest != 0 ? Num(nearD) : std::string("none")) +
+              "), submission " + Num(r->submission) + ": runs away");
+        g_flipLogged.erase(key);
+        StartEscape(c, "left alone");
+        return true;
+    }
+    SetSlaveState(c, IS_SLAVE);
+    if (!alone || !g_flipLogged.count(key))
+        Trace("owner: '" + c->getName() + "' was marked as escaped by the game, stays a slave (" +
+              (!alone ? std::string("free member ") + Num(nearD) + " away" : held ? std::string("held") : !mayRun ? std::string("just loaded") : "submission " + Num(r->submission)) + ")");
+    if (alone)
+        g_flipLogged[key] = true;
+    else
+        g_flipLogged.erase(key);
+    KeepOwnerNearby(c);
+    return true;
+}
+
+static void ApplySlaveRules(float dt)
+{
+    g_ruleTimer += dt;
+    if (g_ruleTimer < 2.0f)
+        return;
+    g_ruleTimer = 0.0f;
+
+    const lektor<Character*>& list = ou->player->getAllPlayerCharacters();
+    std::vector<Character*> all(list.stuff, list.stuff + list.size());   // copied: a runaway leaves the list
+    for (size_t i = 0; i < all.size(); i++)
+    {
+        Character* c = all[i];
+        if (RestoreFlippedSlave(c, true) && !IsPlayerFaction(c))
+            continue;
+        if (!IsOurSlave(c) || c->isDead())
+            continue;
+        KeepOwnerNearby(c);
+
+        // weapons: slaves drop any equipped weapon
+        if (g_cfg.banWeapons && c->inventory != 0 && c->inventory->hasWeaponEquipped())
+        {
+            lektor<Item*> weapons;
+            c->inventory->getEquippedWeapons(weapons);
+            for (uint32_t w = 0; w < weapons.size(); w++)
+            {
+                Item* it = weapons.stuff[w];
+                if (it == 0)
+                    continue;
+                Trace("'" + c->getName() + "' dropped weapon '" + it->getName() + "'");
+                c->inventory->dropItem(it);
+            }
+            ShowNotice(c->getName() + T(" is a slave and cannot use weapons.", " e escravo(a) e nao pode usar armas."));
+        }
+    }
+}
+
 // Matches the loaded world's slaves with the records: slaves without one (made by
 // an older version, or a save from before this file existed) get the starting value.
 // Records of runaways are kept: they are no longer in the player's faction.
@@ -1245,6 +1320,7 @@ static void SyncRecords()
     for (uint32_t i = 0; i < all.size(); i++)
     {
         Character* c = all.stuff[i];
+        RestoreFlippedSlave(c, false);   // saved while the game had them as escaped
         if (c == 0 || !IsOurSlave(c))
             continue;
         SlaveRecord* r = FindRecord(c);
@@ -2910,7 +2986,7 @@ static void StartEscape(Character* c, const char* why)
 // Rolls for one slave; called about once an in-game hour with the time that passed.
 static void TryEscape(Character* c, SlaveRecord& r, double days, bool supervised)
 {
-    if (c->medical.isUnconcious() || c->inSomething == IN_PRISON || c->isChainedMode())
+    if (IsHeld(c))
         return;
     if (g_cfg.escapeMaxSubmission <= 0.0f || r.submission >= g_cfg.escapeMaxSubmission)
         return;
@@ -3955,7 +4031,7 @@ __declspec(dllexport) void startPlugin()
     LoadLines();
     ParseHotkey();
     srand(GetTickCount());
-    Trace("startPlugin v1.9");
+    Trace("startPlugin v1.10");
 
     if (KenshiLib::SUCCESS != KenshiLib::AddHook(KenshiLib::GetRealAddress(&GameWorld::_NV_mainLoop_GPUSensitiveStuff), GameWorld_update_hook, (void**)&GameWorld_update_orig))
         ErrorLog("SlaverMod: could not add GameWorld update hook!");
