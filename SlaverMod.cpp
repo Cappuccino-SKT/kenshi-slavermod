@@ -218,6 +218,7 @@ struct Settings
     std::string knockoutTestKey;
     float relationLoss;
     float relationGain;
+    bool enslaveIsCrime;               // putting shackles on someone is kidnapping for anyone who sees it
     bool slaveEscort;
     std::string escortMode;
 };
@@ -347,6 +348,7 @@ static void LoadSettings()
     g_cfg.knockoutTestKey = IniString("KnockoutTestKey", "CTRL+SHIFT+K");
     g_cfg.relationLoss = IniFloat("RelationLoss", 5.0f);
     g_cfg.relationGain = IniFloat("RelationGain", 2.0f);
+    g_cfg.enslaveIsCrime = IniBool("EnslaveIsCrime", true);
     if (g_cfg.relationGain >= g_cfg.relationLoss && g_cfg.relationLoss > 0.0f)
         g_cfg.relationGain = g_cfg.relationLoss * 0.5f;   // freeing must be worth less than enslaving costs
     g_cfg.slaveEscort = IniBool("SlaveEscort", true);
@@ -373,7 +375,7 @@ static void LoadSettings()
           "d anim='" + g_cfg.punishAnimation + "'/'" + g_cfg.punishVictimAnimation + "' speech=" + Num(g_cfg.speech) + " reward=" + Num(g_cfg.rewardEnabled) + "/" + Num(g_cfg.rewardSubmission) +
           "/" + Num((float)g_cfg.rewardCost) + "cats/" + Num(g_cfg.rewardCooldownDays) + "d cage=" + Num(g_cfg.cageDailyGain) + "/" + Num(g_cfg.cageSubmissionCap) + " races=" + Num(g_cfg.raceTraits) + " trade=" + Num(g_cfg.tradeWindow) + " protect=" + Num(g_cfg.protectSlaves) + " steal=" + Num(g_cfg.allowStealingSlaves) + " noCarriedSale=" + Num(g_cfg.disableCarriedSale) +
           " value=" + Num(g_cfg.tradeBaseValue) + "+" + Num(g_cfg.tradeStatValue) + "/stat buy x" + Num(g_cfg.tradeBuyMult) + " sell x" + Num(g_cfg.tradeSellMult) +
-          " bought+" + Num(g_cfg.tradeBoughtBonus) + " radius=" + Num(g_cfg.tradeRadius) + " relationLoss=" + Num(g_cfg.relationLoss) + " relationGain=" + Num(g_cfg.relationGain) +
+          " bought+" + Num(g_cfg.tradeBoughtBonus) + " radius=" + Num(g_cfg.tradeRadius) + " relationLoss=" + Num(g_cfg.relationLoss) + " relationGain=" + Num(g_cfg.relationGain) + " crime=" + Num(g_cfg.enslaveIsCrime) +
           " escort=" + Num(g_cfg.slaveEscort) + "/" + g_cfg.escortMode);
 }
 
@@ -463,20 +465,35 @@ static Faction* SlaveOwnerFaction(Character* c)
     return sb != 0 ? sb->isSlaveOf : 0;
 }
 
+// A living, non-slave member. Being knocked out does not stop someone from owning slaves.
+static bool IsFreePlayerMember(Character* c)
+{
+    return c != 0 && !c->isDead() && IsPlayerFaction(c) && c->isSlave() != IS_SLAVE;
+}
+
+static int CountFreeMembers();
+struct SlaveRecord;
+static SlaveRecord* FindRecord(Character* c);
+
+// Whether the player owns this slave (or runaway). A known owner decides. With none known
+// (the owner is far away and not loaded, or died) only a slave the mod has a record of, while
+// the player has someone free to own them: in the Rebirth start every starter is someone
+// else's slave and the game does not always say whose, and those must be left to the game.
+static bool OwnedByPlayer(Character* c)
+{
+    Faction* of = SlaveOwnerFaction(c);
+    if (of != 0)
+        return of == PlayerFaction();
+    return FindRecord(c) != 0 && CountFreeMembers() > 0;
+}
+
 // A slave in the player's faction that the player owns. Player characters enslaved by
 // someone else are left to the game.
 static bool IsOurSlave(Character* c)
 {
     if (!g_cfg.enabled || c == 0 || !IsPlayerFaction(c) || c->isSlave() != IS_SLAVE)
         return false;
-    Faction* of = SlaveOwnerFaction(c);
-    return of == 0 || of == PlayerFaction();
-}
-
-// A living, non-slave member. Being knocked out does not stop someone from owning slaves.
-static bool IsFreePlayerMember(Character* c)
-{
-    return c != 0 && !c->isDead() && IsPlayerFaction(c) && c->isSlave() != IS_SLAVE;
+    return OwnedByPlayer(c);
 }
 
 // A free member that is awake and can actually watch the slaves.
@@ -1265,8 +1282,7 @@ static bool RestoreFlippedSlave(Character* c, bool mayRun)
     if (!g_cfg.enabled || c == 0 || c->isDead() || !IsPlayerFaction(c) || c->isSlave() != ESCAPING_SLAVE)
         return false;
     SlaveRecord* r = FindRecord(c);
-    Faction* of = SlaveOwnerFaction(c);
-    if (r == 0 || r->escaped || (of != 0 && of != PlayerFaction()))
+    if (r == 0 || r->escaped || !OwnedByPlayer(c))
         return false;   // a runaway of ours, or one of the player's people escaping someone else
     float nearD = 0.0f;
     Character* nearest = NearestFreeMember(c->getPosition(), &nearD, c, false);
@@ -1673,6 +1689,7 @@ struct PendingAction
     DWORD offTaskSince;         // when the AI switched them to something of its own (0 = on task)
     int lastGoal;               // last AI goal seen, for the log
     bool playerOrdered;         // the player gave the performer another order: cancel
+    bool crimeLogged;           // the kidnapping line is in the trace already
 };
 
 static std::vector<PendingAction> g_pending;
@@ -1922,6 +1939,27 @@ static void ApplyRelationGain(Faction* originFaction, const std::string& name)
         ShowNotice(originFaction->getName() + T(" liked seeing ", " gostou de ver ") + name + T(" freed. Relation: ", " libertado(a). Relacao: ") + Num((float)(int)after) + ".");
 }
 
+// While putting shackles on someone of another faction the performer is committing a kidnapping,
+// like carrying an unconscious body away: whoever sees it reacts as the game decides (alarm,
+// guards, the victim's friends attacking). Renewed every frame of the work, so it lasts as long.
+static void CommitEnslaveCrime(PendingAction& p, Character* performer, Character* target)
+{
+    if (!g_cfg.enslaveIsCrime || (p.action != ACT_ENSLAVE && p.action != ACT_THRALL) || IsPlayerFaction(target))
+        return;
+    SlaveRecord* r = FindRecord(target);
+    if (r != 0 && r->escaped)   // a runaway is still yours
+        return;
+    Faction* victim = target->getFaction();
+    if (victim == 0 || victim == PlayerFaction())
+        return;
+    // the game refuses it for some factions (drifters...): nobody minds those being taken
+    performer->crimes.setCrime(CRIME_KIDNAPPING, victim, hand(target));
+    if (!p.crimeLogged)
+        Trace("crime: '" + performer->getName() + "' kidnapping '" + target->getName() + "' of '" + victim->getName() +
+              "' -> committing=" + Num((float)performer->crimes.committingCrime));
+    p.crimeLogged = true;
+}
+
 static bool g_ownOrder = false;   // set while the mod itself gives an order (see Character_addOrder_hook)
 
 static void OrderMove(Character* who, const Ogre::Vector3& where)
@@ -1982,6 +2020,14 @@ static bool KeepOnTask(PendingAction& p, Character* performer, Character* target
     {
         Trace("action cancelled: '" + performer->getName() + "' got another order from the player");
         ShowNotice(T("Action cancelled: ", "Acao cancelada: ") + performer->getName() + T(" got another order.", " recebeu outra ordem."));
+        return false;
+    }
+    // under attack (the victim's friends, guards who saw the kidnapping): let them fight
+    if (goal == SELF_PRESERVATION || goal == MELEE_ATTACK || goal == FOCUSED_MELEE_ATTACK || goal == UNPROVOKED_FOCUSED_MELEE_ATTACK ||
+        goal == ATTACK_ENEMIES || goal == ATTACK_ENEMIES_AND_NEUTRALS || performer->isInCombatMode(true, true))
+    {
+        Trace("action cancelled: '" + performer->getName() + "' is fighting (goal " + Num((float)goal) + ")");
+        ShowNotice(T("Action cancelled: ", "Acao cancelada: ") + performer->getName() + T(" is under attack.", " esta sendo atacado(a)."));
         return false;
     }
     bool walking = p.acting < 0.0f;
@@ -2363,6 +2409,10 @@ static void StartAction(Character* target, SlaveAction action)
 
     if (g_cfg.instantAction)
     {
+        PendingAction now;
+        now.action = action;
+        now.crimeLogged = false;
+        CommitEnslaveCrime(now, performer, target);
         CompleteAction(action, performer, target);
         return;
     }
@@ -2393,6 +2443,7 @@ static void StartAction(Character* target, SlaveAction action)
     p.offTaskSince = 0;
     p.lastGoal = -1;
     p.playerOrdered = false;
+    p.crimeLogged = false;
     g_pending.push_back(p);
 
     OrderMove(performer, target->getPosition());
@@ -2499,6 +2550,7 @@ static void UpdatePendingActions(float dt)
         }
         p.acting += dt;
         UpdateActingVisuals(p, performer);
+        CommitEnslaveCrime(p, performer, target);
         if (p.acting >= g_cfg.actionSeconds)
         {
             SlaveAction action = p.action;
@@ -4410,6 +4462,9 @@ extern "C" __declspec(dllexport) void MCM_Describe(MCM_Api* api)
                 L("How much the victim's faction relation drops.", "Quanto a relação com a facção da vítima cai."), 5.0f, 0.0f, 50.0f, 1, 0);
     api->number(api, sec, "RelationGain", L("Gain when freeing", "Ganho ao libertar"),
                 L("How much the original faction relation rises. Must be lower than the loss.", "Quanto a relação com a facção de origem sobe. Precisa ser menor que a perda."), 2.0f, 0.0f, 50.0f, 1, 0);
+    api->toggle(api, sec, "EnslaveIsCrime", L("Enslaving is a crime", "Escravizar é crime"),
+                L("Whoever sees you putting shackles on someone treats it as kidnapping, like carrying them away.",
+                  "Quem vê você colocando grilhões em alguém trata como sequestro, igual a carregar a pessoa."), 1, 0);
 
     api->section(api, L("Rebellion", "Rebelião"));
     api->toggle(api, sec, "RebellionEnabled", L("Rebellion", "Rebelião"),
@@ -4465,7 +4520,7 @@ __declspec(dllexport) void startPlugin()
     LoadLines();
     ParseHotkey();
     srand(GetTickCount());
-    Trace("startPlugin v1.11");
+    Trace("startPlugin v1.12");
 
     if (KenshiLib::SUCCESS != KenshiLib::AddHook(KenshiLib::GetRealAddress(&GameWorld::_NV_mainLoop_GPUSensitiveStuff), GameWorld_update_hook, (void**)&GameWorld_update_orig))
         ErrorLog("SlaverMod: could not add GameWorld update hook!");

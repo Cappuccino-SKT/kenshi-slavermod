@@ -16,6 +16,7 @@ A [RE_Kenshi](https://github.com/BFrizzleFoShizzle/RE_Kenshi) plugin that lets t
 - **Slaves cannot use weapons.** Any equipped weapon is dropped.
 - **New slaves follow and guard** whoever enslaved them (native `BODYGUARD` order, or follow only).
 - **Relations.** Enslaving someone from another faction lowers your relation with it (default −5). Freeing gives a little back (default +2, always less than the loss).
+- **Enslaving is a crime.** While the shackles go on, the owner is kidnapping, as when carrying an unconscious person off: guards and the victim's friends who see it react (the game decides who cares; drifters, for one, don't). If they attack, the action is cancelled so the owner can fight back. `EnslaveIsCrime=0` turns it off.
 - **Freeing.** A freed slave with submission 90+ stays in your faction; the others go back to the faction they were taken from and walk home.
 - **Submission** (0–100) for every slave: Defiant, Restless, Obedient or Loyal. New slaves start at 30 (+10 if they were caged or chained) and slowly get used to their condition while watched (+2 per day, up to 60). Select a slave to see a bar with it over their head. Saved with each save game, in the mod's `saves` folder.
 - **Races and subraces** take slavery differently (table in `SlaverMod_races.ini`, editable): Hive Worker Drones start at 60 and rarely run, Soldier Drones at 45, Princes at 20, Shek at 10 (proud: they lose submission fast, run more and punishment does little), the QueenBirth Hive Queen at 5, Skeletons barely care about punishment. Other races use the defaults.
@@ -33,7 +34,7 @@ A [RE_Kenshi](https://github.com/BFrizzleFoShizzle/RE_Kenshi) plugin that lets t
 - **Reprogram skeletons (optional, off by default).** With `SkeletonThrall=1`, an unconscious skeleton gets "Reprogram" instead of "Enslave": a roll on the performer's robotics (20% + 0.75% per level, at most 95%). Success: a free member of your faction. Failure: the skeleton is destroyed.
 - **New game start: Slave Hunters.** A leader and five slave hunters with rusty clubs and 500 cats, at a random slaver camp (Slave Farm, Slave Markets, Stone Camp, South Stone Camp or Slave Farm South), friendly with the Slave Traders and Slave Hunters and disliked by the Anti-Slavers.
 - **In-game settings** with [ModConfigMenu](https://steamcommunity.com/sharedfiles/filedetails/?id=3813761584) (optional): *Options > MCM > SlaverMod*.
-- **Your own people enslaved by another faction** (the Rebirth start, slavers who catch you) are left to the game: no submission, escapes or protection for them. `Enabled=0` (MCM: *Mod active*) switches the whole mod off by hand.
+- **Your own people enslaved by another faction** (the Rebirth start, slavers who catch you) are left to the game: no submission, escapes or protection for them, even when the game does not say whose slaves they are. `Enabled=0` (MCM: *Mod active*) switches the whole mod off by hand.
 - **On-screen messages** in a single box at the top of the screen that fades after a few seconds. `ShowNotices=0` hides them; the REBELLION alert is always shown.
 - **Debug mode** (off by default): test hotkeys **CTRL+K** (enslave/free the selected character), **CTRL+SHIFT+R** (rebellion check right away), **CTRL+SHIFT+S** (+25 submission on the selected slave) and **CTRL+SHIFT+E** (the selected slave runs away).
 
@@ -112,6 +113,7 @@ Plugin [RE_Kenshi](https://github.com/BFrizzleFoShizzle/RE_Kenshi) que deixa a f
 - **Escravos não usam armas.** Qualquer arma equipada é largada.
 - **O recém-escravizado segue e protege** quem o escravizou (ordem nativa `BODYGUARD`, ou só seguir).
 - **Relações.** Escravizar alguém de outra facção reduz a relação com ela (padrão −5). Libertar devolve um pouco (padrão +2, sempre menos que a perda).
+- **Escravizar é crime.** Enquanto coloca os grilhões, o dono está sequestrando, como ao carregar alguém desmaiado: guardas e amigos da vítima que virem reagem (o jogo decide quem se importa; os Retirantes, por exemplo, não). Se atacarem, a ação é cancelada para o dono poder lutar. `EnslaveIsCrime=0` desliga.
 - **Libertar.** O libertado com submissão 90+ fica na sua facção; os outros voltam para a facção de onde vieram e vão para casa.
 - **Submissão** (0–100) de cada escravo: Rebelde, Inquieto, Obediente ou Leal. Escravos novos começam com 30 (+10 se estavam presos ou acorrentados) e se acostumam aos poucos enquanto vigiados (+2 por dia, até 60). Selecione um escravo para ver a barra sobre a cabeça dele. Salva junto com cada save, na pasta `saves` do mod.
 - **Raças e sub-raças** reagem diferente à escravidão (tabela editável em `SlaverMod_races.ini`): o Operário da colmeia começa com 60 e quase não foge, o Soldado com 45, o Príncipe com 20, o Shek com 10 (orgulhoso: perde submissão rápido, foge mais e a punição adianta pouco), a Rainha do QueenBirth com 5, e Esqueletos quase não ligam para punição. As outras raças usam os valores padrão.
@@ -129,7 +131,7 @@ Plugin [RE_Kenshi](https://github.com/BFrizzleFoShizzle/RE_Kenshi) que deixa a f
 - **Reprogramar esqueletos (opcional, desligado por padrão).** Com `SkeletonThrall=1`, um esqueleto inconsciente ganha "Reprogramar" em vez de "Escravizar": um teste na robótica de quem age (20% + 0,75% por nível, no máximo 95%). Sucesso: um membro livre da sua facção. Falha: o esqueleto é destruído.
 - **Novo início de jogo: Slave Hunters (Caçadores de Escravos).** Um líder e cinco caçadores com porretes enferrujados e 500 cats, num acampamento de traficantes sorteado (Slave Farm, Slave Markets, Stone Camp, South Stone Camp ou Slave Farm South), com boa relação com os Traficantes e os Caçadores de Escravos e malvistos pelos Abolicionistas.
 - **Configuração dentro do jogo** com o [ModConfigMenu](https://steamcommunity.com/sharedfiles/filedetails/?id=3813761584) (opcional): *Opções > MCM > SlaverMod*.
-- **Seus personagens escravizados por outra facção** (início do Rebirth, escravistas que pegam você) ficam por conta do jogo: sem submissão, fuga ou proteção. `Enabled=0` (MCM: *Mod ativo*) desliga o mod inteiro na mão.
+- **Seus personagens escravizados por outra facção** (início do Rebirth, escravistas que pegam você) ficam por conta do jogo: sem submissão, fuga ou proteção, mesmo quando o jogo não informa de quem são escravos. `Enabled=0` (MCM: *Mod ativo*) desliga o mod inteiro na mão.
 - **Mensagens na tela** numa única caixa no topo, que some depois de alguns segundos. `ShowNotices=0` esconde; o alerta de REBELIÃO sempre aparece.
 - **Modo debug** (desligado por padrão): atalhos de teste **CTRL+K** (escravizar ou libertar o personagem selecionado), **CTRL+SHIFT+R** (verificar rebelião na hora), **CTRL+SHIFT+S** (+25 de submissão no escravo selecionado) e **CTRL+SHIFT+E** (o escravo selecionado foge).
 
