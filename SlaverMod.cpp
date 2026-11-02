@@ -24,6 +24,7 @@
 #include <kenshi/Damages.h>
 #include <kenshi/RaceData.h>
 #include <kenshi/Dialogue.h>
+#include <kenshi/AI/AITaskSystem.h>
 
 #include <kenshi/Animation/AnimationClass.h>
 #include <kenshi/util/hand.h>
@@ -189,6 +190,8 @@ struct Settings
     std::string escapeSquadTemplate;   // squad template whose AI runaways get (default: UC escaped slave)
     std::string freedGoal;             // how the freed who leave move away: run_away | forced | total | hometown
     bool punishEnabled;
+    bool skeletonThrall;               // unconscious skeletons are reprogrammed into free members (robotics roll) instead of enslaved
+    float thrallBaseChance, thrallChancePerLevel, thrallMaxChance;   // % ; per robotics level
     float punishSubmission;            // first punishment; each one within PunishCooldownDays gives less
     float punishDamage;                // blunt damage on a limb; grows with repeated punishments
     float punishCooldownDays;
@@ -211,6 +214,8 @@ struct Settings
     bool disableCarriedSale;           // hide the fixed 400 cats offer for a carried person
     float tradeBaseValue, tradeStatValue, tradeBuyMult, tradeSellMult, tradeBoughtBonus, tradeRadius;
     std::string escapeTestKey;
+    std::string carryTestKey;
+    std::string knockoutTestKey;
     float relationLoss;
     float relationGain;
     bool slaveEscort;
@@ -305,6 +310,10 @@ static void LoadSettings()
     g_cfg.escapeSquadTemplate = IniString("EscapeSquadTemplate", "54294-rebirth.mod");
     g_cfg.freedGoal = IniString("FreedGoal", "forced");
     g_cfg.punishEnabled = IniBool("PunishEnabled", true);
+    g_cfg.skeletonThrall = IniBool("SkeletonThrall", false);
+    g_cfg.thrallBaseChance = IniFloat("ThrallBaseChance", 20.0f);
+    g_cfg.thrallChancePerLevel = IniFloat("ThrallChancePerLevel", 0.75f);
+    g_cfg.thrallMaxChance = IniFloat("ThrallMaxChance", 95.0f);
     g_cfg.punishSubmission = IniFloat("PunishSubmission", 15.0f);
     g_cfg.punishDamage = IniFloat("PunishDamage", 10.0f);
     g_cfg.punishCooldownDays = IniFloat("PunishCooldownDays", 1.0f);
@@ -334,6 +343,8 @@ static void LoadSettings()
     g_cfg.tradeBoughtBonus = IniFloat("TradeBoughtBonus", 15.0f);
     g_cfg.tradeRadius = IniFloat("TradeRadius", 1500.0f);
     g_cfg.escapeTestKey = IniString("EscapeTestKey", "CTRL+SHIFT+E");
+    g_cfg.carryTestKey = IniString("CarryTestKey", "CTRL+SHIFT+C");
+    g_cfg.knockoutTestKey = IniString("KnockoutTestKey", "CTRL+SHIFT+K");
     g_cfg.relationLoss = IniFloat("RelationLoss", 5.0f);
     g_cfg.relationGain = IniFloat("RelationGain", 2.0f);
     if (g_cfg.relationGain >= g_cfg.relationLoss && g_cfg.relationLoss > 0.0f)
@@ -532,6 +543,15 @@ static bool IsEnslaveCandidate(Character* c, std::string* why)
 }
 
 // Nearest free member other than `exclude`; with awakeOnly, only members that can guard.
+// Optional: unconscious skeletons (any robot race) get "Reprogram" instead of "Enslave".
+static bool IsThrallTarget(Character* c)
+{
+    if (!g_cfg.skeletonThrall || c == 0 || c->isDead() || IsPlayerFaction(c) || !c->medical.isUnconcious())
+        return false;
+    RaceData* race = c->getRace();
+    return race != 0 && race->robot;
+}
+
 static Character* NearestFreeMember(const Ogre::Vector3& pos, float* distOut, Character* exclude, bool awakeOnly)
 {
     Character* best = 0;
@@ -828,6 +848,8 @@ static Hotkey g_enslaveKey = { 0, false, false, false, false };
 static Hotkey g_rebellionKey = { 0, false, false, false, false };
 static Hotkey g_submissionKey = { 0, false, false, false, false };
 static Hotkey g_escapeKey = { 0, false, false, false, false };
+static Hotkey g_carryKey = { 0, false, false, false, false };
+static Hotkey g_knockoutKey = { 0, false, false, false, false };
 
 static Hotkey ParseKey(const std::string& text)
 {
@@ -857,6 +879,8 @@ static void ParseHotkey()
     g_rebellionKey = ParseKey(g_cfg.rebellionTestKey);
     g_submissionKey = ParseKey(g_cfg.submissionTestKey);
     g_escapeKey = ParseKey(g_cfg.escapeTestKey);
+    g_carryKey = ParseKey(g_cfg.carryTestKey);
+    g_knockoutKey = ParseKey(g_cfg.knockoutTestKey);
     Trace("hotkeys parsed: enslave vk=" + Num((float)g_enslaveKey.vk) + " rebellion test vk=" + Num((float)g_rebellionKey.vk));
 }
 
@@ -1513,7 +1537,7 @@ static void UpdateEscorts(float dt)
     }
 }
 
-enum SlaveAction { ACT_ENSLAVE, ACT_FREE, ACT_PUNISH, ACT_REWARD };
+enum SlaveAction { ACT_ENSLAVE, ACT_FREE, ACT_PUNISH, ACT_REWARD, ACT_THRALL };
 
 // ---------------------------------------------------------------------------
 // Speech: short lines in speech bubbles (Character::say) when slaves are taken,
@@ -1646,6 +1670,9 @@ struct PendingAction
     DWORD nextSwing;            // punishing: when to swing again (attacks do not loop)
     DWORD flinchUntil;          // punishing: the slave plays a hit reaction until then
     std::string flinch;         // that reaction
+    DWORD offTaskSince;         // when the AI switched them to something of its own (0 = on task)
+    int lastGoal;               // last AI goal seen, for the log
+    bool playerOrdered;         // the player gave the performer another order: cancel
 };
 
 static std::vector<PendingAction> g_pending;
@@ -1766,6 +1793,7 @@ static const char* MasterLineKey(SlaveAction action)
     case ACT_FREE: return "FreeMaster";
     case ACT_PUNISH: return "PunishMaster";
     case ACT_REWARD: return "RewardMaster";
+    case ACT_THRALL: return "ThrallMaster";
     default: return "EnslaveMaster";
     }
 }
@@ -1783,6 +1811,7 @@ static std::string ActingCaption(SlaveAction action)
     case ACT_FREE: return T("Freeing", "Libertando");
     case ACT_PUNISH: return T("Punishing", "Punindo");
     case ACT_REWARD: return T("Rewarding", "Recompensando");
+    case ACT_THRALL: return T("Reprogramming", "Reprogramando");
     default: return T("Enslaving", "Escravizando");
     }
 }
@@ -1866,7 +1895,7 @@ static void StopActingVisuals(PendingAction& p, Character* performer)
 }
 
 // Small relation hit with the faction of someone the player enslaves.
-static void ApplyRelationLoss(Faction* victimFaction, const std::string& victimName)
+static void ApplyRelationLoss(Faction* victimFaction, const std::string& victimName, bool reprogrammed = false)
 {
     Faction* pf = PlayerFaction();
     if (g_cfg.relationLoss <= 0.0f || victimFaction == 0 || pf == 0 || victimFaction == pf || victimFaction->relations == 0)
@@ -1876,7 +1905,7 @@ static void ApplyRelationLoss(Faction* victimFaction, const std::string& victimN
     float after = victimFaction->relations->getFactionRelation(pf);
     Trace("relation with '" + victimFaction->getName() + "': " + Num(before) + " -> " + Num(after));
     if (after < before)
-        ShowNotice(victimFaction->getName() + T(" did not like seeing ", " nao gostou de ver ") + victimName + T(" enslaved. Relation: ", " escravizado(a). Relacao: ") + Num((float)(int)after) + ".");
+        ShowNotice(victimFaction->getName() + T(" did not like seeing ", " nao gostou de ver ") + victimName + (reprogrammed ? T(" reprogrammed. Relation: ", " reprogramado(a). Relacao: ") : T(" enslaved. Relation: ", " escravizado(a). Relacao: ")) + Num((float)(int)after) + ".");
 }
 
 // Smaller relation gain with the old faction of someone the player frees.
@@ -1893,9 +1922,92 @@ static void ApplyRelationGain(Faction* originFaction, const std::string& name)
         ShowNotice(originFaction->getName() + T(" liked seeing ", " gostou de ver ") + name + T(" freed. Relation: ", " libertado(a). Relacao: ") + Num((float)(int)after) + ".");
 }
 
+static bool g_ownOrder = false;   // set while the mod itself gives an order (see Character_addOrder_hook)
+
 static void OrderMove(Character* who, const Ogre::Vector3& where)
 {
+    g_ownOrder = true;
     who->addOrder(0, MOVE_CUS_ORDERED, 0, false, true, where);
+    g_ownOrder = false;
+}
+
+// Someone outside the player's faction is carrying them (a guard taking them to prison...).
+static bool CarriedByOthers(Character* c)
+{
+    if (!c->isBeingCarried())
+        return false;
+    const lektor<Character*>& all = ou->player->getAllPlayerCharacters();
+    for (uint32_t i = 0; i < all.size(); i++)
+    {
+        Character* m = all.stuff[i];
+        if (m != 0 && m->isCarryingSomething && m->getCarryingObject().getCharacter() == c)
+            return false;
+    }
+    return true;
+}
+
+// The AI's current goal (task system at AI + 0x20).
+static AITaskSytem* TaskSystemOf(Character* c)
+{
+    if (c == 0 || c->ai == 0)
+        return 0;
+    return *reinterpret_cast<AITaskSytem**>(reinterpret_cast<char*>(c->ai) + 0x20);
+}
+
+static int CurrentGoal(Character* c)
+{
+    AITaskSytem* ts = TaskSystemOf(c);
+    if (ts == 0)
+        return -1;
+    const TaskMatch& g = ts->getCurrentGoal();
+    return g ? (int)g.key() : (int)NULL_TASK;
+}
+
+// The order beats anything the AI picks on its own (first aid, jobs, looting, fighting...):
+// when their goal is not ours for a moment, the order is given again. A new order from the
+// player cancels the action instead. Returns false when cancelled.
+static bool KeepOnTask(PendingAction& p, Character* performer, Character* target)
+{
+    AITaskSytem* ts = TaskSystemOf(performer);
+    if (ts == 0)
+        return true;
+    int goal = CurrentGoal(performer);
+    if (goal != p.lastGoal)
+    {
+        Trace("goal: '" + performer->getName() + "' " + Num((float)p.lastGoal) + " -> " + Num((float)goal) +
+              (p.acting < 0.0f ? " (walking)" : " (working)"));
+        p.lastGoal = goal;
+    }
+    if (p.playerOrdered || (ts->hasPlayerOrders() && !ts->hasPlayerOrder(MOVE_CUS_ORDERED)))
+    {
+        Trace("action cancelled: '" + performer->getName() + "' got another order from the player");
+        ShowNotice(T("Action cancelled: ", "Acao cancelada: ") + performer->getName() + T(" got another order.", " recebeu outra ordem."));
+        return false;
+    }
+    bool walking = p.acting < 0.0f;
+    bool ours = walking ? goal == MOVE_CUS_ORDERED
+                        : (goal == NULL_TASK || goal == IDLE || goal == MOVE_CUS_ORDERED || goal == HOLD_POSITION || goal == STAND_STILL);
+    if (ours)
+    {
+        p.offTaskSince = 0;
+        return true;
+    }
+    DWORD now = GetTickCount();
+    if (p.offTaskSince == 0)
+        p.offTaskSince = now;
+    else if (now - p.offTaskSince > 700)
+    {
+        Trace("keep: '" + performer->getName() + "' was on goal " + Num((float)goal) + ", order given again");
+        p.offTaskSince = 0;
+        if (walking)
+        {
+            p.orderedPos = target->getPosition();
+            OrderMove(performer, p.orderedPos);
+        }
+        else
+            OrderMove(performer, performer->getPosition());
+    }
+    return true;
 }
 
 static float ReachDistance(Character* performer, Character* target)
@@ -1920,6 +2032,7 @@ static bool ActionStillValid(SlaveAction action, Character* performer, Character
         return true;
     }
     if (IsOurSlave(target)) { *why = target->getName() + T(" is already a slave", " ja e escravo(a)"); return false; }
+    if (CarriedByOthers(target)) { *why = target->getName() + T(" is being carried away by someone else", " esta sendo carregado(a) por outra pessoa"); return false; }
     if (IsPlayerFaction(target))
     {
         if (CountFreeMembers() <= 1) { *why = T("they would be the last free member of your faction", "seria o ultimo membro livre da faccao"); return false; }
@@ -2038,8 +2151,82 @@ static Faction* SendFreedHome(Character* c, const std::string& originSid)
     return IsPlayerFaction(c) ? 0 : f;
 }
 
+// ---- Skeleton thrall (optional): an unconscious skeleton (any robot race) is not enslaved
+// but reprogrammed. A roll on the performer's robotics: success = a free member of your
+// faction, in the performer's squad; failure = the skeleton is destroyed.
+static float StatOf(Character* c, StatsEnumerated s);
+
+static float ThrallChance(Character* performer)
+{
+    float chance = g_cfg.thrallBaseChance + g_cfg.thrallChancePerLevel * StatOf(performer, STAT_ROBOTICS);
+    return chance < 0.0f ? 0.0f : (chance > g_cfg.thrallMaxChance ? g_cfg.thrallMaxChance : chance);
+}
+
+// Every fatal part (head, chest) far below zero: the game kills them on its next medical update.
+static void DestroySkeleton(Character* c)
+{
+    MedicalSystem& med = c->medical;
+    int parts = med.getPartCount();
+    for (int i = 0; i < parts; i++)
+    {
+        MedicalSystem::HealthPartStatus* part = med.getPart((unsigned __int64)i);
+        if (part != 0 && part->fatal)
+            part->flesh = -part->maxHealth() * 3.0f;
+    }
+}
+
+static void Thrall(Character* performer, Character* target)
+{
+    std::string name = target->getName();
+    Faction* victimFaction = target->getFaction();
+    float chance = ThrallChance(performer);
+    float roll = (float)(rand() % 10000) / 100.0f;
+    Trace("thrall: '" + performer->getName() + "' robotics=" + Num(StatOf(performer, STAT_ROBOTICS)) + " chance=" + Num(chance) +
+          "% roll=" + Num(roll) + " on '" + name + "' (" + RaceID(target) + ")");
+    if (roll >= chance)
+    {
+        DestroySkeleton(target);
+        Trace("thrall: failed, '" + name + "' destroyed");
+        ShowNotice(performer->getName() + T(" failed to reprogram ", " falhou ao reprogramar ") + name + T(" and destroyed them (", " e o(a) destruiu (") +
+                   Num((float)(int)(chance + 0.5f)) + T("% chance).", "% de chance)."));
+        return;
+    }
+    ActivePlatoon* squad = performer->getPlatoon();
+    Platoon* previous = ou->player->getCurrentPlatoon();
+    if (squad != 0 && squad->me != 0)
+        ou->player->setCurrentPlatoon(squad->me);
+    if (target->isChainedMode())
+        target->setChainedMode(false, hand(performer));
+    Character* arr[1] = { target };
+    lektor<Character*> list;
+    list.stuff = arr;
+    list.count = 1;
+    list.maxSize = 1;
+    ou->player->recruit(list, false);
+    list.stuff = nullptr;
+    list.count = 0;
+    list.maxSize = 0;
+    if (previous != 0)
+        ou->player->setCurrentPlatoon(previous);
+    if (!IsPlayerFaction(target))
+    {
+        Trace("thrall: recruit refused");
+        ShowNotice(T("The game refused to recruit ", "O jogo recusou o recrutamento de ") + name + ".");
+        return;
+    }
+    Trace("thrall: '" + name + "' joined the squad of '" + performer->getName() + "'");
+    ShowNotice(name + T(" was reprogrammed and now serves your faction (", " foi reprogramado(a) e agora serve a sua faccao (") +
+               Num((float)(int)(chance + 0.5f)) + T("% chance).", "% de chance)."));
+    ApplyRelationLoss(victimFaction, name, true);
+}
+
 static void CompleteAction(SlaveAction action, Character* performer, Character* target)
 {
+    if (action == ACT_THRALL)
+    {
+        Thrall(performer, target);
+        return;
+    }
     if (action == ACT_PUNISH)
     {
         Punish(performer, target);
@@ -2128,6 +2315,7 @@ static std::string WillDoText(SlaveAction action)
     case ACT_FREE: return T(" will take the shackles off ", " vai tirar os grilhoes de ");
     case ACT_PUNISH: return T(" will punish ", " vai punir ");
     case ACT_REWARD: return T(" will reward ", " vai recompensar ");
+    case ACT_THRALL: return T(" will try to reprogram ", " vai tentar reprogramar ");
     default: return T(" will put shackles on ", " vai colocar grilhoes em ");
     }
 }
@@ -2139,6 +2327,7 @@ static std::string DoingText(SlaveAction action)
     case ACT_FREE: return T(" is taking the shackles off ", " esta tirando os grilhoes de ");
     case ACT_PUNISH: return T(" is punishing ", " esta punindo ");
     case ACT_REWARD: return T(" is rewarding ", " esta recompensando ");
+    case ACT_THRALL: return T(" is reprogramming ", " esta reprogramando ");
     default: return T(" is putting shackles on ", " esta colocando grilhoes em ");
     }
 }
@@ -2201,6 +2390,9 @@ static void StartAction(Character* target, SlaveAction action)
     p.stallTimer = 0.0f;
     p.orderedPos = target->getPosition();
     p.bar = 0;
+    p.offTaskSince = 0;
+    p.lastGoal = -1;
+    p.playerOrdered = false;
     g_pending.push_back(p);
 
     OrderMove(performer, target->getPosition());
@@ -2213,7 +2405,7 @@ static void StartAction(Character* target, SlaveAction action)
 // Free a slave, or enslave anyone else (the hotkey).
 static void ToggleSlave(Character* target)
 {
-    StartAction(target, IsOurSlave(target) ? ACT_FREE : ACT_ENSLAVE);
+    StartAction(target, IsOurSlave(target) ? ACT_FREE : (IsThrallTarget(target) ? ACT_THRALL : ACT_ENSLAVE));
 }
 
 static void UpdatePendingActions(float dt)
@@ -2229,6 +2421,14 @@ static void UpdatePendingActions(float dt)
         {
             Trace("action cancelled: " + why);
             ShowNotice(T("Action cancelled: ", "Acao cancelada: ") + why + ".");
+            StopActingVisuals(p, performer);
+            if (performer != 0 && !performer->isDead())
+                OrderMove(performer, performer->getPosition());   // stop walking after the target
+            g_pending.erase(g_pending.begin() + i);
+            continue;
+        }
+        if (!KeepOnTask(p, performer, target))
+        {
             StopActingVisuals(p, performer);
             g_pending.erase(g_pending.begin() + i);
             continue;
@@ -2311,6 +2511,91 @@ static void UpdatePendingActions(float dt)
     }
 }
 
+// ---- Carry test (debug): someone else knocks out and carries away the target of a slave
+// action (or the selected character), like a guard taking them to prison.
+static hand g_carryTarget, g_carrier;
+static DWORD g_carryPickupAt = 0;
+
+static Character* NearestOutsider(Character* target)
+{
+    Character* best = 0;
+    float bestDist = 3000.0f;
+    const lektor<Faction*>& factions = ou->factionMgr->participants;
+    for (uint32_t i = 0; i < factions.size(); i++)
+    {
+        Faction* f = factions.stuff[i];
+        if (f == 0 || f == PlayerFaction())
+            continue;
+        lektor<RootObject*> found;
+        f->getCharactersInArea(found, target->getPosition(), bestDist, false);
+        for (uint32_t k = 0; k < found.size(); k++)
+        {
+            Character* c = found.stuff[k] != 0 ? hand(found.stuff[k]).getCharacter() : 0;
+            if (c == 0 || c == target || c->isDead() || c->isUnconcious() || IsPlayerFaction(c) ||
+                c->isSlave() == IS_SLAVE || c->isCarryingSomething)
+                continue;
+            float d = (c->getPosition() - target->getPosition()).length();
+            if (d < bestDist)
+            {
+                bestDist = d;
+                best = c;
+            }
+        }
+    }
+    return best;
+}
+
+static void StartCarryTest()
+{
+    Character* target = !g_pending.empty() ? g_pending[0].target.getCharacter() : 0;
+    if (target == 0)
+        target = SelectedOtherCharacter();
+    if (target == 0 || IsPlayerFaction(target) || target->isDead())
+    {
+        ShowNotice(T("Carry test: start enslaving someone (or select an NPC) first.", "Teste de carregar: comece a escravizar alguem (ou selecione um NPC) antes."));
+        return;
+    }
+    Character* carrier = NearestOutsider(target);
+    if (carrier == 0)
+    {
+        ShowNotice(T("Carry test: nobody from another faction nearby.", "Teste de carregar: ninguem de outra faccao por perto."));
+        return;
+    }
+    if (!target->isUnconcious())
+        target->medical.knockoutForceTimer(120.0f);
+    g_carryTarget = hand(target);
+    g_carrier = hand(carrier);
+    g_carryPickupAt = GetTickCount() + 1500;   // let them fall first
+    Trace("carry test: '" + carrier->getName() + "' (" + (carrier->getFaction() != 0 ? carrier->getFaction()->getName() : std::string("?")) +
+          ") will carry '" + target->getName() + "'");
+    ShowNotice(T("Carry test: ", "Teste de carregar: ") + carrier->getName() + T(" will carry ", " vai carregar ") + target->getName() + ".");
+}
+
+static void UpdateCarryTest()
+{
+    if (g_carryPickupAt == 0 || GetTickCount() < g_carryPickupAt)
+        return;
+    g_carryPickupAt = 0;
+    Character* target = g_carryTarget.getCharacter();
+    Character* carrier = g_carrier.getCharacter();
+    if (target == 0 || carrier == 0 || carrier->isDead())
+        return;
+    carrier->pickupObject(target);
+    // walk away from whoever was coming for them
+    Character* chaser = !g_pending.empty() ? g_pending[0].performer.getCharacter() : 0;
+    if (chaser == 0)
+        chaser = NearestFreeMember(target->getPosition(), 0, 0, false);
+    Ogre::Vector3 from = chaser != 0 ? chaser->getPosition() : target->getPosition();
+    Ogre::Vector3 away = carrier->getPosition() - from;
+    away.y = 0.0f;
+    if (away.length() < 1.0f)
+        away = Ogre::Vector3(1.0f, 0.0f, 0.0f);
+    away.normalise();
+    carrier->addOrder(0, MOVE_CUS_ORDERED, 0, false, true, carrier->getPosition() + away * 1500.0f);
+    Trace("carry test: picked up, carrying=" + Num(carrier->isCarryingSomething) + " beingCarried=" + Num(target->isBeingCarried()) +
+          " byOthers=" + Num(CarriedByOthers(target)));
+}
+
 static void HandleHotkey()
 {
     if (KeyPressed(g_enslaveKey) && g_cfg.debugMode)
@@ -2344,6 +2629,23 @@ static void HandleHotkey()
             ShowNotice(c->getName() + ": " + SubmissionText(r->submission));
         }
     }
+    // test key: the selected character falls unconscious (2 minutes)
+    if (KeyPressed(g_knockoutKey) && g_cfg.debugMode)
+    {
+        Character* c = SelectedOtherCharacter();
+        if (c == 0 || c->isDead())
+            ShowNotice(T("Knockout test: select a character first.", "Teste de nocaute: selecione um personagem antes."));
+        else
+        {
+            c->medical.knockoutForceTimer(120.0f);
+            Trace("knockout test: '" + c->getName() + "' (" + RaceID(c) + ") knocked out for 120s");
+            ShowNotice(T("Knockout test: ", "Teste de nocaute: ") + c->getName() + T(" is unconscious.", " esta inconsciente."));
+        }
+    }
+    // test key: someone else carries the target away
+    if (KeyPressed(g_carryKey) && g_cfg.debugMode)
+        StartCarryTest();
+    UpdateCarryTest();
     // test key: the selected slave runs away now
     if (KeyPressed(g_escapeKey) && g_cfg.debugMode)
     {
@@ -2492,7 +2794,7 @@ static std::vector<SlaveAction> MenuActionsFor(Character* target)
         return out;
     }
     if (IsEnslaveCandidate(target, 0))
-        out.push_back(ACT_ENSLAVE);
+        out.push_back(IsThrallTarget(target) ? ACT_THRALL : ACT_ENSLAVE);
     return out;
 }
 
@@ -2533,6 +2835,7 @@ static std::string MenuCaption(SlaveAction action, bool upper)
     case ACT_FREE: return upper ? T("FREE", "LIBERTAR") : T("Free", "Libertar");
     case ACT_PUNISH: return upper ? T("PUNISH", "PUNIR") : T("Punish", "Punir");
     case ACT_REWARD: return upper ? T("REWARD", "RECOMPENSAR") : T("Reward", "Recompensar");
+    case ACT_THRALL: return upper ? T("REPROGRAM", "REPROGRAMAR") : T("Reprogram", "Reprogramar");
     default: return upper ? T("ENSLAVE", "ESCRAVIZAR") : T("Enslave", "Escravizar");
     }
 }
@@ -3203,12 +3506,14 @@ struct TradeOffer
 {
     hand who;
     int price;
+    bool marked;    // ticked for the next BUY / SELL click
 };
 
 static MyGUI::Window* g_tradeWindow = NULL;
 static MyGUI::MultiListBox* g_tradeList = NULL;
 static MyGUI::TextBox* g_tradeInfo = NULL;
 static MyGUI::Button* g_tradeDo = NULL;
+static MyGUI::Button* g_tradeAll = NULL;
 static bool g_tradeBuying = false;
 static hand g_tradeTrader;
 static hand g_tradeCustomer;
@@ -3287,6 +3592,7 @@ static void CloseTradeWindow()
     g_tradeList = NULL;
     g_tradeInfo = NULL;
     g_tradeDo = NULL;
+    g_tradeAll = NULL;
     g_tradeOffers.clear();
 }
 
@@ -3296,13 +3602,30 @@ static void UpdateTradeInfo()
         return;
     Character* customer = g_tradeCustomer.getCharacter();
     std::string text = T("Your money: ", "Seu dinheiro: ") + Num((float)(customer != 0 ? customer->getMoney() : 0)) + " cats";
-    size_t sel = g_tradeList != NULL ? g_tradeList->getIndexSelected() : MyGUI::ITEM_NONE;
-    if (sel != MyGUI::ITEM_NONE && sel < g_tradeOffers.size())
-        text += "   |   " + (g_tradeBuying ? T("Price: ", "Preco: ") : T("You get: ", "Voce recebe: ")) + Num((float)g_tradeOffers[sel].price) + " cats";
+    int count = 0, total = 0;
+    for (size_t i = 0; i < g_tradeOffers.size(); i++)
+        if (g_tradeOffers[i].marked)
+        {
+            count++;
+            total += g_tradeOffers[i].price;
+        }
+    if (count > 0)
+        text += "   |   " + Num((float)count) + T(" selected, ", " marcado(s), ") +
+                (g_tradeBuying ? T("price: ", "preco: ") : T("you get: ", "voce recebe: ")) + Num((float)total) + " cats";
+    else if (!g_tradeOffers.empty())
+        text += "   |   " + T("Click the slaves to select them.", "Clique nos escravos para marcar.");
+    if (g_tradeAll != NULL)
+        g_tradeAll->setCaption(count > 0 && count == (int)g_tradeOffers.size() ? T("CLEAR", "DESMARCAR") : T("SELECT ALL", "MARCAR TODOS"));
     if (g_tradeOffers.empty())
         text = (g_tradeBuying ? T("The trader has no slaves for sale here.", "O traficante nao tem escravos a venda aqui.")
                               : T("You have no slaves to sell.", "Voce nao tem escravos para vender.")) + "   " + text;
     g_tradeInfo->setCaption(text);
+}
+
+static std::string RowName(const TradeOffer& o)
+{
+    Character* c = o.who.getCharacter();
+    return std::string(o.marked ? "[X] " : "[  ] ") + (c != 0 ? c->getName() : std::string("?"));
 }
 
 static void FillTradeList()
@@ -3328,10 +3651,11 @@ static void FillTradeList()
         TradeOffer o;
         o.who = hand(c);
         o.price = g_tradeBuying ? BuyPrice(c) : SellPrice(c);
+        o.marked = false;
         g_tradeOffers.push_back(o);
         float sub = g_tradeBuying ? TraitsOf(c).start + g_cfg.tradeBoughtBonus : SubmissionOf(c);
         size_t row = g_tradeList->getItemCount();
-        g_tradeList->addItem(c->getName());
+        g_tradeList->addItem(RowName(o));
         g_tradeList->setSubItemNameAt(1, row, TraitsOf(c).name);
         g_tradeList->setSubItemNameAt(2, row, Num((float)(int)StatOf(c, STAT_STRENGTH)));
         g_tradeList->setSubItemNameAt(3, row, Num((float)(int)StatOf(c, STAT_TOUGHNESS)));
@@ -3478,23 +3802,71 @@ static void SellSlave(Character* customer, Character* trader, Character* c, int 
     ShowNotice(customer->getName() + T(" sold ", " vendeu ") + name + T(" for ", " por ") + Num((float)price) + " cats.");
 }
 
+// Buys or sells every ticked slave at once.
 static void OnTradeDo(MyGUI::Widget* sender)
 {
-    size_t sel = g_tradeList != NULL ? g_tradeList->getIndexSelected() : MyGUI::ITEM_NONE;
     Character* customer = g_tradeCustomer.getCharacter();
     Character* trader = g_tradeTrader.getCharacter();
-    if (sel == MyGUI::ITEM_NONE || sel >= g_tradeOffers.size() || customer == 0 || trader == 0)
+    if (customer == 0 || trader == 0)
         return;
-    Character* c = g_tradeOffers[sel].who.getCharacter();
-    if (c != 0 && !c->isDead())
+    std::vector<TradeOffer> picked;
+    for (size_t i = 0; i < g_tradeOffers.size(); i++)
+        if (g_tradeOffers[i].marked)
+            picked.push_back(g_tradeOffers[i]);
+    if (picked.empty())
     {
-        if (g_tradeBuying)
-            BuySlave(customer, trader, c, g_tradeOffers[sel].price);
-        else
-            SellSlave(customer, trader, c, g_tradeOffers[sel].price);
+        ShowNotice(T("Click the slaves you want first.", "Primeiro clique nos escravos que voce quer."));
+        return;
     }
+    int done = 0, total = 0;
+    for (size_t i = 0; i < picked.size(); i++)
+    {
+        Character* c = picked[i].who.getCharacter();
+        if (c == 0 || c->isDead())
+            continue;
+        bool before = g_tradeBuying ? IsPlayerFaction(c) : !IsOurSlave(c);
+        if (g_tradeBuying)
+            BuySlave(customer, trader, c, picked[i].price);
+        else
+            SellSlave(customer, trader, c, picked[i].price);
+        bool after = g_tradeBuying ? IsPlayerFaction(c) : !IsPlayerFaction(c);
+        if (!before && after)
+        {
+            done++;
+            total += picked[i].price;
+        }
+    }
+    Trace("trade: batch of " + Num((float)picked.size()) + ", " + Num((float)done) + " done for " + Num((float)total) + " cats");
+    if (done > 1)
+        ShowNotice(customer->getName() + (g_tradeBuying ? T(" bought ", " comprou ") : T(" sold ", " vendeu ")) + Num((float)done) +
+                   T(" slaves for ", " escravos por ") + Num((float)total) + " cats.");
     if (g_tradeList != NULL)
         FillTradeList();
+}
+
+// A click on a row ticks / unticks it (the highlight is cleared so the same row can be clicked again).
+static void ToggleTradeRow(size_t index)
+{
+    if (g_tradeList == NULL || index == MyGUI::ITEM_NONE || index >= g_tradeOffers.size())
+        return;
+    g_tradeOffers[index].marked = !g_tradeOffers[index].marked;
+    g_tradeList->setItemNameAt(index, RowName(g_tradeOffers[index]));
+    g_tradeList->clearIndexSelected();
+    UpdateTradeInfo();
+}
+
+static void OnTradeAll(MyGUI::Widget* sender)
+{
+    bool all = !g_tradeOffers.empty();
+    for (size_t i = 0; i < g_tradeOffers.size(); i++)
+        all = all && g_tradeOffers[i].marked;
+    for (size_t i = 0; i < g_tradeOffers.size(); i++)
+    {
+        g_tradeOffers[i].marked = !all;
+        if (g_tradeList != NULL)
+            g_tradeList->setItemNameAt(i, RowName(g_tradeOffers[i]));
+    }
+    UpdateTradeInfo();
 }
 
 static void OnTradeClose(MyGUI::Widget* sender)
@@ -3510,7 +3882,7 @@ static void OnTradeWindowButton(MyGUI::Window* sender, const std::string& name)
 
 static void OnTradeSelect(MyGUI::MultiListBox* sender, size_t index)
 {
-    UpdateTradeInfo();
+    ToggleTradeRow(index);
 }
 
 static void OpenTradeWindow(Character* trader, Character* customer, bool buying)
@@ -3544,6 +3916,9 @@ static void OpenTradeWindow(Character* trader, Character* customer, bool buying)
     g_tradeList->eventListChangePosition += MyGUI::newDelegate(OnTradeSelect);
 
     g_tradeInfo = g_tradeWindow->createWidget<MyGUI::TextBox>("Kenshi_GenericTextBoxFlat", 8, ch - 76, cw - 16, 28, MyGUI::Align::Default, "SlaverModTradeInfo");
+    g_tradeAll = g_tradeWindow->createWidget<MyGUI::Button>("Kenshi_Button1", 8, ch - 42, 170, 34, MyGUI::Align::Default, "SlaverModTradeAll");
+    g_tradeAll->setCaption(T("SELECT ALL", "MARCAR TODOS"));
+    g_tradeAll->eventMouseButtonClick += MyGUI::newDelegate(OnTradeAll);
     g_tradeDo = g_tradeWindow->createWidget<MyGUI::Button>("Kenshi_Button1", cw - 360, ch - 42, 170, 34, MyGUI::Align::Default, "SlaverModTradeDo");
     g_tradeDo->setCaption(buying ? T("BUY", "COMPRAR") : T("SELL", "VENDER"));
     g_tradeDo->eventMouseButtonClick += MyGUI::newDelegate(OnTradeDo);
@@ -3669,6 +4044,7 @@ public:
     float findConsciousSlaveInTownForShipping(const hand& in, hand& out, bool justAsking);// public RVA = 0x8CAE50
     float findConsciousSlaveInTown_unholy(const hand& in, hand& out, bool justAsking);// public RVA = 0x8CFC60
     float findKOedSlaveOfMine(const hand& in, hand& out, bool justAsking);// public RVA = 0x8CC7A0
+    float _findWoundedAllies(hand& out, bool robots);// public RVA = 0x99DEE0
     void* vtable_;
     float meiDistance; // 0x8 Member
     float meiDistanceTolerance; // 0xC Member
@@ -3713,6 +4089,49 @@ SLAVER_FINDER_HOOK(findConsciousSlaveInTownForShipping)
 SLAVER_FINDER_HOOK(findConsciousSlaveInTown_unholy)
 SLAVER_FINDER_HOOK(findKOedSlaveOfMine)
 SLAVER_FINDER_HOOK(findSomeoneWhoWouldMakeAGoodSlave)
+
+// Someone sent to enslave / free / punish / reward does that first: while the order lasts
+// they do not go patch up wounded allies on their own (the AI's "me" is at 0x2F8).
+static bool IsPerformer(Character* c)
+{
+    for (size_t i = 0; i < g_pending.size(); i++)
+        if (g_pending[i].performer.getCharacter() == c)
+            return true;
+    return false;
+}
+
+static std::map<std::string, bool> g_loggedBusy;
+
+// Any order the player gives a performer (move, stop, hold, a job...) cancels their slave action.
+void (*Character_addOrder_orig)(Character*, Building*, TaskType, RootObject*, bool, bool, const Ogre::Vector3&) = NULL;
+void Character_addOrder_hook(Character* thisptr, Building* dest, TaskType t, RootObject* subject, bool shift, bool clear, const Ogre::Vector3& location)
+{
+    if (!g_ownOrder)
+        for (size_t i = 0; i < g_pending.size(); i++)
+            if (g_pending[i].performer.getCharacter() == thisptr && !g_pending[i].playerOrdered)
+            {
+                g_pending[i].playerOrdered = true;
+                Trace("order: '" + thisptr->getName() + "' got order " + Num((float)t) + " from the player");
+            }
+    Character_addOrder_orig(thisptr, dest, t, subject, shift, clear, location);
+}
+
+float (*AI__findWoundedAllies_orig)(AI*, hand&, bool) = NULL;
+float AI__findWoundedAllies_hook(AI* ai, hand& out, bool robots)
+{
+    Character* me = ai != 0 ? *reinterpret_cast<Character**>(reinterpret_cast<char*>(ai) + 0x2F8) : 0;
+    if (me != 0 && !g_pending.empty() && IsPerformer(me))
+    {
+        if (!g_loggedBusy.count(SlaveKey(me)))
+        {
+            g_loggedBusy[SlaveKey(me)] = true;
+            Trace("busy: '" + me->getName() + "' skips first aid until the slave order is done");
+        }
+        out.setNull();
+        return 0.0f;
+    }
+    return AI__findWoundedAllies_orig(ai, out, robots);
+}
 
 // Who is in the player's faction, and as what, compared every couple of seconds.
 static std::map<std::string, std::string> g_members;   // key -> "name|slaveState"
@@ -3879,6 +4298,16 @@ extern "C" __declspec(dllexport) void MCM_Describe(MCM_Api* api)
     api->toggle(api, sec, "UnchainOnEnslave", L("Unchain when enslaving", "Tirar correntes ao escravizar"),
                 L("Removes the chains of whoever was chained.", "Tira as correntes de quem estava acorrentado."), 1, 0);
 
+    api->toggle(api, sec, "SkeletonThrall", L("Reprogram skeletons", "Reprogramar esqueletos"),
+                L("Unconscious skeletons are not enslaved: they are reprogrammed into free members. Robotics decides the chance; a failure destroys them.",
+                  "Esqueletos inconscientes não viram escravos: são reprogramados e viram membros livres. A robótica decide a chance; uma falha os destrói."), 0, 0);
+    api->number(api, sec, "ThrallBaseChance", L("Reprogram: base chance (%)", "Reprogramar: chance base (%)"),
+                L("Chance with robotics 0.", "Chance com robótica 0."), 20.0f, 0.0f, 100.0f, 0, 0);
+    api->number(api, sec, "ThrallChancePerLevel", L("Reprogram: % per robotics level", "Reprogramar: % por nível de robótica"),
+                NULL, 0.75f, 0.0f, 5.0f, 2, 0);
+    api->number(api, sec, "ThrallMaxChance", L("Reprogram: maximum chance (%)", "Reprogramar: chance máxima (%)"),
+                NULL, 95.0f, 0.0f, 100.0f, 0, 0);
+
     api->section(api, L("Slaves", "Escravos"));
     api->toggle(api, sec, "GiveShackles", L("Shackles", "Grilhões"),
                 L("Slaves get locked shackles; freeing removes them.", "O escravo ganha grilhões trancados; ao ser liberto eles somem."), 1, 0);
@@ -4016,6 +4445,11 @@ extern "C" __declspec(dllexport) void MCM_Describe(MCM_Api* api)
                 L("Debug mode only. Raises the selected slave's submission (wraps to 0 after 100).", "Só no modo debug. Aumenta a submissão do escravo selecionado (volta a 0 depois de 100)."), "CTRL+SHIFT+S", 0);
     api->hotkey(api, sec, "EscapeTestKey", L("Hotkey: escape now", "Atalho: fugir agora"),
                 L("Debug mode only. The selected slave runs away.", "Só no modo debug. O escravo selecionado foge."), "CTRL+SHIFT+E", 0);
+    api->hotkey(api, sec, "KnockoutTestKey", L("Hotkey: knock out", "Atalho: nocautear"),
+                L("Debug mode only. The selected character falls unconscious.", "Só no modo debug. O personagem selecionado fica inconsciente."), "CTRL+SHIFT+K", 0);
+    api->hotkey(api, sec, "CarryTestKey", L("Hotkey: carry test", "Atalho: teste de carregar"),
+                L("Debug mode only. The nearest NPC of another faction knocks out and carries away the target being enslaved (or the selected NPC).",
+                  "Só no modo debug. O NPC de outra facção mais próximo nocauteia e leva embora o alvo sendo escravizado (ou o NPC selecionado)."), "CTRL+SHIFT+C", 0);
     api->toggle(api, sec, "RebellionTestForce", L("Force rebellion on test", "Forçar rebelião no teste"),
                 L("The test hotkey always causes a rebellion.", "O atalho de teste sempre causa rebelião."), 0, 0);
     api->toggle(api, sec, "Debug", L("Write detailed log", "Gravar log detalhado"),
@@ -4031,7 +4465,7 @@ __declspec(dllexport) void startPlugin()
     LoadLines();
     ParseHotkey();
     srand(GetTickCount());
-    Trace("startPlugin v1.10");
+    Trace("startPlugin v1.11");
 
     if (KenshiLib::SUCCESS != KenshiLib::AddHook(KenshiLib::GetRealAddress(&GameWorld::_NV_mainLoop_GPUSensitiveStuff), GameWorld_update_hook, (void**)&GameWorld_update_orig))
         ErrorLog("SlaverMod: could not add GameWorld update hook!");
@@ -4061,6 +4495,10 @@ __declspec(dllexport) void startPlugin()
         ErrorLog("SlaverMod: could not add AI hook findKOedSlaveOfMine!");
     if (KenshiLib::SUCCESS != KenshiLib::AddHook(KenshiLib::GetRealAddress(&AI::findSomeoneWhoWouldMakeAGoodSlave), AI_findSomeoneWhoWouldMakeAGoodSlave_hook, (void**)&AI_findSomeoneWhoWouldMakeAGoodSlave_orig))
         ErrorLog("SlaverMod: could not add AI hook findSomeoneWhoWouldMakeAGoodSlave!");
+    if (KenshiLib::SUCCESS != KenshiLib::AddHook(KenshiLib::GetRealAddress(&Character::addOrder), Character_addOrder_hook, (void**)&Character_addOrder_orig))
+        ErrorLog("SlaverMod: could not add hook Character::addOrder!");
+    if (KenshiLib::SUCCESS != KenshiLib::AddHook(KenshiLib::GetRealAddress(&AI::_findWoundedAllies), AI__findWoundedAllies_hook, (void**)&AI__findWoundedAllies_orig))
+        ErrorLog("SlaverMod: could not add AI hook _findWoundedAllies!");
     if (KenshiLib::SUCCESS != KenshiLib::AddHook(KenshiLib::GetRealAddress(&DialogLineData::checkConditions), DialogLineData_checkConditions_hook, (void**)&DialogLineData_checkConditions_orig))
         ErrorLog("SlaverMod: could not add dialogue condition hook!");
     if (KenshiLib::SUCCESS != KenshiLib::AddHook(KenshiLib::GetRealAddress(&SaveManager::newGame), SaveManager_newGame_hook, (void**)&SaveManager_newGame_orig))
