@@ -6,11 +6,16 @@
 #include <kenshi/gui/ForgottenGUI.h>
 #include <kenshi/gui/InventoryGUI.h>
 #include <kenshi/Globals.h>
+#include <kenshi/GlobalConstants.h>
 #include <kenshi/GameWorld.h>
 #include <kenshi/PlayerInterface.h>
 #include <kenshi/Character.h>
 #include <kenshi/MedicalSystem.h>
 #include <kenshi/Platoon.h>
+class GunClassPersonal;   // GunClass.h uses it before declaring it
+#include <kenshi/GunClass.h>
+#include <kenshi/Appearance.h>
+#include <kenshi/AppearanceManager.h>
 #include <kenshi/Faction.h>
 #include <kenshi/Inventory.h>
 #include <kenshi/Item.h>
@@ -44,6 +49,7 @@
 #include "ModConfigMenu.h"
 
 #include <map>
+#include <set>
 #include <vector>
 #include <fstream>
 #include <sstream>
@@ -113,14 +119,40 @@ static std::string Num(float v)
 }
 
 // ---------------------------------------------------------------------------
-// Language: English by default, Brazilian Portuguese with Language=pt
+// Language: Language=auto (default) follows the game's language (settings.cfg): Brazilian
+// Portuguese for pt_*, Russian for ru_*, English otherwise. Russian texts come from
+// ru_strings.h (generated, see tools/lang), looked up by the English text.
 // ---------------------------------------------------------------------------
 
 static bool g_pt = false;
+static bool g_ru = false;
+
+#include "ru_strings.h"
+
+static const char* RuText(const char* en)
+{
+    static std::map<std::string, const char*> table;
+    if (table.empty())
+        for (size_t i = 0; i < sizeof(RU_TEXT) / sizeof(RU_TEXT[0]); i++)
+            table[RU_TEXT[i][0]] = RU_TEXT[i][1];
+    std::map<std::string, const char*>::const_iterator it = table.find(en);
+    return it != table.end() ? it->second : en;
+}
 
 static std::string T(const char* en, const char* pt)
 {
-    return g_pt ? pt : en;
+    return g_ru ? RuText(en) : (g_pt ? pt : en);
+}
+
+// The game's language, from settings.cfg two folders above the mod ("language=pt_BR").
+static std::string GameLanguage()
+{
+    std::ifstream f((g_modDir + "..\\..\\settings.cfg").c_str());
+    std::string line;
+    while (std::getline(f, line))
+        if (line.compare(0, 9, "language=") == 0)
+            return line.substr(9);
+    return "";
 }
 
 // ---------------------------------------------------------------------------
@@ -192,6 +224,9 @@ struct Settings
     bool punishEnabled;
     bool skeletonThrall;               // unconscious skeletons are reprogrammed into free members (robotics roll) instead of enslaved
     float thrallBaseChance, thrallChancePerLevel, thrallMaxChance;   // % ; per robotics level
+    std::string thrallRace;            // race a reprogrammed skeleton becomes (empty = keeps theirs)
+    std::string soldSquadTemplate;     // squad template whose AI sold slaves get when the trader has no slaves around
+    float tradeMissingLimbPenalty;     // price lost per missing or crushed limb (0.25 = -25%)
     float punishSubmission;            // first punishment; each one within PunishCooldownDays gives less
     float punishDamage;                // blunt damage on a limb; grows with repeated punishments
     float punishCooldownDays;
@@ -249,9 +284,11 @@ static bool IniBool(const char* key, bool def)
 static void LoadSettings()
 {
     g_debug = IniBool("Debug", true);
-    g_cfg.language = IniString("Language", "en");
-    g_pt = g_cfg.language.compare(0, 2, "pt") == 0 || g_cfg.language.compare(0, 2, "PT") == 0;
-    g_cfg.squadName = IniString("SquadName", g_pt ? "Escravos" : "Slaves");
+    g_cfg.language = IniString("Language", "auto");
+    std::string lang = g_cfg.language == "auto" ? GameLanguage() : g_cfg.language;
+    g_pt = lang.compare(0, 2, "pt") == 0 || lang.compare(0, 2, "PT") == 0;
+    g_ru = lang.compare(0, 2, "ru") == 0 || lang.compare(0, 2, "RU") == 0;
+    g_cfg.squadName = IniString("SquadName", g_ru ? "\xd0\xa0\xd0\xb0\xd0\xb1\xd1\x8b" : (g_pt ? "Escravos" : "Slaves"));   // ru: "Рабы"
     g_cfg.hotkey = IniString("EnslaveKey", "CTRL+K");
     g_cfg.showButton = IniBool("ShowButton", false);
     g_cfg.contextMenu = IniBool("ContextMenu", true);
@@ -315,6 +352,9 @@ static void LoadSettings()
     g_cfg.thrallBaseChance = IniFloat("ThrallBaseChance", 20.0f);
     g_cfg.thrallChancePerLevel = IniFloat("ThrallChancePerLevel", 0.75f);
     g_cfg.thrallMaxChance = IniFloat("ThrallMaxChance", 95.0f);
+    g_cfg.thrallRace = IniString("ThrallRace", "");
+    g_cfg.soldSquadTemplate = IniString("SoldSquadTemplate", "55376-rebirth.mod");
+    g_cfg.tradeMissingLimbPenalty = IniFloat("TradeMissingLimbPenalty", 0.25f);
     g_cfg.punishSubmission = IniFloat("PunishSubmission", 15.0f);
     g_cfg.punishDamage = IniFloat("PunishDamage", 10.0f);
     g_cfg.punishCooldownDays = IniFloat("PunishCooldownDays", 1.0f);
@@ -353,7 +393,7 @@ static void LoadSettings()
         g_cfg.relationGain = g_cfg.relationLoss * 0.5f;   // freeing must be worth less than enslaving costs
     g_cfg.slaveEscort = IniBool("SlaveEscort", true);
     g_cfg.escortMode = IniString("EscortMode", "bodyguard");
-    Trace("settings: language=" + std::string(g_pt ? "pt" : "en") + " squad='" + g_cfg.squadName + "' key=" + g_cfg.hotkey +
+    Trace("settings: language=" + g_cfg.language + " -> " + std::string(g_ru ? "ru" : (g_pt ? "pt" : "en")) + " squad='" + g_cfg.squadName + "' key=" + g_cfg.hotkey +
           " button=" + Num(g_cfg.showButton) + " menu=" + Num(g_cfg.contextMenu) + " unchain=" + Num(g_cfg.unchainOnEnslave) +
           " slaveAIJob=" + Num(g_cfg.slaveAIJob) + " banWeapons=" + Num(g_cfg.banWeapons) +
           " rebellion=" + Num(g_cfg.rebellionEnabled) + " every=" + Num(g_cfg.rebellionDays) + "d mult=" + Num(g_cfg.rebellionChanceMult) +
@@ -370,7 +410,8 @@ static void LoadSettings()
           " unwatchedLoss=" + Num(g_cfg.submissionUnsupervisedLoss) + " escape=" + Num(g_cfg.escapeEnabled) + " max=" + Num(g_cfg.escapeMaxSubmission) +
           " daily=" + Num(g_cfg.escapeDailyChance) + " watched=" + Num(g_cfg.escapeSupervisedMult) + " shackled=" + Num(g_cfg.escapeShackledMult) +
           " faction=" + g_cfg.escapeFaction + " mark=" + Num(g_cfg.escapeMarkEscaped) + " unshackle=" + Num(g_cfg.escapeRemoveShackles) + " goal=" + g_cfg.escapeGoal +
-          " safe=" + Num(g_cfg.escapeSafeDistance) + " recapture=" + Num(g_cfg.escapeRecapturePenalty) + " forget=" + Num(g_cfg.escapeForgetDays) + " freeStay=" + Num(g_cfg.freeStayMinSubmission) + " freedAI=" + g_cfg.freedSquadTemplate + " escapeAI=" + g_cfg.escapeSquadTemplate +
+          " safe=" + Num(g_cfg.escapeSafeDistance) + " recapture=" + Num(g_cfg.escapeRecapturePenalty) + " forget=" + Num(g_cfg.escapeForgetDays) + " freeStay=" + Num(g_cfg.freeStayMinSubmission) + " freedAI=" + g_cfg.freedSquadTemplate + " escapeAI=" + g_cfg.escapeSquadTemplate + " soldAI=" + g_cfg.soldSquadTemplate +
+          " thrallRace=" + g_cfg.thrallRace + " limbPenalty=" + Num(g_cfg.tradeMissingLimbPenalty) +
           " punish=" + Num(g_cfg.punishEnabled) + "/" + Num(g_cfg.punishSubmission) + "/" + Num(g_cfg.punishDamage) + "/" + Num(g_cfg.punishCooldownDays) +
           "d anim='" + g_cfg.punishAnimation + "'/'" + g_cfg.punishVictimAnimation + "' speech=" + Num(g_cfg.speech) + " reward=" + Num(g_cfg.rewardEnabled) + "/" + Num(g_cfg.rewardSubmission) +
           "/" + Num((float)g_cfg.rewardCost) + "cats/" + Num(g_cfg.rewardCooldownDays) + "d cage=" + Num(g_cfg.cageDailyGain) + "/" + Num(g_cfg.cageSubmissionCap) + " races=" + Num(g_cfg.raceTraits) + " trade=" + Num(g_cfg.tradeWindow) + " protect=" + Num(g_cfg.protectSlaves) + " steal=" + Num(g_cfg.allowStealingSlaves) + " noCarriedSale=" + Num(g_cfg.disableCarriedSale) +
@@ -607,9 +648,34 @@ static Character* PickOwner(Character* target, Character* preferred, float* dist
     return owner;
 }
 
-// Find the player's existing slave squad by name, or create it.
+// Slave squads are named SquadName, then "SquadName 2", "SquadName 3"... once one is full.
+static bool IsSlaveSquadName(const std::string& n)
+{
+    const std::string& base = g_cfg.squadName;
+    if (n == base)
+        return true;
+    if (n.size() <= base.size() + 1 || n.compare(0, base.size(), base) != 0 || n[base.size()] != ' ')
+        return false;
+    for (size_t i = base.size() + 1; i < n.size(); i++)
+        if (n[i] < '0' || n[i] > '9')
+            return false;
+    return true;
+}
+
+static int MaxSquadSize() { return (con != 0 && con->MAX_SQUAD_SIZE > 0) ? con->MAX_SQUAD_SIZE : 1000000; }
+
+// The last character put into a slave squad: right after a recruit the game's character list
+// does not have them yet, so several enslaved in the same frame would each get a new squad.
+static hand g_lastSlaveMember;
+
+// Find a slave squad of the player with room in it, or create the next one.
 static ActivePlatoon* GetSlaveSquad()
 {
+    Character* last = g_lastSlaveMember.getCharacter();
+    if (last != 0 && !last->isDead() && IsPlayerFaction(last) && last->getPlatoon() != 0 &&
+        IsSlaveSquadName(last->getPlatoon()->getName()) && last->getPlatoon()->getSquadSize() < MaxSquadSize())
+        return last->getPlatoon();
+    std::set<std::string> names;
     const lektor<Character*>& all = ou->player->getAllPlayerCharacters();
     for (uint32_t i = 0; i < all.size(); i++)
     {
@@ -617,16 +683,34 @@ static ActivePlatoon* GetSlaveSquad()
         if (c == 0)
             continue;
         ActivePlatoon* p = c->getPlatoon();
-        if (p != 0 && p->getName() == g_cfg.squadName)
+        if (p == 0 || !IsSlaveSquadName(p->getName()))
+            continue;
+        if (p->getSquadSize() < MaxSquadSize())
             return p;
+        names.insert(p->getName());
     }
+    std::string name = g_cfg.squadName;
+    for (int n = 2; names.count(name) != 0; n++)
+        name = g_cfg.squadName + " " + Num((float)n);
     ActivePlatoon* created = ou->player->createSquad();
     if (created != 0)
     {
-        created->setName(g_cfg.squadName);
-        Trace("created squad '" + g_cfg.squadName + "'");
+        created->setName(name);
+        Trace("created squad '" + name + "' (max squad size " + Num((float)MaxSquadSize()) + ")");
     }
+    else
+        Trace("createSquad failed (max squads " + Num((float)(con != 0 ? con->MAX_SQUADS : -1)) + ")");
     return created;
+}
+
+// Why the game refuses a recruit: a full faction, or no room for another squad.
+static std::string RecruitRefusedReason()
+{
+    Faction* pf = PlayerFaction();
+    if (con != 0 && pf != 0 && con->MAX_FACTION_SIZE > 0 && pf->getFactionSize() >= con->MAX_FACTION_SIZE)
+        return T(" Your faction is full (", " Sua faccao esta cheia (") + Num((float)pf->getFactionSize()) + "/" +
+               Num((float)con->MAX_FACTION_SIZE) + T("; see the game options).", "; veja as opcoes do jogo).");
+    return "";
 }
 
 // ---------------------------------------------------------------------------
@@ -707,10 +791,12 @@ static void Enslave(Character* target, Character* preferredOwner)
     if (previous != 0)
         ou->player->setCurrentPlatoon(previous);
     Trace("recruit returned " + Num(recruited) + ", faction now player=" + Num(IsPlayerFaction(target)));
+    if (IsPlayerFaction(target))
+        g_lastSlaveMember = hand(target);
 
     if (!IsPlayerFaction(target))
     {
-        ShowNotice(T("The game refused to recruit ", "O jogo recusou o recrutamento de ") + name + ".");
+        ShowNotice(T("The game refused to recruit ", "O jogo recusou o recrutamento de ") + name + "." + RecruitRefusedReason());
         return;
     }
 
@@ -1626,7 +1712,10 @@ static void LoadLines()
     };
     g_lines.clear();
     std::string file = g_modDir + "SlaverMod_lines.ini";
-    const char* section = g_pt ? "pt" : "en";
+    const char* section = g_ru ? "ru" : (g_pt ? "pt" : "en");
+    std::map<std::string, const char*> ru;
+    for (size_t i = 0; i < sizeof(RU_LINES) / sizeof(RU_LINES[0]); i++)
+        ru[RU_LINES[i][0]] = RU_LINES[i][1];
     int fromFile = 0;
     for (size_t i = 0; i < sizeof(table) / sizeof(table[0]); i++)
     {
@@ -1634,7 +1723,8 @@ static void LoadLines()
         GetPrivateProfileStringA(section, table[i][0], "", buf, sizeof(buf), file.c_str());
         if (buf[0] != 0)
             fromFile++;
-        g_lines[table[i][0]] = SplitBar(buf[0] != 0 ? buf : table[i][g_pt ? 2 : 1]);
+        const char* builtIn = g_ru && ru.count(table[i][0]) ? ru[table[i][0]] : table[i][g_pt ? 2 : 1];
+        g_lines[table[i][0]] = SplitBar(buf[0] != 0 ? buf : builtIn);
     }
     Trace("lines: " + Num((float)g_lines.size()) + " keys, " + Num((float)fromFile) + " from SlaverMod_lines.ini [" + section + "]");
 }
@@ -2202,6 +2292,31 @@ static Faction* SendFreedHome(Character* c, const std::string& originSid)
 // faction, in the performer's squad; failure = the skeleton is destroyed.
 static float StatOf(Character* c, StatsEnumerated s);
 
+// setRace changes the race data only: the character keeps their appearance data (body mesh, head),
+// so a new appearance is made from the race (a headless race has no head to give) and the body rebuilt.
+static bool ApplyRace(Character* c, GameData* race)
+{
+    // only skeleton -> skeleton: giving a skeleton body to a human (or animal) crashes the game
+    RaceData* from = c->getRace();
+    if (from == 0 || !from->robot)
+    {
+        Trace("race change skipped: '" + c->getName() + "' (" + RaceID(c) + ") is not a skeleton");
+        return false;
+    }
+    c->setRace(race);
+    AppearanceManager* am = AppearanceManager::getInstance();
+    GameDataCopyStandalone* look = am != 0 ? am->createAppearanceData(race) : 0;
+    if (look != 0)
+        c->setAppearanceData(look);
+    AppearanceBase* body = c->getAppearance();
+    if (body != 0)
+        body->reload();
+    // the health parts (head, chest...) are built from the race only when the save loads
+    // (MedicalSystem::notifyRaceChange did not rebuild them): the player is told to save and load
+    Trace("race of '" + c->getName() + "' -> " + RaceID(c) + " (new appearance=" + Num(look != 0) + ", reloaded=" + Num(body != 0) + ")");
+    return true;
+}
+
 static float ThrallChance(Character* performer)
 {
     float chance = g_cfg.thrallBaseChance + g_cfg.thrallChancePerLevel * StatOf(performer, STAT_ROBOTICS);
@@ -2257,12 +2372,20 @@ static void Thrall(Character* performer, Character* target)
     if (!IsPlayerFaction(target))
     {
         Trace("thrall: recruit refused");
-        ShowNotice(T("The game refused to recruit ", "O jogo recusou o recrutamento de ") + name + ".");
+        ShowNotice(T("The game refused to recruit ", "O jogo recusou o recrutamento de ") + name + "." + RecruitRefusedReason());
         return;
     }
     Trace("thrall: '" + name + "' joined the squad of '" + performer->getName() + "'");
+    GameData* race = g_cfg.thrallRace.empty() ? 0 : ou->gamedata.getData(g_cfg.thrallRace, RACE);
+    if (race != 0)
+    {
+        ApplyRace(target, race);
+    }
+    else if (!g_cfg.thrallRace.empty())
+        Trace("thrall: ThrallRace '" + g_cfg.thrallRace + "' not found, race kept");
     ShowNotice(name + T(" was reprogrammed and now serves your faction (", " foi reprogramado(a) e agora serve a sua faccao (") +
-               Num((float)(int)(chance + 0.5f)) + T("% chance).", "% de chance)."));
+               Num((float)(int)(chance + 0.5f)) + T("% chance).", "% de chance).") +
+               (race != 0 ? T(" Save and load for the new body to update.", " Salve e carregue para o corpo novo atualizar.") : std::string("")));
     ApplyRelationLoss(victimFaction, name, true);
 }
 
@@ -2648,8 +2771,154 @@ static void UpdateCarryTest()
           " byOthers=" + Num(CarriedByOthers(target)));
 }
 
+// ---- Test kit (DebugMode only), fixed hotkeys: CTRL+SHIFT+ I info, M money, N enslave nearby,
+// L cut a limb off, H ThrallRace on the selected character.
+static int MissingLimbs(Character* c);
+static int SellPrice(Character* c);
+static void GivePlayerMoney(int amount);
+static Hotkey g_tkInfo = { 'I', true, true, false, false };
+static Hotkey g_tkMoney = { 'M', true, true, false, false };
+static Hotkey g_tkNearby = { 'N', true, true, false, false };
+static Hotkey g_tkLimb = { 'L', true, true, false, false };
+static Hotkey g_tkRace = { 'H', true, true, false, false };
+
+static void TestInfo()
+{
+    Faction* pf = PlayerFaction();
+    std::string msg = "squad max " + Num((float)(con != 0 ? con->MAX_SQUAD_SIZE : -1)) +
+                      ", squads max " + Num((float)(con != 0 ? con->MAX_SQUADS : -1)) +
+                      ", faction " + Num((float)(pf != 0 ? pf->getFactionSize() : -1)) + "/" +
+                      Num((float)(con != 0 ? con->MAX_FACTION_SIZE : -1));
+    std::set<ActivePlatoon*> squads;
+    const lektor<Character*>& all = ou->player->getAllPlayerCharacters();
+    for (uint32_t i = 0; i < all.size(); i++)
+        if (all.stuff[i] != 0 && all.stuff[i]->getPlatoon() != 0)
+            squads.insert(all.stuff[i]->getPlatoon());
+    for (std::set<ActivePlatoon*>::iterator it = squads.begin(); it != squads.end(); ++it)
+        msg += " | " + (*it)->getName() + ": " + Num((float)(*it)->getSquadSize());
+    Character* c = SelectedOtherCharacter();
+    if (c != 0)
+        msg += " || " + c->getName() + " (" + RaceID(c) + "): missing limbs " + Num((float)MissingLimbs(c)) +
+               ", sell price " + Num((float)SellPrice(c)) + ", slave " + Num((float)c->isSlave());
+    Trace("test info: " + msg);
+    ShowNotice(msg);
+}
+
+// Knocks out and enslaves up to 10 NPCs near the selected character.
+static void TestEnslaveNearby()
+{
+    Character* me = ou->player->selectedCharacter.getCharacter();
+    if (me == 0 || !IsPlayerFaction(me))
+    {
+        ShowNotice(T("Test: select one of your characters first.", "Teste: selecione um personagem seu antes."));
+        return;
+    }
+    std::vector<Character*> picked;
+    const lektor<Faction*>& factions = ou->factionMgr->participants;
+    for (uint32_t i = 0; i < factions.size() && picked.size() < 10; i++)
+    {
+        Faction* f = factions.stuff[i];
+        if (f == 0 || f == PlayerFaction())
+            continue;
+        lektor<RootObject*> found;
+        f->getCharactersInArea(found, me->getPosition(), 2000.0f, false);
+        for (uint32_t k = 0; k < found.size() && picked.size() < 10; k++)
+        {
+            Character* c = found.stuff[k] != 0 ? hand(found.stuff[k]).getCharacter() : 0;
+            if (c == 0 || c->isDead() || IsPlayerFaction(c) || c->isAnimal() != 0 || c->isSlave() == IS_SLAVE)
+                continue;
+            picked.push_back(c);
+        }
+    }
+    // the game takes a moment to count a knocked out character as unconscious: those are
+    // knocked out now and enslaved on the next press
+    int done = 0, knocked = 0;
+    for (size_t i = 0; i < picked.size(); i++)
+    {
+        Character* c = picked[i];
+        if (IsEnslaveCandidate(c, 0))
+        {
+            CompleteAction(ACT_ENSLAVE, me, c);   // same as a finished enslave action (record, shackles, escort)
+            if (IsPlayerFaction(c))
+                done++;
+        }
+        else
+        {
+            c->medical.knockoutForceTimer(120.0f);
+            knocked++;
+        }
+    }
+    Trace("test: enslave nearby, " + Num((float)done) + " enslaved, " + Num((float)knocked) + " knocked out");
+    ShowNotice(T("Test: enslaved ", "Teste: escravizou ") + Num((float)done) + T(", knocked out ", ", nocauteou ") + Num((float)knocked) +
+               (knocked > 0 ? T(" (press again to enslave them).", " (aperte de novo para escraviza-los).") : std::string(".")));
+}
+
+static void TestCutLimb()
+{
+    Character* c = SelectedOtherCharacter();
+    if (c == 0 || c->isDead())
+    {
+        ShowNotice(T("Test: select a character first.", "Teste: selecione um personagem antes."));
+        return;
+    }
+    for (int l = RobotLimbs::LEFT_ARM; l <= RobotLimbs::RIGHT_LEG; l++)
+    {
+        LimbState st = c->medical.getLimbState((RobotLimbs::Limb)l);
+        if (st == LIMB_STUMP || st == LIMB_CRUSHED)
+            continue;
+        int before = SellPrice(c);
+        c->medical.amputate((RobotLimbs::Limb)l, false, Ogre::Vector3(0, 0, 0));
+        Trace("test: limb " + Num((float)l) + " of '" + c->getName() + "' cut, price " + Num((float)before) + " -> " + Num((float)SellPrice(c)));
+        ShowNotice(c->getName() + T(": limb cut, sell price ", ": membro cortado, preco de venda ") + Num((float)before) + " -> " +
+                   Num((float)SellPrice(c)));
+        return;
+    }
+    ShowNotice(c->getName() + T(" has no limb left to cut.", " nao tem mais membro para cortar."));
+}
+
+static void TestThrallRace()
+{
+    Character* c = SelectedOtherCharacter();
+    GameData* race = g_cfg.thrallRace.empty() ? 0 : ou->gamedata.getData(g_cfg.thrallRace, RACE);
+    if (c == 0 || race == 0)
+    {
+        Trace("test: race key, selected=" + Num(c != 0) + " ThrallRace='" + g_cfg.thrallRace + "' found=" + Num(race != 0));
+        ShowNotice(T("Test: set ThrallRace and select a character first.", "Teste: configure ThrallRace e selecione um personagem antes."));
+        return;
+    }
+    std::string before = RaceID(c);
+    if (!ApplyRace(c, race))
+    {
+        ShowNotice(T("Test: only skeletons can change race.", "Teste: so esqueletos podem trocar de raca."));
+        return;
+    }
+    Trace("test: race of '" + c->getName() + "' " + before + " -> " + RaceID(c));
+    ShowNotice(c->getName() + ": " + before + " -> " + RaceID(c) + T(" (save and load for the body parts).", " (salve e carregue para as partes do corpo)."));
+}
+
+static void HandleTestKit()
+{
+    if (!g_cfg.debugMode)
+        return;
+    if (KeyPressed(g_tkInfo))
+        TestInfo();
+    if (KeyPressed(g_tkMoney))
+    {
+        GivePlayerMoney(20000);
+        Trace("test: +20000 cats");
+        ShowNotice(T("Test: +20000 cats.", "Teste: +20000 cats."));
+    }
+    if (KeyPressed(g_tkNearby))
+        TestEnslaveNearby();
+    if (KeyPressed(g_tkLimb))
+        TestCutLimb();
+    if (KeyPressed(g_tkRace))
+        TestThrallRace();
+}
+
 static void HandleHotkey()
 {
+    HandleTestKit();
     if (KeyPressed(g_enslaveKey) && g_cfg.debugMode)
     {
         Character* c = MouseInventoryCharacter();
@@ -3579,12 +3848,29 @@ static float StatOf(Character* c, StatsEnumerated s)
 
 // Worth of a slave: TradeBaseValue + TradeStatValue x (strength, toughness, dexterity,
 // melee attack and defence, labouring) x race value x (0.75 + submission / 200).
+// Arms and legs that are gone (a stump) or crushed; robotic replacements count as limbs.
+static int MissingLimbs(Character* c)
+{
+    int n = 0;
+    for (int l = RobotLimbs::LEFT_ARM; l <= RobotLimbs::RIGHT_LEG; l++)
+    {
+        LimbState st = c->medical.getLimbState((RobotLimbs::Limb)l);
+        if (st == LIMB_STUMP || st == LIMB_CRUSHED)
+            n++;
+    }
+    return n;
+}
+
+// ... x (1 - TradeMissingLimbPenalty per missing or crushed limb), at least 10%.
 static float SlaveValue(Character* c, float submission)
 {
     float stats = StatOf(c, STAT_STRENGTH) + StatOf(c, STAT_TOUGHNESS) + StatOf(c, STAT_DEXTERITY) +
                   StatOf(c, STAT_MELEE_ATTACK) + StatOf(c, STAT_MELEE_DEFENCE) + StatOf(c, STAT_LABOURING);
     float value = g_cfg.tradeBaseValue + g_cfg.tradeStatValue * stats;
-    return value * TraitsOf(c).value * (0.75f + ClampSubmission(submission) / 200.0f);
+    float limbs = 1.0f - g_cfg.tradeMissingLimbPenalty * MissingLimbs(c);
+    if (limbs < 0.1f)
+        limbs = 0.1f;
+    return value * TraitsOf(c).value * (0.75f + ClampSubmission(submission) / 200.0f) * limbs;
 }
 
 static int BuyPrice(Character* c)
@@ -3758,10 +4044,11 @@ static void BuySlave(Character* customer, Character* trader, Character* c, int p
         SetSlaveState(c, IS_SLAVE);
         c->changeSlaveOwner(hand(trader));
         Trace("trade: recruit of '" + name + "' refused");
-        ShowNotice(T("The game refused the purchase of ", "O jogo recusou a compra de ") + name + ".");
+        ShowNotice(T("The game refused the purchase of ", "O jogo recusou a compra de ") + name + "." + RecruitRefusedReason());
         return;
     }
     customer->takeMoney(price);
+    g_lastSlaveMember = hand(c);
     MakeSlave(c, customer);
     SlaveRecord& r = CreateRecord(c, "", TraitsOf(c).start + g_cfg.tradeBoughtBonus);
     GiveShackles(c);
@@ -3777,6 +4064,33 @@ static void GivePlayerMoney(int amount)
     Faction* pf = PlayerFaction();
     if (pf != 0 && pf->factionOwnerships != 0)
         pf->factionOwnerships->addMoney(amount);
+}
+
+// Selling every slave of the slave squad leaves it empty, and an empty squad is no longer
+// found by GetSlaveSquad (it looks through characters): a new one would be made next time.
+// Squads of ours (named SquadName) that a sale emptied are deleted.
+static void RemoveEmptySlaveSquads(const std::set<ActivePlatoon*>& squads)
+{
+    Faction* pf = PlayerFaction();
+    for (std::set<ActivePlatoon*>::const_iterator it = squads.begin(); it != squads.end(); ++it)
+    {
+        ActivePlatoon* sq = *it;
+        if (pf == 0 || sq == 0 || sq->me == 0 || !IsSlaveSquadName(sq->getName()) || sq->getSquadSize() > 0)
+            continue;
+        if (ou->player->getCurrentPlatoon() == sq->me)
+        {
+            // never leave the deleted squad selected
+            const lektor<Character*>& all = ou->player->getAllPlayerCharacters();
+            for (uint32_t i = 0; i < all.size(); i++)
+                if (all.stuff[i] != 0 && all.stuff[i]->getPlatoon() != 0 && all.stuff[i]->getPlatoon() != sq)
+                {
+                    ou->player->setCurrentPlatoon(all.stuff[i]->getPlatoon()->me);
+                    break;
+                }
+        }
+        pf->destroyPlatoon(sq->me);
+        Trace("trade: empty squad '" + sq->getName() + "' deleted");
+    }
 }
 
 static void SellSlave(Character* customer, Character* trader, Character* c, int price)
@@ -3830,8 +4144,12 @@ static void SellSlave(Character* customer, Character* trader, Character* c, int 
     ActivePlatoon* squad = fellow != 0 ? fellow->getPlatoon() : 0;
     if (squad == 0)
     {
-        Platoon* platoon = f->createNewEmptyActivePlatoon(0, false, c->getPosition());
+        // a squad template gives the new squad the game's slave AI ("Slave only squad");
+        // without one they would stand where they were sold forever
+        GameData* ai = SquadTemplate(g_cfg.soldSquadTemplate);
+        Platoon* platoon = f->createNewEmptyActivePlatoon(ai, false, c->getPosition());
         squad = platoon != 0 ? platoon->getActivePlatoon() : 0;
+        Trace("trade: new squad for the sold, AI template " + (ai != 0 ? g_cfg.soldSquadTemplate : std::string("none")));
     }
     c->setFaction(toFaction, squad);
     SetSlaveState(c, IS_SLAVE);
@@ -3871,11 +4189,14 @@ static void OnTradeDo(MyGUI::Widget* sender)
         return;
     }
     int done = 0, total = 0;
+    std::set<ActivePlatoon*> emptied;   // squads the slaves are sold out of
     for (size_t i = 0; i < picked.size(); i++)
     {
         Character* c = picked[i].who.getCharacter();
         if (c == 0 || c->isDead())
             continue;
+        if (!g_tradeBuying && c->getPlatoon() != 0)
+            emptied.insert(c->getPlatoon());
         bool before = g_tradeBuying ? IsPlayerFaction(c) : !IsOurSlave(c);
         if (g_tradeBuying)
             BuySlave(customer, trader, c, picked[i].price);
@@ -3889,6 +4210,7 @@ static void OnTradeDo(MyGUI::Widget* sender)
         }
     }
     Trace("trade: batch of " + Num((float)picked.size()) + ", " + Num((float)done) + " done for " + Num((float)total) + " cats");
+    RemoveEmptySlaveSquads(emptied);
     if (done > 1)
         ShowNotice(customer->getName() + (g_tradeBuying ? T(" bought ", " comprou ") : T(" sold ", " vendeu ")) + Num((float)done) +
                    T(" slaves for ", " escravos por ") + Num((float)total) + " cats.");
@@ -4154,6 +4476,53 @@ static bool IsPerformer(Character* c)
 
 static std::map<std::string, bool> g_loggedBusy;
 
+// A slave of the player's faction is still a member of it: the game counts them as enemies of
+// their own faction (turret guards shot them). Between two members of the player's faction, one
+// of them our slave, nobody is an enemy (rebels leave the faction first, so they still fight).
+static bool OwnSlavePair(Character* a, Character* b)
+{
+    if (!g_cfg.enabled || a == 0 || b == 0 || a == b)
+        return false;
+    Faction* pf = PlayerFaction();
+    if (pf == 0 || a->getFaction() != pf || b->getFaction() != pf)
+        return false;
+    return a->isSlave() == IS_SLAVE || b->isSlave() == IS_SLAVE;
+}
+
+static std::set<Character*> g_loggedEnemy;
+bool (*Character_isEnemy_orig)(Character*, Character*, bool) = NULL;
+bool Character_isEnemy_hook(Character* thisptr, Character* who, bool factorInDisguises)
+{
+    bool enemy = Character_isEnemy_orig(thisptr, who, factorInDisguises);
+    if (enemy && OwnSlavePair(thisptr, who))
+    {
+        Character* slave = who->isSlave() == IS_SLAVE ? who : thisptr;
+        if (g_loggedEnemy.insert(slave).second)
+            Trace("isEnemy: '" + thisptr->getName() + "' vs '" + who->getName() + "' was enemy, now not (slave '" + slave->getName() + "')");
+        return false;
+    }
+    return enemy;
+}
+
+// Turrets score their targets; logged once per slave of ours, to see what the game gives them.
+static std::set<Character*> g_loggedTurret;
+float (*GunClassTurret_scoreTarget_orig)(GunClassTurret*, Character*, Character*) = NULL;
+float GunClassTurret_scoreTarget_hook(GunClassTurret* thisptr, Character* me, Character* who)
+{
+    float score = GunClassTurret_scoreTarget_orig(thisptr, me, who);
+    if (OwnSlavePair(me, who))
+    {
+        // the turret gave our own slaves a positive score (0.1-1) and shot them: 0 = not a target
+        if (g_loggedTurret.insert(who).second)
+            Trace("turret: '" + (me != 0 ? me->getName() : std::string("?")) + "' scored own slave '" + who->getName() + "' " + Num(score) + " -> 0");
+        return 0.0f;
+    }
+    if (me != 0 && who != 0 && score != 0.0f && g_loggedTurret.insert(who).second && g_loggedTurret.size() < 40)
+        Trace("turret: '" + me->getName() + "' scores '" + who->getName() + "' (" + (who->getFaction() != 0 ? who->getFaction()->getName() : std::string("?")) +
+              ", player=" + Num(IsPlayerFaction(who)) + ") = " + Num(score));
+    return score;
+}
+
 // Any order the player gives a performer (move, stop, hold, a job...) cancels their slave action.
 void (*Character_addOrder_orig)(Character*, Building*, TaskType, RootObject*, bool, bool, const Ogre::Vector3&) = NULL;
 void Character_addOrder_hook(Character* thisptr, Building* dest, TaskType t, RootObject* subject, bool shift, bool clear, const Ogre::Vector3& location)
@@ -4317,10 +4686,11 @@ extern "C" __declspec(dllexport) void MCM_Describe(MCM_Api* api)
                          "Sua facção pode ter escravos: escravizar, grilhões, relações e rebelião. Traduzido para português do Brasil."));
 
     api->section(api, L("General", "Geral"));
-    static const char* const langValues[] = { "en", "pt" };
-    static const char* const langLabels[] = { "English", "Português (Brasil)" };
+    static const char* const langValues[] = { "auto", "en", "pt", "ru" };
+    std::string autoLabel = T("Game's language", "Idioma do jogo");
+    const char* langLabels[] = { autoLabel.c_str(), "English", "Português (Brasil)", "\xd0\xa0\xd1\x83\xd1\x81\xd1\x81\xd0\xba\xd0\xb8\xd0\xb9" };   // "Русский"
     api->choice(api, sec, "Language", L("Language", "Idioma"), L("Language of the mod's messages and of this page.", "Idioma das mensagens do mod e desta página."),
-                "en", langValues, langLabels, 2, MCM_RESTART);
+                "auto", langValues, langLabels, 4, MCM_RESTART);
     api->toggle(api, sec, "ContextMenu", L("Option in the right-click menu", "Opção no menu do botão direito"),
                 L("Enslave/Free in the order menu (hold the right mouse button over the target).", "Escravizar/Libertar no menu de ordens (segure o botão direito sobre o alvo)."), 1, 0);
     api->toggle(api, sec, "ShowButton", L("Inventory button", "Botão no inventário"),
@@ -4359,6 +4729,11 @@ extern "C" __declspec(dllexport) void MCM_Describe(MCM_Api* api)
                 NULL, 0.75f, 0.0f, 5.0f, 2, 0);
     api->number(api, sec, "ThrallMaxChance", L("Reprogram: maximum chance (%)", "Reprogramar: chance máxima (%)"),
                 NULL, 95.0f, 0.0f, 100.0f, 0, 0);
+    static const char* const thrallRaceValues[] = { "", "95870-Newwworld.mod" };
+    std::string keepRace = T("Keep their race", "Manter a raça"), headless = T("Headless (Skeleton No-Head MkII)", "Sem cabeça (Skeleton No-Head MkII)");
+    const char* thrallRaceLabels[] = { keepRace.c_str(), headless.c_str() };
+    api->choice(api, sec, "ThrallRace", L("Reprogram: race", "Reprogramar: raça"),
+                L("Race a reprogrammed skeleton becomes. The health panel updates after saving and loading.", "Raça que o esqueleto reprogramado passa a ter. O painel de saúde atualiza depois de salvar e carregar."), "", thrallRaceValues, thrallRaceLabels, 2, 0);
 
     api->section(api, L("Slaves", "Escravos"));
     api->toggle(api, sec, "GiveShackles", L("Shackles", "Grilhões"),
@@ -4368,7 +4743,8 @@ extern "C" __declspec(dllexport) void MCM_Describe(MCM_Api* api)
     api->toggle(api, sec, "SlaveEscort", L("Follow the enslaver", "Seguir quem escravizou"),
                 L("A new slave follows whoever enslaved them.", "O recém-escravizado passa a seguir quem o escravizou."), 1, 0);
     static const char* const escortValues[] = { "bodyguard", "follow" };
-    const char* escortLabels[] = { g_pt ? "Seguir e proteger" : "Follow and guard", g_pt ? "Só seguir" : "Follow only" };
+    std::string guardLabel = T("Follow and guard", "Seguir e proteger"), followLabel = T("Follow only", "Só seguir");
+    const char* escortLabels[] = { guardLabel.c_str(), followLabel.c_str() };
     api->choice(api, sec, "EscortMode", L("Follow mode", "Modo de seguir"), NULL, "bodyguard", escortValues, escortLabels, 2, 0);
     api->toggle(api, sec, "SlaveAIJob", L("Native slave work", "Trabalho escravo nativo"),
                 L("Turns on the game's slave work behaviour. Experimental.", "Liga o comportamento de trabalho escravo do jogo. Experimental."), 0, 0);
@@ -4454,6 +4830,9 @@ extern "C" __declspec(dllexport) void MCM_Describe(MCM_Api* api)
                 L("Strength, toughness, dexterity, melee attack, melee defence and labouring.", "Força, robustez, destreza, ataque e defesa corpo a corpo e trabalho braçal."), 12.0f, 0.0f, 200.0f, 1, 0);
     api->number(api, sec, "TradeBuyMult", L("Buying price multiplier", "Multiplicador do preço de compra"), NULL, 2.0f, 0.1f, 10.0f, 2, 0);
     api->number(api, sec, "TradeSellMult", L("Selling price multiplier", "Multiplicador do preço de venda"), NULL, 1.0f, 0.1f, 10.0f, 2, 0);
+    api->number(api, sec, "TradeMissingLimbPenalty", L("Price lost per missing limb", "Preço perdido por membro faltando"),
+                L("Per arm or leg that is gone or crushed (0.25 = -25%). Robotic limbs count as limbs.",
+                  "Por braço ou perna perdido ou esmagado (0.25 = -25%). Membros robóticos contam como membros."), 0.25f, 0.0f, 1.0f, 2, 0);
     api->integer(api, sec, "TradeBoughtBonus", L("Submission bonus when bought", "Bônus de submissão ao comprar"),
                  L("Bought slaves are already broken in: race start + this.", "Escravos comprados já vêm domados: inicial da raça + isto."), 15, 0, 100, 0);
 
@@ -4520,7 +4899,7 @@ __declspec(dllexport) void startPlugin()
     LoadLines();
     ParseHotkey();
     srand(GetTickCount());
-    Trace("startPlugin v1.12");
+    Trace("startPlugin v1.13");
 
     if (KenshiLib::SUCCESS != KenshiLib::AddHook(KenshiLib::GetRealAddress(&GameWorld::_NV_mainLoop_GPUSensitiveStuff), GameWorld_update_hook, (void**)&GameWorld_update_orig))
         ErrorLog("SlaverMod: could not add GameWorld update hook!");
@@ -4558,4 +4937,8 @@ __declspec(dllexport) void startPlugin()
         ErrorLog("SlaverMod: could not add dialogue condition hook!");
     if (KenshiLib::SUCCESS != KenshiLib::AddHook(KenshiLib::GetRealAddress(&SaveManager::newGame), SaveManager_newGame_hook, (void**)&SaveManager_newGame_orig))
         ErrorLog("SlaverMod: could not add new game hook!");
+    if (KenshiLib::SUCCESS != KenshiLib::AddHook(KenshiLib::GetRealAddress(&Character::_NV_isEnemy), Character_isEnemy_hook, (void**)&Character_isEnemy_orig))
+        ErrorLog("SlaverMod: could not add isEnemy hook!");
+    if (KenshiLib::SUCCESS != KenshiLib::AddHook(KenshiLib::GetRealAddress(&GunClassTurret::_NV_scoreTarget), GunClassTurret_scoreTarget_hook, (void**)&GunClassTurret_scoreTarget_orig))
+        ErrorLog("SlaverMod: could not add turret score hook!");
 }

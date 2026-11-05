@@ -1,7 +1,7 @@
 [h1]SlaverMod[/h1]
 A RE_Kenshi plugin that lets your faction own slaves, using Kenshi's own slave system: shackles, submission, supervision, escapes, rebellions, punishment, a slave trade and a slaver game start.
 
-[b]Languages: English (default) and Brazilian Portuguese.[/b] For Portuguese, set [i]Language=pt[/i] in SlaverMod.ini, or pick it in Options > MCM > SlaverMod > Language.
+[b]Languages: English, Brazilian Portuguese and Russian.[/b] The mod follows the game's language; to pick one, set [i]Language=en/pt/ru[/i] in SlaverMod.ini or use Options > MCM > SlaverMod > Language.
 [i]Traduzido para português do Brasil (veja abaixo).[/i]
 
 [h2]Features[/h2]
@@ -13,8 +13,8 @@ A RE_Kenshi plugin that lets your faction own slaves, using Kenshi's own slave s
 [*][b]Punish and Reward[/b] in the same menu: a beating (+submission, some damage) or a few cats.
 [*][b]Freeing:[/b] slaves with 90+ submission stay in your faction; the others go home.
 [*][b]Rebellion:[/b] every 7 days, if the defiant slaves are stronger than your free members, they may rise up, grab iron clubs and attack.
-[*][b]Slave trade window:[/b] at slave traders, buy their slaves (they join you, shackled) or sell yours (they really leave); tick several and trade them all at once. Prices follow stats, race and submission. Other slavers leave your slaves alone.
-[*][b]Reprogram skeletons (optional):[/b] an unconscious skeleton can be reprogrammed into a free member instead of enslaved. Robotics decides the chance; a failure destroys it.
+[*][b]Slave trade window:[/b] at slave traders, buy their slaves (they join you, shackled) or sell yours (they really leave); tick several and trade them all at once. Prices follow stats, race, submission and missing limbs. Other slavers leave your slaves alone.
+[*][b]Reprogram skeletons (optional):[/b] an unconscious skeleton can be reprogrammed into a free member instead of enslaved. Robotics decides the chance; a failure destroys it. Optionally it becomes the headless Skeleton No-Head MkII.
 [*][b]Speech bubbles[/b] for slavers and slaves (SlaverMod_lines.ini).
 [*][b]New game start "Slave Hunters":[/b] a leader and five hunters with rusty clubs at a random slaver camp, friendly with the Slave Traders.
 [*][b]Your own people enslaved by others[/b] (the Rebirth start, slavers who catch you) are left to the game. [i]Enabled=0[/i] (MCM: Mod active) switches the whole mod off.
@@ -41,7 +41,7 @@ MIT license. Code, build instructions and developer docs:
 [h1]Português do Brasil[/h1]
 Plugin RE_Kenshi que deixa a sua facção ter escravos usando o sistema de escravidão do próprio jogo: grilhões, submissão, vigilância, fugas, rebeliões, punição, comércio de escravos e um início de jogo de escravista.
 
-[b]O mod é traduzido para português do Brasil.[/b] O padrão é inglês: para português, use [i]Language=pt[/i] no SlaverMod.ini ou escolha em Opções > MCM > SlaverMod > Idioma.
+[b]O mod é traduzido para português do Brasil.[/b] Ele segue o idioma do jogo; para forçar o português, use [i]Language=pt[/i] no SlaverMod.ini ou escolha em Opções > MCM > SlaverMod > Idioma.
 
 [h2]Funções[/h2]
 [list]
@@ -52,8 +52,8 @@ Plugin RE_Kenshi que deixa a sua facção ter escravos usando o sistema de escra
 [*][b]Punir e Recompensar[/b] no mesmo menu: uma surra (+submissão, um pouco de dano) ou alguns cats.
 [*][b]Libertar:[/b] quem tem 90+ de submissão fica na sua facção; os outros voltam para casa.
 [*][b]Rebelião:[/b] a cada 7 dias, se os escravos rebeldes forem mais fortes que seus membros livres, podem se levantar, pegar porretes e atacar.
-[*][b]Janela de comércio:[/b] nos traficantes, compre os escravos deles (entram no seu grupo, com grilhões) ou venda os seus (saem de verdade); marque vários e negocie todos de uma vez. O preço segue atributos, raça e submissão. Outros escravistas deixam seus escravos em paz.
-[*][b]Reprogramar esqueletos (opcional):[/b] um esqueleto inconsciente pode ser reprogramado e virar membro livre em vez de escravo. A robótica decide a chance; uma falha o destrói.
+[*][b]Janela de comércio:[/b] nos traficantes, compre os escravos deles (entram no seu grupo, com grilhões) ou venda os seus (saem de verdade); marque vários e negocie todos de uma vez. O preço segue atributos, raça, submissão e membros faltando. Outros escravistas deixam seus escravos em paz.
+[*][b]Reprogramar esqueletos (opcional):[/b] um esqueleto inconsciente pode ser reprogramado e virar membro livre em vez de escravo. A robótica decide a chance; uma falha o destrói. Opcionalmente ele vira o Skeleton No-Head MkII, sem cabeça.
 [*][b]Falas em balão[/b] para escravistas e escravos (SlaverMod_lines.ini).
 [*][b]Novo início "Slave Hunters":[/b] um líder e cinco caçadores com porretes enferrujados num acampamento de traficantes sorteado, com boa relação com os Traficantes.
 [*][b]Seus personagens escravizados por outros[/b] (início do Rebirth, escravistas que pegam você) ficam por conta do jogo. [i]Enabled=0[/i] (MCM: Mod ativo) desliga o mod inteiro.

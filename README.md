@@ -4,7 +4,7 @@ A [RE_Kenshi](https://github.com/BFrizzleFoShizzle/RE_Kenshi) plugin that lets t
 
 **Steam Workshop:** https://steamcommunity.com/sharedfiles/filedetails/?id=3828708454
 
-**Languages:** English (default) and **Brazilian Portuguese** (`Language=pt`, or *Options > MCM > SlaverMod > Language*).
+**Languages:** English, **Brazilian Portuguese** and **Russian**. `Language=auto` (default) follows the game's language; `Language=en|pt|ru`, or *Options > MCM > SlaverMod > Language*, picks one.
 *Traduzido para português do Brasil — [veja a seção em português](#português-do-brasil).*
 
 ## Features
@@ -15,6 +15,7 @@ A [RE_Kenshi](https://github.com/BFrizzleFoShizzle/RE_Kenshi) plugin that lets t
 - **Locked shackles** (`Prisoner Shackles`; the hive version for hivers). Clothes in the way go to the inventory (or the ground). Freeing removes the shackles.
 - **Slaves cannot use weapons.** Any equipped weapon is dropped.
 - **New slaves follow and guard** whoever enslaved them (native `BODYGUARD` order, or follow only).
+- **Slave squads.** New slaves go to the `Slaves` squad; once it reaches the game's squad size limit, `Slaves 2`, `Slaves 3`... are opened. If your faction is full, the message says so.
 - **Relations.** Enslaving someone from another faction lowers your relation with it (default −5). Freeing gives a little back (default +2, always less than the loss).
 - **Enslaving is a crime.** While the shackles go on, the owner is kidnapping, as when carrying an unconscious person off: guards and the victim's friends who see it react (the game decides who cares; drifters, for one, don't). If they attack, the action is cancelled so the owner can fight back. `EnslaveIsCrime=0` turns it off.
 - **Freeing.** A freed slave with submission 90+ stays in your faction; the others go back to the faction they were taken from and walk home.
@@ -30,13 +31,14 @@ A [RE_Kenshi](https://github.com/BFrizzleFoShizzle/RE_Kenshi) plugin that lets t
   - on a rebellion, the defiant slaves strong enough (strength **10** at submission 0, up to **20** near the limit: the more defiant, the weaker they can be) join the **Anti-Slavers**, lose their shackles, get a worst-quality **Iron Club** and attack your free members.
 - **Speech.** Slavers and slaves say a line (speech bubble) when enslaving, punishing, rewarding, freeing, trading, escaping and rebelling; many come from the game's own slavers. Editable in `SlaverMod_lines.ini`.
 - **No stealing.** Other factions' slaves are their owners' property and cannot be enslaved (runaways and free people can).
-- **Slave trade window.** At slave traders, "I'm looking to buy slaves" and "I want to sell some slaves" open SlaverMod's own window: buy the trader's slaves (they join your slave squad, shackled, already broken in: race submission +15) or sell your slaves (they really leave for the trader's faction). Prices follow stats, race and submission; buying costs twice what selling pays. Click slaves to tick them (or SELECT ALL) and buy or sell them all with one click. The fixed 400-cats offer for a carried person is gone: enslave first, then sell.
-- **Reprogram skeletons (optional, off by default).** With `SkeletonThrall=1`, an unconscious skeleton gets "Reprogram" instead of "Enslave": a roll on the performer's robotics (20% + 0.75% per level, at most 95%). Success: a free member of your faction. Failure: the skeleton is destroyed.
+- **Slave trade window.** At slave traders, "I'm looking to buy slaves" and "I want to sell some slaves" open SlaverMod's own window: buy the trader's slaves (they join your slave squad, shackled, already broken in: race submission +15) or sell your slaves (they really leave for the trader's faction). Prices follow stats, race and submission; buying costs twice what selling pays. Each arm or leg that is gone or crushed lowers the price by 25% (`TradeMissingLimbPenalty`; at least 10% is left). Click slaves to tick them (or SELECT ALL) and buy or sell them all with one click. Sold slaves join the trader's own slaves, or get the game's slave AI when there are none; a slave squad emptied by a sale is deleted. The fixed 400-cats offer for a carried person is gone: enslave first, then sell.
+- **Reprogram skeletons (optional, off by default).** With `SkeletonThrall=1`, an unconscious skeleton gets "Reprogram" instead of "Enslave": a roll on the performer's robotics (20% + 0.75% per level, at most 95%). Success: a free member of your faction. Failure: the skeleton is destroyed. `ThrallRace=95870-Newwworld.mod` (MCM: *Reprogram: race > Headless*) turns them into the game's *Skeleton No-Head MkII*: the look changes right away, the health panel after you save and load.
 - **New game start: Slave Hunters.** A leader and five slave hunters with rusty clubs and 500 cats, at a random slaver camp (Slave Farm, Slave Markets, Stone Camp, South Stone Camp or Slave Farm South), friendly with the Slave Traders and Slave Hunters and disliked by the Anti-Slavers.
 - **In-game settings** with [ModConfigMenu](https://steamcommunity.com/sharedfiles/filedetails/?id=3813761584) (optional): *Options > MCM > SlaverMod*.
 - **Your own people enslaved by another faction** (the Rebirth start, slavers who catch you) are left to the game: no submission, escapes or protection for them, even when the game does not say whose slaves they are. `Enabled=0` (MCM: *Mod active*) switches the whole mod off by hand.
+- **Turrets leave your slaves alone.** The game scored your own slaves as turret targets and shot them; their score is now 0.
 - **On-screen messages** in a single box at the top of the screen that fades after a few seconds. `ShowNotices=0` hides them; the REBELLION alert is always shown.
-- **Debug mode** (off by default): test hotkeys **CTRL+K** (enslave/free the selected character), **CTRL+SHIFT+R** (rebellion check right away), **CTRL+SHIFT+S** (+25 submission on the selected slave) and **CTRL+SHIFT+E** (the selected slave runs away).
+- **Debug mode** (off by default): test hotkeys **CTRL+K** (enslave/free the selected character), **CTRL+SHIFT+R** (rebellion check right away), **CTRL+SHIFT+S** (+25 submission on the selected slave), **CTRL+SHIFT+E** (the selected slave runs away), **CTRL+SHIFT+K** (knock out), **CTRL+SHIFT+C** (carry test), and a test kit: **CTRL+SHIFT+I** (squad/faction limits and the selected character's price), **M** (+20000 cats), **N** (knock out, then enslave, up to 10 NPCs nearby), **L** (cut a limb off), **H** (apply `ThrallRace` to the selected skeleton).
 
 ## Tip: bounties
 
@@ -54,7 +56,7 @@ Works with the base game: every item and faction it uses is vanilla. Also tested
 
 1. Subscribe on the [Steam Workshop](https://steamcommunity.com/sharedfiles/filedetails/?id=3828708454), or copy the `SlaverMod` folder (`SlaverMod.dll`, `SlaverMod.mod`, `RE_Kenshi.json`, `SlaverMod.ini`, `SlaverMod_races.ini`) into `Kenshi/mods/`.
 2. Enable **SlaverMod** in the launcher's mod list.
-3. Adjust the options in `SlaverMod.ini` (commented) or in *Options > MCM*. For Portuguese, set `Language=pt`.
+3. Adjust the options in `SlaverMod.ini` (commented) or in *Options > MCM*. The language follows the game's (`Language=auto`).
 
 ## Building
 
@@ -102,7 +104,7 @@ MIT — see [LICENSE](LICENSE). Use, change and republish it freely.
 
 ## Português do Brasil
 
-Plugin [RE_Kenshi](https://github.com/BFrizzleFoShizzle/RE_Kenshi) que deixa a facção do jogador ter escravos de verdade, usando o sistema de escravidão nativo do jogo. **O mod é traduzido para português do Brasil:** use `Language=pt` no `SlaverMod.ini`, ou *Opções > MCM > SlaverMod > Idioma*. O padrão é inglês.
+Plugin [RE_Kenshi](https://github.com/BFrizzleFoShizzle/RE_Kenshi) que deixa a facção do jogador ter escravos de verdade, usando o sistema de escravidão nativo do jogo. **O mod é traduzido para português do Brasil (e russo):** com `Language=auto` (padrão) ele segue o idioma do jogo; `Language=pt` no `SlaverMod.ini`, ou *Opções > MCM > SlaverMod > Idioma*, força o português.
 
 ### O que faz
 
@@ -112,6 +114,7 @@ Plugin [RE_Kenshi](https://github.com/BFrizzleFoShizzle/RE_Kenshi) que deixa a f
 - **Grilhões trancados** (`Prisoner Shackles`; versão de colmeia para hivers). A roupa que ocupa o lugar deles vai para o inventário (ou para o chão). Ao libertar, os grilhões somem.
 - **Escravos não usam armas.** Qualquer arma equipada é largada.
 - **O recém-escravizado segue e protege** quem o escravizou (ordem nativa `BODYGUARD`, ou só seguir).
+- **Esquadrões de escravos.** Escravos novos vão para o esquadrão `Escravos`; quando ele chega ao limite de tamanho do jogo, abrem-se `Escravos 2`, `Escravos 3`... Se a facção estiver cheia, a mensagem avisa.
 - **Relações.** Escravizar alguém de outra facção reduz a relação com ela (padrão −5). Libertar devolve um pouco (padrão +2, sempre menos que a perda).
 - **Escravizar é crime.** Enquanto coloca os grilhões, o dono está sequestrando, como ao carregar alguém desmaiado: guardas e amigos da vítima que virem reagem (o jogo decide quem se importa; os Retirantes, por exemplo, não). Se atacarem, a ação é cancelada para o dono poder lutar. `EnslaveIsCrime=0` desliga.
 - **Libertar.** O libertado com submissão 90+ fica na sua facção; os outros voltam para a facção de onde vieram e vão para casa.
@@ -127,13 +130,14 @@ Plugin [RE_Kenshi](https://github.com/BFrizzleFoShizzle/RE_Kenshi) que deixa a f
   - na rebelião, os escravos rebeldes fortes o bastante (força **10** com submissão 0, subindo até **20** perto do limite: quanto mais rebelde, mais fraco ele pode ser) vão para os **Abolicionistas**, perdem os grilhões, recebem um **Porrete de Ferro** da pior qualidade e atacam seus membros livres.
 - **Falas.** Escravistas e escravos falam (balão de fala) ao escravizar, punir, recompensar, libertar, negociar, fugir e se rebelar; muitas falas vêm dos próprios escravistas do jogo. Editáveis em `SlaverMod_lines.ini`.
 - **Sem roubo.** Escravos de outras facções são propriedade dos donos e não podem ser escravizados (fugitivos e pessoas livres podem).
-- **Janela de comércio de escravos.** Nos traficantes, "I'm looking to buy slaves" e "I want to sell some slaves" abrem a janela do próprio SlaverMod: compre os escravos do traficante (entram no seu esquadrão de escravos, com grilhões e já domados: submissão da raça +15) ou venda os seus (saem de verdade para a facção do traficante). O preço segue atributos, raça e submissão; comprar custa o dobro do que vender paga. Clique nos escravos para marcá-los (ou MARCAR TODOS) e compre ou venda todos de uma vez. A oferta fixa de 400 cats por quem você carrega some: escravize antes e venda depois.
-- **Reprogramar esqueletos (opcional, desligado por padrão).** Com `SkeletonThrall=1`, um esqueleto inconsciente ganha "Reprogramar" em vez de "Escravizar": um teste na robótica de quem age (20% + 0,75% por nível, no máximo 95%). Sucesso: um membro livre da sua facção. Falha: o esqueleto é destruído.
+- **Janela de comércio de escravos.** Nos traficantes, "I'm looking to buy slaves" e "I want to sell some slaves" abrem a janela do próprio SlaverMod: compre os escravos do traficante (entram no seu esquadrão de escravos, com grilhões e já domados: submissão da raça +15) ou venda os seus (saem de verdade para a facção do traficante). O preço segue atributos, raça e submissão; comprar custa o dobro do que vender paga. Cada braço ou perna perdido ou esmagado tira 25% do preço (`TradeMissingLimbPenalty`; sobra pelo menos 10%). Clique nos escravos para marcá-los (ou MARCAR TODOS) e compre ou venda todos de uma vez. Os vendidos se juntam aos escravos do traficante, ou recebem a IA de escravo do jogo quando ele não tem nenhum; o esquadrão de escravos que a venda esvaziar é apagado. A oferta fixa de 400 cats por quem você carrega some: escravize antes e venda depois.
+- **Reprogramar esqueletos (opcional, desligado por padrão).** Com `SkeletonThrall=1`, um esqueleto inconsciente ganha "Reprogramar" em vez de "Escravizar": um teste na robótica de quem age (20% + 0,75% por nível, no máximo 95%). Sucesso: um membro livre da sua facção. Falha: o esqueleto é destruído. `ThrallRace=95870-Newwworld.mod` (MCM: *Reprogramar: raça > Sem cabeça*) transforma-o no *Skeleton No-Head MkII* do jogo: a aparência muda na hora, o painel de saúde depois de salvar e carregar.
 - **Novo início de jogo: Slave Hunters (Caçadores de Escravos).** Um líder e cinco caçadores com porretes enferrujados e 500 cats, num acampamento de traficantes sorteado (Slave Farm, Slave Markets, Stone Camp, South Stone Camp ou Slave Farm South), com boa relação com os Traficantes e os Caçadores de Escravos e malvistos pelos Abolicionistas.
 - **Configuração dentro do jogo** com o [ModConfigMenu](https://steamcommunity.com/sharedfiles/filedetails/?id=3813761584) (opcional): *Opções > MCM > SlaverMod*.
 - **Seus personagens escravizados por outra facção** (início do Rebirth, escravistas que pegam você) ficam por conta do jogo: sem submissão, fuga ou proteção, mesmo quando o jogo não informa de quem são escravos. `Enabled=0` (MCM: *Mod ativo*) desliga o mod inteiro na mão.
+- **Torretas deixam seus escravos em paz.** O jogo dava aos seus próprios escravos pontuação de alvo nas torretas e atirava neles; agora a pontuação é 0.
 - **Mensagens na tela** numa única caixa no topo, que some depois de alguns segundos. `ShowNotices=0` esconde; o alerta de REBELIÃO sempre aparece.
-- **Modo debug** (desligado por padrão): atalhos de teste **CTRL+K** (escravizar ou libertar o personagem selecionado), **CTRL+SHIFT+R** (verificar rebelião na hora), **CTRL+SHIFT+S** (+25 de submissão no escravo selecionado) e **CTRL+SHIFT+E** (o escravo selecionado foge).
+- **Modo debug** (desligado por padrão): atalhos de teste **CTRL+K** (escravizar ou libertar o personagem selecionado), **CTRL+SHIFT+R** (verificar rebelião na hora), **CTRL+SHIFT+S** (+25 de submissão no escravo selecionado), **CTRL+SHIFT+E** (o escravo selecionado foge), **CTRL+SHIFT+K** (nocautear), **CTRL+SHIFT+C** (teste de carregar) e um kit de teste: **CTRL+SHIFT+I** (limites de esquadrão/facção e preço do selecionado), **M** (+20000 cats), **N** (nocauteia e depois escraviza até 10 NPCs por perto), **L** (corta um membro), **H** (aplica `ThrallRace` no esqueleto selecionado).
 
 ### Dica: recompensas
 
@@ -151,7 +155,7 @@ Funciona com o jogo base, porque todos os itens e facções que usa são do jogo
 
 1. Assine o mod na [Oficina Steam](https://steamcommunity.com/sharedfiles/filedetails/?id=3828708454), ou copie a pasta `SlaverMod` para `Kenshi/mods/`.
 2. Ative **SlaverMod** na lista de mods do launcher.
-3. Para português, coloque `Language=pt` no `SlaverMod.ini`, ou escolha *Português (Brasil)* em *Opções > MCM > SlaverMod > Idioma*. Se quiser, mude também `SquadName` para `Escravos`.
+3. Com o jogo em português o mod já fica em português (`Language=auto`); para forçar, use `Language=pt` ou *Opções > MCM > SlaverMod > Idioma*.
 
 ### Compilar
 

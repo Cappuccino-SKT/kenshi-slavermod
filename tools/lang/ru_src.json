@@ -1,0 +1,1258 @@
+[
+[
+"no character",
+"nenhum personagem"
+],
+[
+"the character is dead",
+"personagem morto"
+],
+[
+"already in your faction",
+"ja e da sua faccao"
+],
+[
+"is a slave of ",
+"e escravo(a) de "
+],
+[
+"someone else",
+"outra pessoa"
+],
+[
+"must be unconscious, chained or caged",
+"precisa estar inconsciente, acorrentado ou preso"
+],
+[
+" Your faction is full (",
+" Sua faccao esta cheia ("
+],
+[
+"; see the game options).",
+"; veja as opcoes do jogo)."
+],
+[
+"You cannot enslave the last free member of your faction.",
+"Nao da para escravizar o ultimo membro livre da faccao."
+],
+[
+" is now a slave of your faction.",
+" agora e escravo(a) da sua faccao."
+],
+[
+"The game did not accept ",
+"O jogo nao aceitou marcar "
+],
+[
+" as a slave.",
+" como escravo(a)."
+],
+[
+"Cannot enslave: ",
+"Nao da para escravizar: "
+],
+[
+"No free member of your faction to be the owner.",
+"Nenhum membro livre da sua faccao para ser o dono."
+],
+[
+"The game refused to recruit ",
+"O jogo recusou o recrutamento de "
+],
+[
+" joined your faction, but the game did not accept them as a slave.",
+" entrou na faccao, mas o jogo nao aceitou marca-lo(a) como escravo(a)."
+],
+[
+"This character is not your slave.",
+"Esse personagem nao e seu escravo."
+],
+[
+" had ",
+" teve "
+],
+[
+" piece(s) of clothing removed for the shackles.",
+" peca(s) de roupa tirada(s) para os grilhoes."
+],
+[
+"Could not put shackles on ",
+"Nao deu para colocar grilhoes em "
+],
+[
+"Defiant",
+"Rebelde"
+],
+[
+"Restless",
+"Inquieto"
+],
+[
+"Obedient",
+"Obediente"
+],
+[
+"Loyal",
+"Leal"
+],
+[
+"Submission ",
+"Submissao "
+],
+[
+" is a slave and cannot use weapons.",
+" e escravo(a) e nao pode usar armas."
+],
+[
+" - unwatched",
+" - sem vigilancia"
+],
+[
+" now follows ",
+" agora segue "
+],
+[
+" now follows and guards ",
+" agora segue e protege "
+],
+[
+"Freeing",
+"Libertando"
+],
+[
+"Punishing",
+"Punindo"
+],
+[
+"Rewarding",
+"Recompensando"
+],
+[
+"Reprogramming",
+"Reprogramando"
+],
+[
+"Enslaving",
+"Escravizando"
+],
+[
+" did not like seeing ",
+" nao gostou de ver "
+],
+[
+" reprogrammed. Relation: ",
+" reprogramado(a). Relacao: "
+],
+[
+" enslaved. Relation: ",
+" escravizado(a). Relacao: "
+],
+[
+" liked seeing ",
+" gostou de ver "
+],
+[
+" freed. Relation: ",
+" libertado(a). Relacao: "
+],
+[
+"Action cancelled: ",
+"Acao cancelada: "
+],
+[
+" got another order.",
+" recebeu outra ordem."
+],
+[
+" is under attack.",
+" esta sendo atacado(a)."
+],
+[
+"whoever was acting is no longer available",
+"quem ia agir nao esta mais disponivel"
+],
+[
+" was knocked out",
+" desmaiou"
+],
+[
+" is no longer a free member",
+" nao e mais um membro livre"
+],
+[
+"the target is no longer available",
+"o alvo nao esta mais disponivel"
+],
+[
+" is no longer your slave",
+" nao e mais seu escravo"
+],
+[
+"not enough money (",
+"dinheiro insuficiente ("
+],
+[
+" cats needed)",
+" cats)"
+],
+[
+" is already a slave",
+" ja e escravo(a)"
+],
+[
+" is being carried away by someone else",
+" esta sendo carregado(a) por outra pessoa"
+],
+[
+"they would be the last free member of your faction",
+"seria o ultimo membro livre da faccao"
+],
+[
+" punished ",
+" puniu "
+],
+[
+" was rewarded recently.",
+" foi recompensado(a) ha pouco tempo."
+],
+[
+"Not enough money to reward ",
+"Dinheiro insuficiente para recompensar "
+],
+[
+" rewarded ",
+" recompensou "
+],
+[
+" failed to reprogram ",
+" falhou ao reprogramar "
+],
+[
+" and destroyed them (",
+" e o(a) destruiu ("
+],
+[
+"% chance).",
+"% de chance)."
+],
+[
+" was reprogrammed and now serves your faction (",
+" foi reprogramado(a) e agora serve a sua faccao ("
+],
+[
+" Save and load for the new body to update.",
+" Salve e carregue para o corpo novo atualizar."
+],
+[
+" was freed and goes back to ",
+" foi libertado(a) e volta para "
+],
+[
+" was freed and stays in your faction (",
+" foi libertado(a) e fica na sua faccao ("
+],
+[
+" is now a slave. ",
+" agora e escravo(a). "
+],
+[
+" was recaptured. ",
+" foi recapturado(a). "
+],
+[
+" will take the shackles off ",
+" vai tirar os grilhoes de "
+],
+[
+" will punish ",
+" vai punir "
+],
+[
+" will reward ",
+" vai recompensar "
+],
+[
+" will try to reprogram ",
+" vai tentar reprogramar "
+],
+[
+" will put shackles on ",
+" vai colocar grilhoes em "
+],
+[
+" is taking the shackles off ",
+" esta tirando os grilhoes de "
+],
+[
+" is punishing ",
+" esta punindo "
+],
+[
+" is rewarding ",
+" esta recompensando "
+],
+[
+" is reprogramming ",
+" esta reprogramando "
+],
+[
+" is putting shackles on ",
+" esta colocando grilhoes em "
+],
+[
+"No free, conscious member can do that.",
+"Nenhum membro livre e acordado para fazer isso."
+],
+[
+"Cannot: ",
+"Nao da: "
+],
+[
+" could not reach ",
+" nao conseguiu chegar ate "
+],
+[
+"Carry test: start enslaving someone (or select an NPC) first.",
+"Teste de carregar: comece a escravizar alguem (ou selecione um NPC) antes."
+],
+[
+"Carry test: nobody from another faction nearby.",
+"Teste de carregar: ninguem de outra faccao por perto."
+],
+[
+"Carry test: ",
+"Teste de carregar: "
+],
+[
+" will carry ",
+" vai carregar "
+],
+[
+"Test: select one of your characters first.",
+"Teste: selecione um personagem seu antes."
+],
+[
+"Test: enslaved ",
+"Teste: escravizou "
+],
+[
+", knocked out ",
+", nocauteou "
+],
+[
+" (press again to enslave them).",
+" (aperte de novo para escraviza-los)."
+],
+[
+"Test: select a character first.",
+"Teste: selecione um personagem antes."
+],
+[
+": limb cut, sell price ",
+": membro cortado, preco de venda "
+],
+[
+" has no limb left to cut.",
+" nao tem mais membro para cortar."
+],
+[
+"Test: set ThrallRace and select a character first.",
+"Teste: configure ThrallRace e selecione um personagem antes."
+],
+[
+"Test: only skeletons can change race.",
+"Teste: so esqueletos podem trocar de raca."
+],
+[
+" (save and load for the body parts).",
+" (salve e carregue para as partes do corpo)."
+],
+[
+"Test: +20000 cats.",
+"Teste: +20000 cats."
+],
+[
+"Select a character (click on it) first.",
+"Selecione um personagem (clique nele) antes."
+],
+[
+"Select one of your slaves first.",
+"Selecione um escravo seu antes."
+],
+[
+"Knockout test: select a character first.",
+"Teste de nocaute: selecione um personagem antes."
+],
+[
+"Knockout test: ",
+"Teste de nocaute: "
+],
+[
+" is unconscious.",
+" esta inconsciente."
+],
+[
+"FREE",
+"LIBERTAR"
+],
+[
+"ENSLAVE",
+"ESCRAVIZAR"
+],
+[
+"Free",
+"Libertar"
+],
+[
+"PUNISH",
+"PUNIR"
+],
+[
+"Punish",
+"Punir"
+],
+[
+"REWARD",
+"RECOMPENSAR"
+],
+[
+"Reward",
+"Recompensar"
+],
+[
+"REPROGRAM",
+"REPROGRAMAR"
+],
+[
+"Reprogram",
+"Reprogramar"
+],
+[
+"Enslave",
+"Escravizar"
+],
+[
+"REBELLION! ",
+"REBELIAO! "
+],
+[
+" slave(s) rose up and joined ",
+" escravo(s) se rebelaram e se juntaram a "
+],
+[
+" (free ",
+" (livres "
+],
+[
+" x slaves ",
+" x escravos "
+],
+[
+"The slaves are restless, but did not rise up",
+"Os escravos estao inquietos, mas nao se rebelaram"
+],
+[
+"The slaves are under control",
+"Os escravos estao sob controle"
+],
+[
+"The slaves thought about rising up, but they are too submissive.",
+"Os escravos pensaram em se rebelar, mas sao submissos demais."
+],
+[
+"The slaves tried to rise up, but none was strong enough.",
+"Os escravos tentaram se rebelar, mas nenhum era forte o bastante."
+],
+[
+" ran away! ",
+" fugiu! "
+],
+[
+"Your money: ",
+"Seu dinheiro: "
+],
+[
+" selected, ",
+" marcado(s), "
+],
+[
+"price: ",
+"preco: "
+],
+[
+"you get: ",
+"voce recebe: "
+],
+[
+"Click the slaves to select them.",
+"Clique nos escravos para marcar."
+],
+[
+"CLEAR",
+"DESMARCAR"
+],
+[
+"SELECT ALL",
+"MARCAR TODOS"
+],
+[
+"The trader has no slaves for sale here.",
+"O traficante nao tem escravos a venda aqui."
+],
+[
+"You have no slaves to sell.",
+"Voce nao tem escravos para vender."
+],
+[
+"Not enough money to buy ",
+"Dinheiro insuficiente para comprar "
+],
+[
+"The game refused the purchase of ",
+"O jogo recusou a compra de "
+],
+[
+" bought ",
+" comprou "
+],
+[
+" for ",
+" por "
+],
+[
+"The game refused the sale of ",
+"O jogo recusou a venda de "
+],
+[
+" sold ",
+" vendeu "
+],
+[
+"Click the slaves you want first.",
+"Primeiro clique nos escravos que voce quer."
+],
+[
+" slaves for ",
+" escravos por "
+],
+[
+"BUYING SLAVES - ",
+"COMPRANDO ESCRAVOS - "
+],
+[
+"SELLING SLAVES - ",
+"VENDENDO ESCRAVOS - "
+],
+[
+"BUY",
+"COMPRAR"
+],
+[
+"SELL",
+"VENDER"
+],
+[
+"CLOSE",
+"FECHAR"
+],
+[
+"Your faction can own slaves: enslave, shackles, relations and rebellion. Translated to Brazilian Portuguese.",
+"Sua facção pode ter escravos: escravizar, grilhões, relações e rebelião. Traduzido para português do Brasil."
+],
+[
+"General",
+"Geral"
+],
+[
+"Game's language",
+"Idioma do jogo"
+],
+[
+"Language",
+"Idioma"
+],
+[
+"Language of the mod's messages and of this page.",
+"Idioma das mensagens do mod e desta página."
+],
+[
+"Option in the right-click menu",
+"Opção no menu do botão direito"
+],
+[
+"Enslave/Free in the order menu (hold the right mouse button over the target).",
+"Escravizar/Libertar no menu de ordens (segure o botão direito sobre o alvo)."
+],
+[
+"Inventory button",
+"Botão no inventário"
+],
+[
+"Also shows the ENSLAVE/FREE button in the inventory window.",
+"Mostra também o botão ESCRAVIZAR/LIBERTAR na janela de inventário."
+],
+[
+"Mod active",
+"Mod ativo"
+],
+[
+"Off: the mod leaves every character alone (no menu options, submission, escapes, rebellions or protection). Your own people enslaved by another faction are already left alone.",
+"Desligado: o mod não mexe em ninguém (sem opções no menu, submissão, fugas, rebeliões ou proteção). Seus personagens escravizados por outra facção já são ignorados."
+],
+[
+"On-screen messages",
+"Mensagens na tela"
+],
+[
+"Messages at the top of the screen (enslaved, freed, rebellion check...). The REBELLION alert is always shown.",
+"Mensagens no topo da tela (escravizado, libertado, verificação de rebelião...). O alerta de REBELIÃO sempre aparece."
+],
+[
+"Slave squad name",
+"Nome do esquadrão de escravos"
+],
+[
+"Squad new slaves are put in (created if missing).",
+"Esquadrão onde os novos escravos entram (criado se não existir)."
+],
+[
+"Slaves",
+"Escravos"
+],
+[
+"Enslaving and freeing",
+"Escravizar e libertar"
+],
+[
+"Instant action",
+"Ação instantânea"
+],
+[
+"Enslave/free at once, without the owner walking to the target.",
+"Escraviza/liberta na hora, sem o dono ir até o alvo."
+],
+[
+"Action duration",
+"Duração da ação"
+],
+[
+"Time the owner spends next to the target putting on or taking off the shackles.",
+"Tempo que o dono passa ao lado do alvo colocando ou tirando os grilhões."
+],
+[
+"Time limit to arrive",
+"Tempo máximo para chegar"
+],
+[
+"Time for the owner to reach the target before giving up.",
+"Tempo para o dono chegar até o alvo antes de desistir."
+],
+[
+"Reach distance",
+"Distância para agir"
+],
+[
+"How close the owner must get (multiple of the characters' size).",
+"Quão perto o dono precisa chegar (múltiplo do tamanho dos personagens)."
+],
+[
+"Progress bar",
+"Barra de progresso"
+],
+[
+"Shows the bar over the owner while acting.",
+"Mostra a barra sobre o dono enquanto ele age."
+],
+[
+"Action animation",
+"Animação da ação"
+],
+[
+"Owner's animation while acting (medic = first aid). Empty = none.",
+"Animação do dono enquanto age (medic = primeiros socorros). Vazio = nenhuma."
+],
+[
+"Unchain when enslaving",
+"Tirar correntes ao escravizar"
+],
+[
+"Removes the chains of whoever was chained.",
+"Tira as correntes de quem estava acorrentado."
+],
+[
+"Reprogram skeletons",
+"Reprogramar esqueletos"
+],
+[
+"Unconscious skeletons are not enslaved: they are reprogrammed into free members. Robotics decides the chance; a failure destroys them.",
+"Esqueletos inconscientes não viram escravos: são reprogramados e viram membros livres. A robótica decide a chance; uma falha os destrói."
+],
+[
+"Reprogram: base chance (%)",
+"Reprogramar: chance base (%)"
+],
+[
+"Chance with robotics 0.",
+"Chance com robótica 0."
+],
+[
+"Reprogram: % per robotics level",
+"Reprogramar: % por nível de robótica"
+],
+[
+"Reprogram: maximum chance (%)",
+"Reprogramar: chance máxima (%)"
+],
+[
+"Keep their race",
+"Manter a raça"
+],
+[
+"Headless (Skeleton No-Head MkII)",
+"Sem cabeça (Skeleton No-Head MkII)"
+],
+[
+"Reprogram: race",
+"Reprogramar: raça"
+],
+[
+"Race a reprogrammed skeleton becomes. The health panel updates after saving and loading.",
+"Raça que o esqueleto reprogramado passa a ter. O painel de saúde atualiza depois de salvar e carregar."
+],
+[
+"Shackles",
+"Grilhões"
+],
+[
+"Slaves get locked shackles; freeing removes them.",
+"O escravo ganha grilhões trancados; ao ser liberto eles somem."
+],
+[
+"Ban weapons",
+"Proibir armas"
+],
+[
+"Slaves drop any equipped weapon.",
+"Escravos largam qualquer arma equipada."
+],
+[
+"Follow the enslaver",
+"Seguir quem escravizou"
+],
+[
+"A new slave follows whoever enslaved them.",
+"O recém-escravizado passa a seguir quem o escravizou."
+],
+[
+"Follow and guard",
+"Seguir e proteger"
+],
+[
+"Follow only",
+"Só seguir"
+],
+[
+"Follow mode",
+"Modo de seguir"
+],
+[
+"Native slave work",
+"Trabalho escravo nativo"
+],
+[
+"Turns on the game's slave work behaviour. Experimental.",
+"Liga o comportamento de trabalho escravo do jogo. Experimental."
+],
+[
+"Shackles (ID)",
+"Grilhão (ID)"
+],
+[
+"Shackles item used.",
+"Item de grilhão usado."
+],
+[
+"Alternative shackles (ID)",
+"Grilhão alternativo (ID)"
+],
+[
+"Used when the first one does not fit (e.g. hivers).",
+"Usado quando o primeiro não serve (ex.: colmeia)."
+],
+[
+"Submission",
+"Submissão"
+],
+[
+"Show over the selected slave",
+"Mostrar sobre o escravo selecionado"
+],
+[
+"A bar with the submission over the slave you select.",
+"Uma barra com a submissão sobre o escravo que você seleciona."
+],
+[
+"Starting submission",
+"Submissão inicial"
+],
+[
+"Submission (0-100) of a new slave whose race has no value of its own.",
+"Submissão (0-100) de um escravo novo cuja raça não tem valor próprio."
+],
+[
+"Bonus if caged or chained",
+"Bônus se estava preso ou acorrentado"
+],
+[
+"Added when the slave was a prisoner when enslaved.",
+"Somado quando o escravo estava preso ao ser escravizado."
+],
+[
+"Gain per day",
+"Ganho por dia"
+],
+[
+"Slaves slowly get used to their condition.",
+"Os escravos se acostumam aos poucos com a condição."
+],
+[
+"Freed slaves stay from submission",
+"Libertado fica a partir da submissão"
+],
+[
+"Freed slaves with this submission or more stay in your faction; the others go back to their own. 0 = everyone stays.",
+"Libertados com esta submissão ou mais ficam na sua facção; os outros voltam para a deles. 0 = todos ficam."
+],
+[
+"Race differences",
+"Diferenças entre raças"
+],
+[
+"Each race and subrace starts with its own submission and gains, loses and escapes at its own pace. Table: SlaverMod_races.ini.",
+"Cada raça e sub-raça começa com sua própria submissão e ganha, perde e foge no seu ritmo. Tabela: SlaverMod_races.ini."
+],
+[
+"Limit of the daily gain",
+"Limite do ganho diário"
+],
+[
+"Time alone does not raise submission above this.",
+"Só o tempo não faz a submissão passar disto."
+],
+[
+"Supervision and escape",
+"Supervisão e fuga"
+],
+[
+"Supervision",
+"Supervisão"
+],
+[
+"Slaves need a free, awake member nearby (or a cage). Unwatched ones lose submission.",
+"Escravos precisam de um membro livre e acordado por perto (ou de uma jaula). Sem vigilância, perdem submissão."
+],
+[
+"Supervision distance",
+"Distância de supervisão"
+],
+[
+"In game units; 500 is about a short walk.",
+"Em unidades do jogo; 500 é uma caminhada curta."
+],
+[
+"Loss per day unwatched",
+"Perda por dia sem vigilância"
+],
+[
+"Escapes",
+"Fugas"
+],
+[
+"Defiant slaves may run away, mostly when unwatched.",
+"Escravos rebeldes podem fugir, principalmente sem vigilância."
+],
+[
+"Never escape from submission",
+"Nunca foge a partir da submissão"
+],
+[
+"Daily escape chance",
+"Chance de fuga por dia"
+],
+[
+"For submission 0, unwatched and without shackles (0 to 1).",
+"Para submissão 0, sem vigilância e sem grilhões (0 a 1)."
+],
+[
+"Multiplier when watched",
+"Multiplicador com vigilância"
+],
+[
+"Multiplier with shackles",
+"Multiplicador com grilhões"
+],
+[
+"Submission lost when recaptured",
+"Submissão perdida ao recapturar"
+],
+[
+"Forget runaways after (days)",
+"Esquecer fugitivos depois de (dias)"
+],
+[
+"After this, a captured runaway counts as a new slave. 0 = never. Dead runaways are always forgotten.",
+"Depois disso, um fugitivo capturado conta como escravo novo. 0 = nunca. Fugitivos mortos são sempre esquecidos."
+],
+[
+"Runaway safe distance",
+"Distância segura do fugitivo"
+],
+[
+"Runaways flee until your nearest member is this far.",
+"O fugitivo corre até seu membro mais próximo estar a esta distância."
+],
+[
+"Runaways lose the shackles",
+"Fugitivo perde os grilhões"
+],
+[
+"Off: they run away still wearing them.",
+"Desligado: ele foge ainda com eles."
+],
+[
+"Runaway faction if origin unknown (ID)",
+"Facção do fugitivo sem origem (ID)"
+],
+[
+"Punishment and reward",
+"Punição e recompensa"
+],
+[
+"Punish option on your slaves: submission, but it hurts.",
+"Opção Punir nos seus escravos: dá submissão, mas machuca."
+],
+[
+"Submission per punishment",
+"Submissão por punição"
+],
+[
+"Halved, then a third... for each punishment within the cooldown.",
+"Cai pela metade, depois um terço... a cada punição dentro do intervalo."
+],
+[
+"Punishment damage",
+"Dano da punição"
+],
+[
+"Blunt damage on a limb; grows with repeated punishments.",
+"Dano de impacto num membro; cresce com punições repetidas."
+],
+[
+"Punishment interval (days)",
+"Intervalo entre punições (dias)"
+],
+[
+"Speech bubbles",
+"Falas"
+],
+[
+"Slavers and slaves say a line when enslaving, punishing, rewarding, freeing, trading, escaping and rebelling (SlaverMod_lines.ini).",
+"Escravistas e escravos falam ao escravizar, punir, recompensar, libertar, negociar, fugir e se rebelar (SlaverMod_lines.ini)."
+],
+[
+"Slave animation while punished",
+"Animação do escravo ao ser punido"
+],
+[
+"Reward option on your slaves: a little submission for some cats.",
+"Opção Recompensar nos seus escravos: um pouco de submissão por alguns cats."
+],
+[
+"Submission per reward",
+"Submissão por recompensa"
+],
+[
+"Reward cost (cats)",
+"Custo da recompensa (cats)"
+],
+[
+"Reward interval (days)",
+"Intervalo entre recompensas (dias)"
+],
+[
+"Cage: submission per day",
+"Jaula: submissão por dia"
+],
+[
+"Extra submission for each day in a cage.",
+"Submissão extra por dia numa jaula."
+],
+[
+"Cage: limit",
+"Jaula: limite"
+],
+[
+"A cage does not raise submission above this.",
+"A jaula não faz a submissão passar disto."
+],
+[
+"Slave trade",
+"Comércio de escravos"
+],
+[
+"SlaverMod trade window",
+"Janela de comércio do SlaverMod"
+],
+[
+"Replaces the game's buy / sell slave windows at slave traders.",
+"Substitui as janelas de compra e venda de escravos dos traficantes."
+],
+[
+"Other slavers leave your slaves alone",
+"Outros escravistas deixam seus escravos em paz"
+],
+[
+"Slavers of other factions no longer try to process, cage or ship your slaves.",
+"Escravistas de outras facções deixam de tentar processar, prender ou levar seus escravos."
+],
+[
+"Allow stealing slaves",
+"Permitir roubar escravos"
+],
+[
+"Lets you enslave other factions' slaves. Off: only runaways and free people.",
+"Deixa escravizar os escravos de outras facções. Desligado: só fugitivos e pessoas livres."
+],
+[
+"No fixed 400 cats offer",
+"Sem a oferta fixa de 400 cats"
+],
+[
+"Traders no longer offer 400 cats for someone you carry: enslave them and sell them in the window.",
+"Os traficantes deixam de oferecer 400 cats por quem você carrega: escravize e venda pela janela."
+],
+[
+"Base value",
+"Valor base"
+],
+[
+"Worth of any slave before stats.",
+"Quanto vale qualquer escravo antes dos atributos."
+],
+[
+"Value per stat point",
+"Valor por ponto de atributo"
+],
+[
+"Strength, toughness, dexterity, melee attack, melee defence and labouring.",
+"Força, robustez, destreza, ataque e defesa corpo a corpo e trabalho braçal."
+],
+[
+"Buying price multiplier",
+"Multiplicador do preço de compra"
+],
+[
+"Selling price multiplier",
+"Multiplicador do preço de venda"
+],
+[
+"Price lost per missing limb",
+"Preço perdido por membro faltando"
+],
+[
+"Per arm or leg that is gone or crushed (0.25 = -25%). Robotic limbs count as limbs.",
+"Por braço ou perna perdido ou esmagado (0.25 = -25%). Membros robóticos contam como membros."
+],
+[
+"Submission bonus when bought",
+"Bônus de submissão ao comprar"
+],
+[
+"Bought slaves are already broken in: race start + this.",
+"Escravos comprados já vêm domados: inicial da raça + isto."
+],
+[
+"Relations",
+"Relações"
+],
+[
+"Loss when enslaving",
+"Perda ao escravizar"
+],
+[
+"How much the victim's faction relation drops.",
+"Quanto a relação com a facção da vítima cai."
+],
+[
+"Gain when freeing",
+"Ganho ao libertar"
+],
+[
+"How much the original faction relation rises. Must be lower than the loss.",
+"Quanto a relação com a facção de origem sobe. Precisa ser menor que a perda."
+],
+[
+"Enslaving is a crime",
+"Escravizar é crime"
+],
+[
+"Whoever sees you putting shackles on someone treats it as kidnapping, like carrying them away.",
+"Quem vê você colocando grilhões em alguém trata como sequestro, igual a carregar a pessoa."
+],
+[
+"Rebellion",
+"Rebelião"
+],
+[
+"Periodically checks whether the slaves rise up.",
+"Verifica periodicamente se os escravos se rebelam."
+],
+[
+"Days between checks",
+"Dias entre verificações"
+],
+[
+"Chance multiplier",
+"Multiplicador da chance"
+],
+[
+"Chance = (slaves - free) / slaves x this value.",
+"Chance = (escravos - livres) / escravos x este valor."
+],
+[
+"Maximum chance",
+"Chance máxima"
+],
+[
+"Upper limit of the rebellion chance (0 to 1).",
+"Limite da chance de rebelião (0 a 1)."
+],
+[
+"Rebel minimum strength",
+"Força mínima do rebelde"
+],
+[
+"Strength a slave just below the submission limit needs to rise up.",
+"Força que um escravo logo abaixo do limite de submissão precisa para se rebelar."
+],
+[
+"Rebel minimum strength at submission 0",
+"Força mínima do rebelde com submissão 0"
+],
+[
+"The less submissive, the less strength needed: from this value at 0 up to the one above.",
+"Quanto menos submisso, menos força precisa: deste valor com 0 até o de cima."
+],
+[
+"Rebel maximum submission",
+"Submissão máxima do rebelde"
+],
+[
+"Slaves with this submission or more never rebel.",
+"Escravos com esta submissão ou mais nunca se rebelam."
+],
+[
+"War with the rebels",
+"Guerra com os rebeldes"
+],
+[
+"The Anti-Slavers go to war with you on a rebellion.",
+"Os Abolicionistas entram em guerra com você na rebelião."
+],
+[
+"Chase distance",
+"Distância de perseguição"
+],
+[
+"How far rebels chase your free members.",
+"Até onde os rebeldes perseguem seus membros livres."
+],
+[
+"Rebel faction (ID)",
+"Facção dos rebeldes (ID)"
+],
+[
+"Rebel weapon (ID)",
+"Arma dos rebeldes (ID)"
+],
+[
+"Weapon manufacturer (ID)",
+"Fabricante da arma (ID)"
+],
+[
+"Weapon quality (ID)",
+"Qualidade da arma (ID)"
+],
+[
+"Debug mode",
+"Modo debug"
+],
+[
+"Turns on the test hotkeys (instant enslave and forced rebellion check).",
+"Liga os atalhos de teste (escravizar na hora e forçar a verificação de rebelião)."
+],
+[
+"Hotkey: enslave/free",
+"Atalho: escravizar/libertar"
+],
+[
+"Debug mode only. Acts on the selected character.",
+"Só no modo debug. Age sobre o personagem selecionado."
+],
+[
+"Hotkey: rebellion check",
+"Atalho: verificar rebelião"
+],
+[
+"Debug mode only. Runs the rebellion check right away.",
+"Só no modo debug. Faz a verificação de rebelião na hora."
+],
+[
+"Hotkey: +25 submission",
+"Atalho: +25 de submissão"
+],
+[
+"Debug mode only. Raises the selected slave's submission (wraps to 0 after 100).",
+"Só no modo debug. Aumenta a submissão do escravo selecionado (volta a 0 depois de 100)."
+],
+[
+"Hotkey: escape now",
+"Atalho: fugir agora"
+],
+[
+"Debug mode only. The selected slave runs away.",
+"Só no modo debug. O escravo selecionado foge."
+],
+[
+"Hotkey: knock out",
+"Atalho: nocautear"
+],
+[
+"Debug mode only. The selected character falls unconscious.",
+"Só no modo debug. O personagem selecionado fica inconsciente."
+],
+[
+"Hotkey: carry test",
+"Atalho: teste de carregar"
+],
+[
+"Debug mode only. The nearest NPC of another faction knocks out and carries away the target being enslaved (or the selected NPC).",
+"Só no modo debug. O NPC de outra facção mais próximo nocauteia e leva embora o alvo sendo escravizado (ou o NPC selecionado)."
+],
+[
+"Force rebellion on test",
+"Forçar rebelião no teste"
+],
+[
+"The test hotkey always causes a rebellion.",
+"O atalho de teste sempre causa rebelião."
+],
+[
+"Write detailed log",
+"Gravar log detalhado"
+],
+[
+"Writes SlaverMod_trace.log in the mod folder.",
+"Grava SlaverMod_trace.log na pasta do mod."
+]
+]

@@ -45,6 +45,13 @@ powershell -ExecutionPolicy Bypass -File tools\deploy.ps1 -Build
 - `Kenshi\RE_Kenshi_log.txt` — RE_Kenshi loader log; plugin load errors and `ErrorLog()` lines.
 - The update hook logs `time step: N units in 20 real seconds` once per session (the hook's time unit is not real seconds; ~4.4 units per 20 s at normal speed).
 
+## Translations
+
+- Every visible text is `T("English", "Português")` (notices) or `L(...)` (MCM). Notices are ASCII in Portuguese (the notice font has no accents).
+- Russian comes from `ru_strings.h`, generated: `python tools/lang/gen_ru.py ru_strings.h` from `tools/lang/ru_text.py` (English C text -> Russian). Texts missing there stay in English.
+- New texts: `python tools/lang/extract_tl.py tools/lang/ru_src.json` lists them; add the Russian to `ru_text.py`, regenerate, build.
+- `Language=auto` reads `language=` from the game's `settings.cfg` (pt* -> pt, ru* -> ru). Cyrillic shows properly only with the game in Russian (its fonts).
+
 ## Release
 
 1. Bump the version in `startPlugin()` (`Trace("startPlugin vX.Y")`), README and `workshop/description.txt` if features changed.
@@ -53,5 +60,5 @@ powershell -ExecutionPolicy Bypass -File tools\deploy.ps1 -Build
    - Before: copy the personal `SlaverMod.ini` to `C:\KenshiDev\SlaverMod_pessoal`, move `SlaverMod_origins.ini`, the `saves\` folder and logs there, put the public ini files (`mod/SlaverMod/SlaverMod.ini` and `SlaverMod_races.ini`) in the game folder.
    - In the FCS info dialog: the Steam ID box shows a placeholder `123456789` until refreshed; the upload still uses `<id>` from `_SlaverMod.info` (3828708454). The status bar must say "Uploading...", not "Creating...".
    - **Do not click any tag** in that dialog: it rebuilds the tag list from the checkboxes and drops the custom `RE_Kenshi` tag (kept only in `_SlaverMod.info`).
-   - The FCS replaces the Workshop description with the short `.mod` description: paste `workshop/description.txt` on the Workshop page again after every upload.
+   - The FCS sends the `.mod` header description as the Workshop description (an empty one blanks the page): after changing `workshop/description.txt` (UTF-8, no trailing newline), write it into `mod/SlaverMod/SlaverMod.mod` with `tools/re/kmod.py` (`m['header']['description'] = bytes`, `kmod.write(m, path)`).
    - After: restore the personal ini and origins.
