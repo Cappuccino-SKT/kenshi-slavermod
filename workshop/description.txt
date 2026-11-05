@@ -1,74 +1,66 @@
 [h1]SlaverMod[/h1]
 A RE_Kenshi plugin that lets your faction own slaves, using Kenshi's own slave system: shackles, submission, supervision, escapes, rebellions, punishment, a slave trade and a slaver game start.
 
-[b]Languages: English, Brazilian Portuguese and Russian.[/b] The mod follows the game's language; to pick one, set [i]Language=en/pt/ru[/i] in SlaverMod.ini or use Options > MCM > SlaverMod > Language.
+[b]Languages: English, Brazilian Portuguese, Russian, Spanish and Simplified Chinese.[/b] The mod follows the game's language, or pick one in Options > MCM > SlaverMod > Language. [b]Help translate it![/b] (see below)
 [i]Traduzido para português do Brasil (veja abaixo).[/i]
 
 [h2]Features[/h2]
 [list]
-[*][b]Enslave from the right-click menu.[/b] Hold the right mouse button over an unconscious, chained or caged person: the selected member walks over, kneels and puts locked shackles on them. Other factions' slaves are their owners' property. Anyone who sees you putting shackles on someone treats it as kidnapping, like carrying them off.
+[*][b]Enslave from the right-click menu.[/b] Hold the right mouse button over an unconscious, chained or caged person: the selected member walks over, kneels and puts locked shackles on them. Other factions' slaves are their owners' property. Anyone who sees it treats it as kidnapping.
 [*][b]Submission (0-100):[/b] Defiant, Restless, Obedient or Loyal, shown over the selected slave and saved with each save. Watched slaves slowly get used to it; cages break them faster.
-[*][b]Races differ:[/b] hive drones obey, Shek resist, the QueenBirth Hive Queen almost never submits. Editable table (SlaverMod_races.ini).
-[*][b]Supervision and escape:[/b] slaves left without a free member nearby lose submission and may run away, back to their faction. Knock them out to recapture them.
+[*][b]Races differ:[/b] hive drones obey, Shek resist, the QueenBirth Hive Queen almost never submits (SlaverMod_races.ini).
+[*][b]Supervision and escape:[/b] slaves left without a free member nearby lose submission and may run away. Knock them out to recapture them.
 [*][b]Punish and Reward[/b] in the same menu: a beating (+submission, some damage) or a few cats.
 [*][b]Freeing:[/b] slaves with 90+ submission stay in your faction; the others go home.
 [*][b]Rebellion:[/b] every 7 days, if the defiant slaves are stronger than your free members, they may rise up, grab iron clubs and attack.
-[*][b]Slave trade window:[/b] at slave traders, buy their slaves (they join you, shackled) or sell yours (they really leave); tick several and trade them all at once. Prices follow stats, race, submission and missing limbs. Other slavers leave your slaves alone.
-[*][b]Reprogram skeletons (optional):[/b] an unconscious skeleton can be reprogrammed into a free member instead of enslaved. Robotics decides the chance; a failure destroys it. Optionally it becomes the headless Skeleton No-Head MkII.
-[*][b]Speech bubbles[/b] for slavers and slaves (SlaverMod_lines.ini).
-[*][b]New game start "Slave Hunters":[/b] a leader and five hunters with rusty clubs at a random slaver camp, friendly with the Slave Traders.
-[*][b]Your own people enslaved by others[/b] (the Rebirth start, slavers who catch you) are left to the game. [i]Enabled=0[/i] (MCM: Mod active) switches the whole mod off.
-[*][b]In-game settings[/b] with ModConfigMenu (optional), or the commented SlaverMod.ini. Debug test hotkeys are off by default.
+[*][b]Slave trade window:[/b] at slave traders, buy their slaves or sell yours; tick several and trade them all at once. Prices follow stats, race, submission and missing limbs. Other slavers leave your slaves alone.
+[*][b]Reprogram skeletons (optional):[/b] an unconscious skeleton can be reprogrammed into a free member. Robotics decides the chance; a failure destroys it. Optionally it becomes the headless Skeleton No-Head MkII.
+[*][b]New slaves[/b] follow and guard whoever enslaved them, only follow, or get no order and move with their squad (MCM: Follow the enslaver). Animals never enslave and can't be enslaved.
+[*][b]Speech bubbles[/b] for slavers and slaves.
+[*][b]New game start "Slave Hunters":[/b] a leader and five hunters with rusty clubs at a random slaver camp.
+[*][b]Your own people enslaved by others[/b] (the Rebirth start) are left to the game. [i]Enabled=0[/i] (MCM: Mod active) switches the whole mod off.
+[*][b]In-game settings[/b] with ModConfigMenu (optional), or the commented SlaverMod.ini.
 [/list]
+
+[h2]Translate SlaverMod into your language[/h2]
+Every text of the mod (messages, settings page, trade window, speech bubbles and the game start) is in [b]one plain text file[/b]. No coding, no tools:
+[olist]
+[*]Open the mod's [i]lang[/i] folder (steamapps\workshop\content\233860\3828708454\lang) and copy [i]_template.txt[/i] as your language code: de.txt, fr.txt, pl.txt, ja.txt...
+[*]Fill in the right side of each line: "English text" = "your translation". Keep the spaces at the start and end. Empty stays in English, so a half-done file works.
+[*]Start the game in your language: the mod picks the file by itself.
+[*][url=https://github.com/Cappuccino-SKT/kenshi-slavermod/issues/new?template=translation.yml]Send it with this form[/url] (drag the file in). You'll be credited.
+[/olist]
+Step by step: [url=https://github.com/Cappuccino-SKT/kenshi-slavermod/blob/main/docs/TRANSLATING.md]how to translate[/url] (also in lang\_HOW_TO_TRANSLATE.txt). The Russian, Spanish and Chinese files are new: native speakers, corrections are very welcome! Keep a copy of your file: Steam replaces the folder on updates.
 
 [h2]Tip: bounties[/h2]
-Slavery doesn't get in the way of bounties (tested by a player with Razor in Black Desert City). Knock the target out, enslave them and walk them to the town; to hand them in, free them, pick them up and turn them in as usual. With several bounties, leave them outside town with a member guarding them and hand them in one at a time.
-[b]Careful:[/b] a faction that wants your enslaved bounty attacks them on sight, so keep them away from it until you carry them in.
+Knock the target out, enslave them and walk them to the town; to hand them in, free them, pick them up and turn them in. A faction that wants your enslaved bounty attacks them on sight, so keep them away until you carry them in.
 
 [h2]Requirements[/h2]
-[list]
-[*]RE_Kenshi 0.3.x
-[*]Optional: ModConfigMenu (in-game settings)
-[/list]
-Tested on Kenshi 1.0.65 Steam. Uses only base-game data; also tested with Second Life of Kenshi.
-
-[h2]Source code[/h2]
-MIT license. Code, build instructions and developer docs:
-[url=https://github.com/Cappuccino-SKT/kenshi-slavermod]github.com/Cappuccino-SKT/kenshi-slavermod[/url]
+RE_Kenshi 0.3.x. Optional: ModConfigMenu. Tested on Kenshi 1.0.65 Steam, also with Second Life of Kenshi.
+MIT license, source code: [url=https://github.com/Cappuccino-SKT/kenshi-slavermod]github.com/Cappuccino-SKT/kenshi-slavermod[/url]
 
 [hr][/hr]
 
 [h1]Português do Brasil[/h1]
-Plugin RE_Kenshi que deixa a sua facção ter escravos usando o sistema de escravidão do próprio jogo: grilhões, submissão, vigilância, fugas, rebeliões, punição, comércio de escravos e um início de jogo de escravista.
-
-[b]O mod é traduzido para português do Brasil.[/b] Ele segue o idioma do jogo; para forçar o português, use [i]Language=pt[/i] no SlaverMod.ini ou escolha em Opções > MCM > SlaverMod > Idioma.
+Plugin RE_Kenshi que deixa a sua facção ter escravos usando o sistema de escravidão do próprio jogo. O mod segue o idioma do jogo; para forçar o português, use [i]Language=pt[/i] no SlaverMod.ini ou Opções > MCM > SlaverMod > Idioma.
 
 [h2]Funções[/h2]
 [list]
-[*][b]Escravizar pelo menu do botão direito.[/b] Segure o botão direito sobre alguém desmaiado, acorrentado ou preso: o membro selecionado vai até lá, agacha e coloca grilhões trancados. Escravos de outras facções são propriedade dos donos. Quem vê você colocando grilhões em alguém trata como sequestro, igual a carregar a pessoa.
-[*][b]Submissão (0-100):[/b] Rebelde, Inquieto, Obediente ou Leal, mostrada sobre o escravo selecionado e salva em cada save. Escravos vigiados se acostumam aos poucos; a jaula quebra mais rápido.
-[*][b]Raças diferentes:[/b] drones da colmeia obedecem, Shek resistem, a Rainha do QueenBirth quase nunca se submete. Tabela editável (SlaverMod_races.ini).
-[*][b]Vigilância e fuga:[/b] escravos sem um membro livre por perto perdem submissão e podem fugir de volta para a facção deles. Derrube-os para recapturar.
-[*][b]Punir e Recompensar[/b] no mesmo menu: uma surra (+submissão, um pouco de dano) ou alguns cats.
-[*][b]Libertar:[/b] quem tem 90+ de submissão fica na sua facção; os outros voltam para casa.
-[*][b]Rebelião:[/b] a cada 7 dias, se os escravos rebeldes forem mais fortes que seus membros livres, podem se levantar, pegar porretes e atacar.
-[*][b]Janela de comércio:[/b] nos traficantes, compre os escravos deles (entram no seu grupo, com grilhões) ou venda os seus (saem de verdade); marque vários e negocie todos de uma vez. O preço segue atributos, raça, submissão e membros faltando. Outros escravistas deixam seus escravos em paz.
-[*][b]Reprogramar esqueletos (opcional):[/b] um esqueleto inconsciente pode ser reprogramado e virar membro livre em vez de escravo. A robótica decide a chance; uma falha o destrói. Opcionalmente ele vira o Skeleton No-Head MkII, sem cabeça.
-[*][b]Falas em balão[/b] para escravistas e escravos (SlaverMod_lines.ini).
-[*][b]Novo início "Slave Hunters":[/b] um líder e cinco caçadores com porretes enferrujados num acampamento de traficantes sorteado, com boa relação com os Traficantes.
-[*][b]Seus personagens escravizados por outros[/b] (início do Rebirth, escravistas que pegam você) ficam por conta do jogo. [i]Enabled=0[/i] (MCM: Mod ativo) desliga o mod inteiro.
-[*][b]Opções dentro do jogo[/b] com o ModConfigMenu (opcional), ou no SlaverMod.ini comentado. Os atalhos de teste do modo debug vêm desligados.
+[*][b]Escravizar pelo menu do botão direito[/b] sobre alguém desmaiado, acorrentado ou preso: o membro selecionado vai até lá e coloca grilhões trancados. Quem vê trata como sequestro.
+[*][b]Submissão (0-100):[/b] Rebelde, Inquieto, Obediente ou Leal, salva em cada save. Vigiados se acostumam; a jaula quebra mais rápido.
+[*][b]Raças diferentes:[/b] drones da colmeia obedecem, Shek resistem.
+[*][b]Vigilância e fuga:[/b] sem um membro livre por perto, perdem submissão e podem fugir.
+[*][b]Punir e Recompensar[/b] no mesmo menu.
+[*][b]Libertar:[/b] com 90+ de submissão ficam na sua facção; os outros voltam para casa.
+[*][b]Rebelião:[/b] a cada 7 dias, se os rebeldes forem mais fortes que seus membros livres.
+[*][b]Janela de comércio[/b] nos traficantes: compre e venda vários de uma vez. O preço segue atributos, raça, submissão e membros faltando.
+[*][b]Reprogramar esqueletos (opcional)[/b], com a opção de virarem o Skeleton No-Head MkII, sem cabeça.
+[*][b]Novos escravos[/b] seguem e protegem quem os escravizou, só seguem, ou andam com o esquadrão (MCM: Seguir quem escravizou). Animais não escravizam nem são escravizados.
+[*][b]Novo início "Caçadores de Escravos"[/b] num acampamento de traficantes sorteado.
+[*][b]Opções dentro do jogo[/b] com o ModConfigMenu (opcional), ou no SlaverMod.ini comentado.
 [/list]
 
-[h2]Dica: recompensas[/h2]
-A escravidão não atrapalha as recompensas (um jogador testou com o Razor na Black Desert City). Derrube o alvo, escravize e leve andando até a cidade; para entregar, liberte, pegue no ombro e entregue normalmente. Com várias recompensas, deixe todos fora da cidade com um membro vigiando e entregue um de cada vez.
-[b]Cuidado:[/b] a facção que quer o seu procurado ataca ele quando o reconhece, então mantenha-o longe dela até levá-lo no ombro.
+[h2]Traduza para o seu idioma[/h2]
+Todos os textos estão num único arquivo de texto: copie [i]lang\_template.txt[/i] como <código>.txt, preencha o lado direito de cada linha e envie pelo [url=https://github.com/Cappuccino-SKT/kenshi-slavermod/issues/new?template=translation.yml]formulário[/url]. Guia: [url=https://github.com/Cappuccino-SKT/kenshi-slavermod/blob/main/docs/TRANSLATING.md]como traduzir[/url].
 
-[h2]Requisitos[/h2]
-[list]
-[*]RE_Kenshi 0.3.x
-[*]Opcional: ModConfigMenu (opções dentro do jogo)
-[/list]
-Testado no Kenshi 1.0.65 Steam. Usa só dados do jogo base; também foi testado com o Second Life of Kenshi.
-
-Código-fonte (licença MIT): [url=https://github.com/Cappuccino-SKT/kenshi-slavermod]github.com/Cappuccino-SKT/kenshi-slavermod[/url]
+Requisitos: RE_Kenshi 0.3.x; opcional: ModConfigMenu.

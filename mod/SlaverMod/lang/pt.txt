@@ -1,0 +1,29 @@
+; SlaverMod translation: Português (Brasil)
+; UTF-8 text. Each [text] line is   "English text" = "translation"
+; - Only change the right side. Keep the spaces at the start or end of a text, and keep \" and \n.
+; - An empty translation ("") stays in English, so you can translate a little at a time.
+; - [lines] are speech bubbles: several lines separated by |, one is picked at random.
+; - [mod] are the texts of the "Slave Hunters" game start (name, description...) and its characters;
+;   the English text is in the comment above each one.
+; - Save as <language code>.txt in this folder (es.txt, zh.txt, de.txt...). With Language=auto the
+;   mod picks the file of the game's language (zh_CN -> zh_cn.txt or zh.txt); or set Language=<code>.
+; - Guide and how to send your translation: github.com/Cappuccino-SKT/kenshi-slavermod/blob/main/docs/TRANSLATING.md
+
+[info]
+name = "Português (Brasil)"
+squad = ""
+author = ""
+
+[mod]
+; Slave Hunters
+"1-SlaverMod.mod|name" = "Caçadores de Escravos"
+; You lead a small band of slave hunters working for the Slave Traders. Five hunters, a few cats and rusty clubs: knock people out, put them in shackles and make them work for you. Watch them, or they will run.  Voce lidera um pequeno bando de cacadores de escravos a servico dos Traficantes de Escravos. Cinco cacadores, poucos cats e porretes enferrujados: derrube pessoas, coloque-as nos grilhoes e faca-as trabalhar para voce. Vigie-as, ou elas fogem.  Starts at a random slaver camp. Needs the SlaverMod plugin (RE_Kenshi).
+"1-SlaverMod.mod|description" = "Você lidera um pequeno bando de caçadores de escravos a serviço dos Traficantes de Escravos. Cinco caçadores, poucos cats e porretes enferrujados: derrube pessoas, coloque-as nos grilhões e faça-as trabalhar para você. Vigie-as, ou elas fogem.\n\nComeça num acampamento de traficantes sorteado. Precisa do plugin SlaverMod (RE_Kenshi)."
+; Hard
+"1-SlaverMod.mod|difficulty" = "Difícil"
+; RPG / Slaver
+"1-SlaverMod.mod|style" = "RPG / Escravista"
+; Slaver Leader
+"3-SlaverMod.mod|name" = "Líder Escravista"
+; Slave Hunter
+"4-SlaverMod.mod|name" = "Caçador de Escravos"

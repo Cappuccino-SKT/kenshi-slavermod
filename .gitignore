@@ -20,3 +20,6 @@ saves/
 
 # python caches
 __pycache__/
+
+# merge backups of translation files
+mod/SlaverMod/lang/*.bak

@@ -2,7 +2,7 @@
 # Usage: powershell -ExecutionPolicy Bypass -File tools\deploy.ps1 [-KenshiDir <path>] [-Build]
 #   -Build   runs tools\build_plugin.bat first
 # The game must be closed: Windows locks the loaded DLL.
-# SlaverMod.mod (game data: records such as game starts) always comes from the repository.
+# SlaverMod.mod (game data: records such as game starts) and lang\*.txt (translations) always come from the repository.
 # SlaverMod.ini, SlaverMod_races.ini and SlaverMod_lines.ini are only copied when the game folder has none, so personal settings survive.
 # The previous SlaverMod_trace.log is moved to local\logs (gitignored) with a timestamp.
 param(
@@ -44,5 +44,11 @@ $races = Join-Path $dest 'SlaverMod_races.ini'
 if (-not (Test-Path $races)) { Copy-Item (Join-Path $repo 'mod\SlaverMod\SlaverMod_races.ini') $dest }
 $lines = Join-Path $dest 'SlaverMod_lines.ini'
 if (-not (Test-Path $lines)) { Copy-Item (Join-Path $repo 'mod\SlaverMod\SlaverMod_lines.ini') $dest }
+
+# translations (lang\*.txt) always come from the repository
+$langSrc = Join-Path $repo 'mod\SlaverMod\lang'
+$langDest = Join-Path $dest 'lang'
+New-Item -ItemType Directory -Force $langDest | Out-Null
+Copy-Item (Join-Path $langSrc '*.txt') $langDest -Force
 
 Write-Host "Deployed to $dest"

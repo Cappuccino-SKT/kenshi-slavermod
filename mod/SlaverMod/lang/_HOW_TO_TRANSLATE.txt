@@ -1,0 +1,52 @@
+SlaverMod - HOW TO TRANSLATE
+============================
+
+Every text of the mod is in ONE plain text file per language, in this folder:
+messages, the settings page (MCM), the trade window, the speech bubbles and the
+"Slave Hunters" game start. No coding or tools needed.
+
+1. Copy _template.txt and rename the copy to your language code:
+   de.txt, fr.txt, it.txt, pl.txt, ja.txt, ko.txt, tr.txt, uk.txt...
+   (the first two letters of the game's language: de_DE -> de)
+   To fix an existing language, edit ru.txt, es.txt or zh.txt instead.
+
+2. Open it with a text editor that saves UTF-8 (Notepad, Notepad++, VS Code).
+
+3. Fill in the RIGHT side of each line, between the quotes:
+      "You cannot enslave the last free member of your faction." = "your translation"
+   - Never change the left side: the mod finds the text by it.
+   - Keep the spaces at the start and at the end of the quotes:
+       " is now a slave of your faction."  comes right after a name.
+   - Write \" for a quote mark and \n for a new line.
+   - "" (empty) stays in English: you can translate a little at a time.
+   - [lines]: speech bubbles, several lines separated by |
+   - [mod]: the game start; the English text is in the comment above it.
+   - [info]: name = your language's name, squad = slave squad name, author = you.
+
+4. Start the game in your language: the mod picks the file by itself.
+   Or choose it in Options > MCM > SlaverMod > Language.
+   Chinese, Japanese, Korean or Cyrillic only show properly with the game itself
+   in that language (Kenshi loads those fonts only then).
+
+5. Send it: github.com/Cappuccino-SKT/kenshi-slavermod/issues/new?template=translation.yml
+   (drag the file into the form and submit; a free GitHub account is needed).
+   It goes into the next update with your name.
+   Full guide: github.com/Cappuccino-SKT/kenshi-slavermod/blob/main/docs/TRANSLATING.md
+
+Note: if you subscribed on the Workshop, Steam replaces this folder on every
+update. Keep a copy of your file somewhere else until it is in the mod.
+
+----------------------------------------------------------------------------
+PORTUGUES: copie _template.txt para <codigo>.txt (de.txt, fr.txt...), preencha o
+lado direito de cada linha entre aspas (mantenha os espacos do inicio e do fim;
+"" fica em ingles) e envie pelo formulario acima.
+
+ESPANOL: copia _template.txt como <codigo>.txt, rellena el lado derecho de cada
+linea entre comillas (respeta los espacios al inicio y al final; "" queda en
+ingles) y envialo con el formulario de arriba.
+
+РУССКИЙ: исправления присылайте через форму выше; правьте ru.txt (правая
+часть каждой строки в кавычках, пробелы в начале и в конце сохраняйте).
+
+中文：请直接修改 zh.txt（只改每行等号右边引号里的内容，保留开头和结尾的空格），
+然后通过上面的表单发送。

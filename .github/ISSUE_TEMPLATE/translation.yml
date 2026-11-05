@@ -1,0 +1,48 @@
+name: Translation
+description: Send a translation of SlaverMod (a new language or fixes to one)
+title: "[Translation] "
+labels: ["translation"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for translating SlaverMod!
+
+        1. Take `lang/_template.txt` from the mod folder (or from [here](https://github.com/Cappuccino-SKT/kenshi-slavermod/blob/main/mod/SlaverMod/lang/_template.txt)), or the language file you want to fix.
+        2. Fill in the right side of each line. The rules are in [TRANSLATING.md](https://github.com/Cappuccino-SKT/kenshi-slavermod/blob/main/docs/TRANSLATING.md).
+        3. Drag the `.txt` file into the box below and submit. A half-finished file is fine: empty lines stay in English.
+  - type: input
+    id: language
+    attributes:
+      label: Language
+      description: The language and, if you know it, the game's code for it (Settings > language in Kenshi, e.g. de_DE, zh_CN).
+      placeholder: "German (de_DE)"
+    validations:
+      required: true
+  - type: dropdown
+    id: kind
+    attributes:
+      label: Is it
+      options:
+        - A new language
+        - Fixes to an existing language
+    validations:
+      required: true
+  - type: input
+    id: credit
+    attributes:
+      label: Name for the credits
+      description: How you want to be credited in the file and on the Workshop page. Leave empty to stay anonymous.
+  - type: textarea
+    id: file
+    attributes:
+      label: Translation file
+      description: Drag and drop your .txt file here (or paste its content).
+      placeholder: "Drop the .txt file here"
+    validations:
+      required: true
+  - type: textarea
+    id: notes
+    attributes:
+      label: Notes
+      description: Anything to know? Texts you were unsure about, words that need context, typos you found in the English...

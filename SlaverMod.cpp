@@ -5,6 +5,8 @@
 
 #include <kenshi/gui/ForgottenGUI.h>
 #include <kenshi/gui/InventoryGUI.h>
+#include <kenshi/gui/NewGameWindow.h>
+#include <kenshi/gui/TitleScreen.h>
 #include <kenshi/Globals.h>
 #include <kenshi/GlobalConstants.h>
 #include <kenshi/GameWorld.h>
@@ -119,29 +121,220 @@ static std::string Num(float v)
 }
 
 // ---------------------------------------------------------------------------
-// Language: Language=auto (default) follows the game's language (settings.cfg): Brazilian
-// Portuguese for pt_*, Russian for ru_*, English otherwise. Russian texts come from
-// ru_strings.h (generated, see tools/lang), looked up by the English text.
+// Language: Language=auto (default) follows the game's language (settings.cfg). English and
+// Brazilian Portuguese are built in (T(en, pt)); any other language is a text file
+// lang/<code>.txt next to the DLL ("English" = "translation" lines, looked up by the English
+// text), so players can translate the mod without touching the code. See docs/TRANSLATING.md.
 // ---------------------------------------------------------------------------
 
 static bool g_pt = false;
-static bool g_ru = false;
-
-#include "ru_strings.h"
-
-static const char* RuText(const char* en)
-{
-    static std::map<std::string, const char*> table;
-    if (table.empty())
-        for (size_t i = 0; i < sizeof(RU_TEXT) / sizeof(RU_TEXT[0]); i++)
-            table[RU_TEXT[i][0]] = RU_TEXT[i][1];
-    std::map<std::string, const char*>::const_iterator it = table.find(en);
-    return it != table.end() ? it->second : en;
-}
+static bool g_langFile = false;                        // a lang file is in use
+static std::string g_langCode = "en";                  // en, pt or the lang file in use
+static std::map<std::string, std::string> g_langText;  // English -> translation
+static std::map<std::string, std::string> g_langLines; // speech key -> "line|line"
+static std::map<std::string, std::string> g_langInfo;  // name, squad, author
+static std::map<std::string, std::string> g_langMod;   // "record id|field" -> translation of SlaverMod.mod texts
 
 static std::string T(const char* en, const char* pt)
 {
-    return g_ru ? RuText(en) : (g_pt ? pt : en);
+    if (g_langFile)
+    {
+        std::map<std::string, std::string>::const_iterator it = g_langText.find(en);
+        return it != g_langText.end() ? it->second : std::string(en);   // untranslated: English
+    }
+    return g_pt ? pt : en;
+}
+
+// "quoted text" with \" \\ \n escapes; p is moved past the closing quote.
+static bool ParseQuoted(const std::string& line, size_t& p, std::string& out)
+{
+    while (p < line.size() && (line[p] == ' ' || line[p] == '\t'))
+        p++;
+    if (p >= line.size() || line[p] != '"')
+        return false;
+    out.clear();
+    for (p++; p < line.size(); p++)
+    {
+        char c = line[p];
+        if (c == '"')
+        {
+            p++;
+            return true;
+        }
+        if (c == '\\' && p + 1 < line.size())
+        {
+            char n = line[++p];
+            out += n == 'n' ? '\n' : n;
+        }
+        else
+            out += c;
+    }
+    return false;
+}
+
+static std::string NumStr(size_t n)
+{
+    std::ostringstream s;
+    s << n;
+    return s.str();
+}
+
+// One line of a lang file: [text] "English" = "translation"; [info]/[lines] key = "value".
+static bool ParseLangLine(const std::string& section, const std::string& line, size_t p, std::string& key, std::string& value)
+{
+    if (section == "text" || section == "mod")
+    {
+        if (!ParseQuoted(line, p, key))
+            return false;
+    }
+    else
+    {
+        size_t eq = line.find('=', p);
+        if (eq == std::string::npos)
+            return false;
+        key = line.substr(p, eq - p);
+        while (!key.empty() && (key[key.size() - 1] == ' ' || key[key.size() - 1] == '\t'))
+            key.erase(key.size() - 1);
+        p = eq;
+    }
+    p = line.find('=', p);
+    if (p == std::string::npos)
+        return false;
+    p++;
+    return ParseQuoted(line, p, value);
+}
+
+// Reads lang/<code>.txt (UTF-8). Empty translations are skipped (they stay in English).
+static bool LoadLangFile(const std::string& code)
+{
+    std::ifstream f((g_modDir + "lang\\" + code + ".txt").c_str(), std::ios::binary);
+    if (!f)
+        return false;
+    g_langText.clear();
+    g_langLines.clear();
+    g_langInfo.clear();
+    g_langMod.clear();
+    std::string line, section;
+    int bad = 0;
+    bool first = true;
+    while (std::getline(f, line))
+    {
+        if (first && line.size() >= 3 && (unsigned char)line[0] == 0xEF && (unsigned char)line[1] == 0xBB && (unsigned char)line[2] == 0xBF)
+            line = line.substr(3);   // UTF-8 BOM
+        first = false;
+        if (!line.empty() && line[line.size() - 1] == '\r')
+            line.erase(line.size() - 1);
+        size_t p = line.find_first_not_of(" \t");
+        if (p == std::string::npos || line[p] == ';' || line[p] == '#')
+            continue;
+        if (line[p] == '[')
+        {
+            size_t e = line.find(']', p);
+            section = e == std::string::npos ? "" : line.substr(p + 1, e - p - 1);
+            continue;
+        }
+        std::string key, value;
+        if (!ParseLangLine(section, line, p, key, value))
+        {
+            bad++;
+            Trace("lang: cannot read line in " + code + ".txt: " + line);
+            continue;
+        }
+        if (value.empty())
+            continue;
+        if (section == "text")
+            g_langText[key] = value;
+        else if (section == "lines")
+            g_langLines[key] = value;
+        else if (section == "info")
+            g_langInfo[key] = value;
+        else if (section == "mod")
+            g_langMod[key] = value;
+    }
+    Trace("lang: lang\\" + code + ".txt: " + NumStr(g_langText.size()) + " texts, " + NumStr(g_langLines.size()) +
+          " speech keys, " + NumStr(g_langMod.size()) + " game data texts, " + NumStr(bad) + " unreadable line(s)");
+    return true;
+}
+
+// Picks the language: a lang file for the full code (zh_cn) or its first two letters (zh),
+// else the built-in Portuguese or English.
+static void SelectLanguage(const std::string& wanted)
+{
+    g_langText.clear();
+    g_langLines.clear();
+    g_langInfo.clear();
+    g_langMod.clear();
+    g_langFile = false;
+    g_pt = false;
+    g_langCode = "en";
+    std::string lower = wanted;
+    for (size_t i = 0; i < lower.size(); i++)
+        lower[i] = (char)tolower((unsigned char)lower[i]);
+    std::string shortCode = lower.substr(0, 2);
+    if (lower.empty() || shortCode == "en")
+        return;
+    if (shortCode == "pt")
+    {
+        // Portuguese is built in; lang/pt.txt only adds the game start texts ([mod])
+        g_pt = true;
+        g_langCode = "pt";
+        LoadLangFile("pt");
+        g_langText.clear();
+        g_langLines.clear();
+        return;
+    }
+    if (lower.find_first_of("\\/.:") == std::string::npos)
+    {
+        if (LoadLangFile(lower))
+            g_langCode = lower;
+        else if (shortCode != lower && LoadLangFile(shortCode))
+            g_langCode = shortCode;
+        if (g_langCode != "en")
+        {
+            g_langFile = true;
+            return;
+        }
+    }
+}
+
+// The lang files present: (code, name from [info]), for the MCM language list.
+static std::vector<std::pair<std::string, std::string> > ListLangFiles()
+{
+    std::vector<std::pair<std::string, std::string> > out;
+    WIN32_FIND_DATAA fd;
+    HANDLE h = FindFirstFileA((g_modDir + "lang\\*.txt").c_str(), &fd);
+    if (h == INVALID_HANDLE_VALUE)
+        return out;
+    do
+    {
+        std::string file = fd.cFileName;
+        if (file.size() < 5 || file[0] == '_')
+            continue;   // _template.txt
+        std::string code = file.substr(0, file.size() - 4);
+        std::string name = code;
+        std::ifstream f((g_modDir + "lang\\" + file).c_str(), std::ios::binary);
+        std::string line, section;
+        while (std::getline(f, line))
+        {
+            if (!line.empty() && line[line.size() - 1] == '\r')
+                line.erase(line.size() - 1);
+            size_t p = line.find('[');
+            if (p != std::string::npos && line.find_first_not_of(" \t\xEF\xBB\xBF") == p)
+            {
+                section = line.substr(p + 1, line.find(']', p) - p - 1);
+                if (section != "info")
+                    break;
+                continue;
+            }
+            std::string key, value;
+            p = line.find_first_not_of(" \t");
+            if (section == "info" && p != std::string::npos && ParseLangLine(section, line, p, key, value) && key == "name" && !value.empty())
+                name = value;
+        }
+        out.push_back(std::make_pair(code, name));
+    } while (FindNextFileA(h, &fd));
+    FindClose(h);
+    return out;
 }
 
 // The game's language, from settings.cfg two folders above the mod ("language=pt_BR").
@@ -286,9 +479,9 @@ static void LoadSettings()
     g_debug = IniBool("Debug", true);
     g_cfg.language = IniString("Language", "auto");
     std::string lang = g_cfg.language == "auto" ? GameLanguage() : g_cfg.language;
-    g_pt = lang.compare(0, 2, "pt") == 0 || lang.compare(0, 2, "PT") == 0;
-    g_ru = lang.compare(0, 2, "ru") == 0 || lang.compare(0, 2, "RU") == 0;
-    g_cfg.squadName = IniString("SquadName", g_ru ? "\xd0\xa0\xd0\xb0\xd0\xb1\xd1\x8b" : (g_pt ? "Escravos" : "Slaves"));   // ru: "Рабы"
+    SelectLanguage(lang);
+    std::string squadDefault = g_langInfo.count("squad") ? g_langInfo["squad"] : (g_pt ? "Escravos" : "Slaves");
+    g_cfg.squadName = IniString("SquadName", squadDefault.c_str());
     g_cfg.hotkey = IniString("EnslaveKey", "CTRL+K");
     g_cfg.showButton = IniBool("ShowButton", false);
     g_cfg.contextMenu = IniBool("ContextMenu", true);
@@ -393,7 +586,9 @@ static void LoadSettings()
         g_cfg.relationGain = g_cfg.relationLoss * 0.5f;   // freeing must be worth less than enslaving costs
     g_cfg.slaveEscort = IniBool("SlaveEscort", true);
     g_cfg.escortMode = IniString("EscortMode", "bodyguard");
-    Trace("settings: language=" + g_cfg.language + " -> " + std::string(g_ru ? "ru" : (g_pt ? "pt" : "en")) + " squad='" + g_cfg.squadName + "' key=" + g_cfg.hotkey +
+    if (g_cfg.escortMode == "off")
+        g_cfg.slaveEscort = false;
+    Trace("settings: language=" + g_cfg.language + " -> " + g_langCode + " squad='" + g_cfg.squadName + "' key=" + g_cfg.hotkey +
           " button=" + Num(g_cfg.showButton) + " menu=" + Num(g_cfg.contextMenu) + " unchain=" + Num(g_cfg.unchainOnEnslave) +
           " slaveAIJob=" + Num(g_cfg.slaveAIJob) + " banWeapons=" + Num(g_cfg.banWeapons) +
           " rebellion=" + Num(g_cfg.rebellionEnabled) + " every=" + Num(g_cfg.rebellionDays) + "d mult=" + Num(g_cfg.rebellionChanceMult) +
@@ -507,9 +702,12 @@ static Faction* SlaveOwnerFaction(Character* c)
 }
 
 // A living, non-slave member. Being knocked out does not stop someone from owning slaves.
+// Animals (pets, pack beasts) are no people: they never own, guard, supervise or enslave.
+static bool IsAnimal(Character* c) { return c != 0 && c->isAnimal() != 0; }
+
 static bool IsFreePlayerMember(Character* c)
 {
-    return c != 0 && !c->isDead() && IsPlayerFaction(c) && c->isSlave() != IS_SLAVE;
+    return c != 0 && !c->isDead() && IsPlayerFaction(c) && c->isSlave() != IS_SLAVE && !IsAnimal(c);
 }
 
 static int CountFreeMembers();
@@ -580,6 +778,7 @@ static bool IsEnslaveCandidate(Character* c, std::string* why)
 {
     if (c == 0) { if (why) *why = T("no character", "nenhum personagem"); return false; }
     if (c->isDead()) { if (why) *why = T("the character is dead", "personagem morto"); return false; }
+    if (IsAnimal(c)) { if (why) *why = T("animals cannot be slaves", "animais nao podem ser escravos"); return false; }
     if (IsPlayerFaction(c)) { if (why) *why = T("already in your faction", "ja e da sua faccao"); return false; }
     // someone else's slave is their property: no stealing (a runaway, ESCAPING_SLAVE, is fair game)
     if (c->isSlave() == IS_SLAVE && !g_cfg.allowStealingSlaves)
@@ -1712,10 +1911,8 @@ static void LoadLines()
     };
     g_lines.clear();
     std::string file = g_modDir + "SlaverMod_lines.ini";
-    const char* section = g_ru ? "ru" : (g_pt ? "pt" : "en");
-    std::map<std::string, const char*> ru;
-    for (size_t i = 0; i < sizeof(RU_LINES) / sizeof(RU_LINES[0]); i++)
-        ru[RU_LINES[i][0]] = RU_LINES[i][1];
+    // SlaverMod_lines.ini [<language>] first, then the lang file's [lines], then the built-in lines
+    const char* section = g_langCode.c_str();
     int fromFile = 0;
     for (size_t i = 0; i < sizeof(table) / sizeof(table[0]); i++)
     {
@@ -1723,8 +1920,9 @@ static void LoadLines()
         GetPrivateProfileStringA(section, table[i][0], "", buf, sizeof(buf), file.c_str());
         if (buf[0] != 0)
             fromFile++;
-        const char* builtIn = g_ru && ru.count(table[i][0]) ? ru[table[i][0]] : table[i][g_pt ? 2 : 1];
-        g_lines[table[i][0]] = SplitBar(buf[0] != 0 ? buf : builtIn);
+        std::map<std::string, std::string>::const_iterator lf = g_langLines.find(table[i][0]);
+        std::string builtIn = lf != g_langLines.end() ? lf->second : std::string(table[i][g_pt ? 2 : 1]);
+        g_lines[table[i][0]] = SplitBar(buf[0] != 0 ? std::string(buf) : builtIn);
     }
     Trace("lines: " + Num((float)g_lines.size()) + " keys, " + Num((float)fromFile) + " from SlaverMod_lines.ini [" + section + "]");
 }
@@ -2169,6 +2367,7 @@ static bool ActionStillValid(SlaveAction action, Character* performer, Character
     }
     if (IsOurSlave(target)) { *why = target->getName() + T(" is already a slave", " ja e escravo(a)"); return false; }
     if (CarriedByOthers(target)) { *why = target->getName() + T(" is being carried away by someone else", " esta sendo carregado(a) por outra pessoa"); return false; }
+    if (IsAnimal(target)) { *why = T("animals cannot be slaves", "animais nao podem ser escravos"); return false; }
     if (IsPlayerFaction(target))
     {
         if (CountFreeMembers() <= 1) { *why = T("they would be the last free member of your faction", "seria o ultimo membro livre da faccao"); return false; }
@@ -3097,7 +3296,7 @@ static void FindMenuFlags()
 static std::vector<SlaveAction> MenuActionsFor(Character* target)
 {
     std::vector<SlaveAction> out;
-    if (target == 0 || target->isDead())
+    if (target == 0 || target->isDead() || IsAnimal(target) || IsAnimal(SelectedPlayerCharacter()))
         return out;
     if (IsOurSlave(target))
     {
@@ -3762,10 +3961,79 @@ static void CalibrateTime(float dt)
 }
 
 void (*GameWorld_update_orig)(GameWorld*, float) = NULL;
+// [mod] of the lang file: SlaverMod.mod texts (the game start's name and description, character
+// names) are swapped in the loaded game data, "record id|field" -> text. Checked every 2 s, as the
+// game can load its data again (new game, load).
+static DWORD g_nextModTextCheck = 0;
+static bool g_modTextsLogged = false;
+
+static void ApplyModTexts(bool now = false)
+{
+    if (g_langMod.empty() || ou == 0 || (!now && GetTickCount() < g_nextModTextCheck))
+        return;
+    g_nextModTextCheck = GetTickCount() + 2000;
+    int applied = 0, missing = 0;
+    for (std::map<std::string, std::string>::const_iterator it = g_langMod.begin(); it != g_langMod.end(); ++it)
+    {
+        size_t bar = it->first.find('|');
+        if (bar == std::string::npos)
+            continue;
+        GameData* gd = ou->gamedata.getData(it->first.substr(0, bar));
+        if (gd == 0)
+        {
+            missing++;
+            continue;
+        }
+        std::string field = it->first.substr(bar + 1);
+        if (field == "name")
+        {
+            if (gd->name != it->second)
+            {
+                gd->name = it->second;
+                applied++;
+            }
+            continue;
+        }
+        // only fields the record already has: the map's nodes stay the game's
+        boost::unordered::unordered_map<std::string, std::string, boost::hash<std::string>, std::equal_to<std::string>,
+            Ogre::STLAllocator<std::pair<std::string const, std::string>, Ogre::GeneralAllocPolicy> >::iterator f = gd->sdata.find(field);
+        if (f != gd->sdata.end() && f->second != it->second)
+        {
+            f->second = it->second;
+            applied++;
+        }
+    }
+    if (applied > 0 || !g_modTextsLogged)
+    {
+        g_modTextsLogged = true;
+        Trace("lang: game data texts, " + NumStr(applied) + " applied, " + NumStr(missing) + " record(s) not loaded");
+    }
+}
+
+// The new game window reads the starts' names and descriptions when it opens, in the main menu,
+// where the world update does not run yet: the texts are swapped right before.
+void (*NewGameWindow_setVisible_orig)(NewGameWindow*, bool) = NULL;
+void NewGameWindow_setVisible_hook(NewGameWindow* thisptr, bool visible)
+{
+    if (visible)
+        ApplyModTexts(true);
+    NewGameWindow_setVisible_orig(thisptr, visible);
+}
+
+// Other mods replace the new game window (Second Life of Kenshi's QuickStartSelect): the title
+// screen's update runs every frame in the main menu, so the texts are in place before any of them.
+void (*TitleScreen_update_orig)(TitleScreen*) = NULL;
+void TitleScreen_update_hook(TitleScreen* thisptr)
+{
+    ApplyModTexts();
+    TitleScreen_update_orig(thisptr);
+}
+
 void GameWorld_update_hook(GameWorld* thisptr, float time)
 {
     if (GameWorld_update_orig)
         GameWorld_update_orig(thisptr, time);
+    ApplyModTexts();
 
     if (ou == 0 || ou->player == 0)
         return;
@@ -4682,15 +4950,40 @@ extern "C" __declspec(dllexport) void MCM_Describe(MCM_Api* api)
 
     api->beginMod(api, "SlaverMod", "SlaverMod", ini.c_str(), &ReloadSettings);
     if (api->version >= 2)
-        api->info(api, L("Your faction can own slaves: enslave, shackles, relations and rebellion. Translated to Brazilian Portuguese.",
+        api->info(api, L("Your faction can own slaves: enslave, shackles, relations and rebellion. Translations: the lang folder.",
                          "Sua facção pode ter escravos: escravizar, grilhões, relações e rebelião. Traduzido para português do Brasil."));
 
     api->section(api, L("General", "Geral"));
-    static const char* const langValues[] = { "auto", "en", "pt", "ru" };
-    std::string autoLabel = T("Game's language", "Idioma do jogo");
-    const char* langLabels[] = { autoLabel.c_str(), "English", "Português (Brasil)", "\xd0\xa0\xd1\x83\xd1\x81\xd1\x81\xd0\xba\xd0\xb8\xd0\xb9" };   // "Русский"
-    api->choice(api, sec, "Language", L("Language", "Idioma"), L("Language of the mod's messages and of this page.", "Idioma das mensagens do mod e desta página."),
-                "auto", langValues, langLabels, 4, MCM_RESTART);
+    // auto, the built-in English and Portuguese, then every lang\*.txt (named by its [info] name)
+    static std::vector<std::string> langCodes, langNames;
+    static std::vector<const char*> langValues, langLabels;
+    langCodes.clear();
+    langNames.clear();
+    langCodes.push_back("auto");
+    langNames.push_back(T("Game's language", "Idioma do jogo"));
+    langCodes.push_back("en");
+    langNames.push_back("English");
+    langCodes.push_back("pt");
+    langNames.push_back("Portugu\xc3\xaas (Brasil)");
+    std::vector<std::pair<std::string, std::string> > files = ListLangFiles();
+    for (size_t i = 0; i < files.size() && langCodes.size() < 32; i++)
+    {
+        if (files[i].first == "en" || files[i].first == "pt")
+            continue;
+        langCodes.push_back(files[i].first);
+        langNames.push_back(files[i].second);
+    }
+    langValues.clear();
+    langLabels.clear();
+    for (size_t i = 0; i < langCodes.size(); i++)
+    {
+        langValues.push_back(langCodes[i].c_str());
+        langLabels.push_back(langNames[i].c_str());
+    }
+    api->choice(api, sec, "Language", L("Language", "Idioma"),
+                L("Language of the mod's messages and of this page. Other languages are text files in the mod's lang folder.",
+                  "Idioma das mensagens do mod e desta página. Outros idiomas são arquivos de texto na pasta lang do mod."),
+                "auto", &langValues[0], &langLabels[0], (int)langValues.size(), MCM_RESTART);
     api->toggle(api, sec, "ContextMenu", L("Option in the right-click menu", "Opção no menu do botão direito"),
                 L("Enslave/Free in the order menu (hold the right mouse button over the target).", "Escravizar/Libertar no menu de ordens (segure o botão direito sobre o alvo)."), 1, 0);
     api->toggle(api, sec, "ShowButton", L("Inventory button", "Botão no inventário"),
@@ -4740,12 +5033,15 @@ extern "C" __declspec(dllexport) void MCM_Describe(MCM_Api* api)
                 L("Slaves get locked shackles; freeing removes them.", "O escravo ganha grilhões trancados; ao ser liberto eles somem."), 1, 0);
     api->toggle(api, sec, "BanWeapons", L("Ban weapons", "Proibir armas"),
                 L("Slaves drop any equipped weapon.", "Escravos largam qualquer arma equipada."), 1, 0);
-    api->toggle(api, sec, "SlaveEscort", L("Follow the enslaver", "Seguir quem escravizou"),
-                L("A new slave follows whoever enslaved them.", "O recém-escravizado passa a seguir quem o escravizou."), 1, 0);
-    static const char* const escortValues[] = { "bodyguard", "follow" };
-    std::string guardLabel = T("Follow and guard", "Seguir e proteger"), followLabel = T("Follow only", "Só seguir");
-    const char* escortLabels[] = { guardLabel.c_str(), followLabel.c_str() };
-    api->choice(api, sec, "EscortMode", L("Follow mode", "Modo de seguir"), NULL, "bodyguard", escortValues, escortLabels, 2, 0);
+    // SlaveEscort=0 in old ini files still turns it off; here it is the "off" choice
+    static const char* const escortValues[] = { "bodyguard", "follow", "off" };
+    std::string guardLabel = T("Follow and guard", "Seguir e proteger"), followLabel = T("Follow only", "Só seguir"),
+                offLabel = T("Off (they stay with their squad)", "Desligado (ficam com o esquadrão)");
+    const char* escortLabels[] = { guardLabel.c_str(), followLabel.c_str(), offLabel.c_str() };
+    api->choice(api, sec, "EscortMode", L("Follow the enslaver", "Seguir quem escravizou"),
+                L("What a new slave does: follow and guard whoever enslaved them, only follow, or nothing (they move with their squad, in formation).",
+                  "O que o recém-escravizado faz: segue e protege quem o escravizou, só segue, ou nada (anda com o esquadrão, em formação)."),
+                "bodyguard", escortValues, escortLabels, 3, 0);
     api->toggle(api, sec, "SlaveAIJob", L("Native slave work", "Trabalho escravo nativo"),
                 L("Turns on the game's slave work behaviour. Experimental.", "Liga o comportamento de trabalho escravo do jogo. Experimental."), 0, 0);
     api->text(api, sec, "ShackleItem", L("Shackles (ID)", "Grilhão (ID)"), L("Shackles item used.", "Item de grilhão usado."), "SHACKLES", 0);
@@ -4899,7 +5195,7 @@ __declspec(dllexport) void startPlugin()
     LoadLines();
     ParseHotkey();
     srand(GetTickCount());
-    Trace("startPlugin v1.13");
+    Trace("startPlugin v1.14");
 
     if (KenshiLib::SUCCESS != KenshiLib::AddHook(KenshiLib::GetRealAddress(&GameWorld::_NV_mainLoop_GPUSensitiveStuff), GameWorld_update_hook, (void**)&GameWorld_update_orig))
         ErrorLog("SlaverMod: could not add GameWorld update hook!");
@@ -4937,6 +5233,10 @@ __declspec(dllexport) void startPlugin()
         ErrorLog("SlaverMod: could not add dialogue condition hook!");
     if (KenshiLib::SUCCESS != KenshiLib::AddHook(KenshiLib::GetRealAddress(&SaveManager::newGame), SaveManager_newGame_hook, (void**)&SaveManager_newGame_orig))
         ErrorLog("SlaverMod: could not add new game hook!");
+    if (KenshiLib::SUCCESS != KenshiLib::AddHook(KenshiLib::GetRealAddress(&TitleScreen::_NV_update), TitleScreen_update_hook, (void**)&TitleScreen_update_orig))
+        ErrorLog("SlaverMod: could not add title screen hook!");
+    if (KenshiLib::SUCCESS != KenshiLib::AddHook(KenshiLib::GetRealAddress(&NewGameWindow::setVisible), NewGameWindow_setVisible_hook, (void**)&NewGameWindow_setVisible_orig))
+        ErrorLog("SlaverMod: could not add new game window hook!");
     if (KenshiLib::SUCCESS != KenshiLib::AddHook(KenshiLib::GetRealAddress(&Character::_NV_isEnemy), Character_isEnemy_hook, (void**)&Character_isEnemy_orig))
         ErrorLog("SlaverMod: could not add isEnemy hook!");
     if (KenshiLib::SUCCESS != KenshiLib::AddHook(KenshiLib::GetRealAddress(&GunClassTurret::_NV_scoreTarget), GunClassTurret_scoreTarget_hook, (void**)&GunClassTurret_scoreTarget_orig))

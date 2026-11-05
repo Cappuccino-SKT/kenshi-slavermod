@@ -4,7 +4,7 @@ A [RE_Kenshi](https://github.com/BFrizzleFoShizzle/RE_Kenshi) plugin that lets t
 
 **Steam Workshop:** https://steamcommunity.com/sharedfiles/filedetails/?id=3828708454
 
-**Languages:** English, **Brazilian Portuguese** and **Russian**. `Language=auto` (default) follows the game's language; `Language=en|pt|ru`, or *Options > MCM > SlaverMod > Language*, picks one.
+**Languages:** English, **Brazilian Portuguese**, **Russian**, **Spanish** and **Simplified Chinese**. `Language=auto` (default) follows the game's language; *Options > MCM > SlaverMod > Language* picks one. Translations are plain text files in `lang/`: **[translate it into your language](docs/TRANSLATING.md)** and send it with the [translation form](https://github.com/Cappuccino-SKT/kenshi-slavermod/issues/new?template=translation.yml).
 *Traduzido para português do Brasil — [veja a seção em português](#português-do-brasil).*
 
 ## Features
@@ -14,7 +14,8 @@ A [RE_Kenshi](https://github.com/BFrizzleFoShizzle/RE_Kenshi) plugin that lets t
 - **Native slave state** (`setSlaveState`), saved with the game.
 - **Locked shackles** (`Prisoner Shackles`; the hive version for hivers). Clothes in the way go to the inventory (or the ground). Freeing removes the shackles.
 - **Slaves cannot use weapons.** Any equipped weapon is dropped.
-- **New slaves follow and guard** whoever enslaved them (native `BODYGUARD` order, or follow only).
+- **New slaves follow and guard** whoever enslaved them (native `BODYGUARD` order), only follow, or get no order at all and move with their squad in formation (`EscortMode=bodyguard|follow|off`, MCM: *Follow the enslaver*).
+- **Animals stay animals.** Pets and pack beasts never enslave, own, guard, punish, reward or free anyone, and animals cannot be enslaved or sold.
 - **Slave squads.** New slaves go to the `Slaves` squad; once it reaches the game's squad size limit, `Slaves 2`, `Slaves 3`... are opened. If your faction is full, the message says so.
 - **Relations.** Enslaving someone from another faction lowers your relation with it (default −5). Freeing gives a little back (default +2, always less than the loss).
 - **Enslaving is a crime.** While the shackles go on, the owner is kidnapping, as when carrying an unconscious person off: guards and the victim's friends who see it react (the game decides who cares; drifters, for one, don't). If they attack, the action is cancelled so the owner can fight back. `EnslaveIsCrime=0` turns it off.
@@ -44,6 +45,10 @@ A [RE_Kenshi](https://github.com/BFrizzleFoShizzle/RE_Kenshi) plugin that lets t
 
 Slavery doesn't get in the way of bounties. Knock the target out, enslave them and walk them to the town; to hand them in, free them, pick them up and turn them in as usual. With several, leave them outside town with a member guarding them and hand them in one at a time. A faction that wants your enslaved bounty attacks them on sight, so keep them away from it until you carry them in.
 
+## Translating
+
+Every text of the mod (messages, settings page, trade window, speech bubbles and the game start) is in one plain text file per language in `lang/`, so anyone can translate it without coding: copy `lang/_template.txt` to `<code>.txt`, fill in the right side of each line and send it with the [translation form](https://github.com/Cappuccino-SKT/kenshi-slavermod/issues/new?template=translation.yml). Step by step: [docs/TRANSLATING.md](docs/TRANSLATING.md). The Russian, Spanish and Chinese files are new: corrections from native speakers are very welcome.
+
 ## Requirements
 
 - Kenshi 1.0.65 (tested on the Steam version).
@@ -54,7 +59,7 @@ Works with the base game: every item and faction it uses is vanilla. Also tested
 
 ## Installation
 
-1. Subscribe on the [Steam Workshop](https://steamcommunity.com/sharedfiles/filedetails/?id=3828708454), or copy the `SlaverMod` folder (`SlaverMod.dll`, `SlaverMod.mod`, `RE_Kenshi.json`, `SlaverMod.ini`, `SlaverMod_races.ini`) into `Kenshi/mods/`.
+1. Subscribe on the [Steam Workshop](https://steamcommunity.com/sharedfiles/filedetails/?id=3828708454), or copy the `SlaverMod` folder (`SlaverMod.dll`, `SlaverMod.mod`, `RE_Kenshi.json`, the `.ini` files and the `lang` folder) into `Kenshi/mods/`.
 2. Enable **SlaverMod** in the launcher's mod list.
 3. Adjust the options in `SlaverMod.ini` (commented) or in *Options > MCM*. The language follows the game's (`Language=auto`).
 
@@ -104,7 +109,7 @@ MIT — see [LICENSE](LICENSE). Use, change and republish it freely.
 
 ## Português do Brasil
 
-Plugin [RE_Kenshi](https://github.com/BFrizzleFoShizzle/RE_Kenshi) que deixa a facção do jogador ter escravos de verdade, usando o sistema de escravidão nativo do jogo. **O mod é traduzido para português do Brasil (e russo):** com `Language=auto` (padrão) ele segue o idioma do jogo; `Language=pt` no `SlaverMod.ini`, ou *Opções > MCM > SlaverMod > Idioma*, força o português.
+Plugin [RE_Kenshi](https://github.com/BFrizzleFoShizzle/RE_Kenshi) que deixa a facção do jogador ter escravos de verdade, usando o sistema de escravidão nativo do jogo. **O mod é traduzido para português do Brasil** (e russo, espanhol e chinês): com `Language=auto` (padrão) ele segue o idioma do jogo; `Language=pt` no `SlaverMod.ini`, ou *Opções > MCM > SlaverMod > Idioma*, força o português. Para traduzir para outro idioma, veja [docs/TRANSLATING.md](docs/TRANSLATING.md): é um arquivo de texto, sem programar.
 
 ### O que faz
 
@@ -113,7 +118,8 @@ Plugin [RE_Kenshi](https://github.com/BFrizzleFoShizzle/RE_Kenshi) que deixa a f
 - **Estado de escravo nativo** (`setSlaveState`), salvo junto com o jogo.
 - **Grilhões trancados** (`Prisoner Shackles`; versão de colmeia para hivers). A roupa que ocupa o lugar deles vai para o inventário (ou para o chão). Ao libertar, os grilhões somem.
 - **Escravos não usam armas.** Qualquer arma equipada é largada.
-- **O recém-escravizado segue e protege** quem o escravizou (ordem nativa `BODYGUARD`, ou só seguir).
+- **O recém-escravizado segue e protege** quem o escravizou (ordem nativa `BODYGUARD`), só segue, ou não recebe ordem nenhuma e anda com o esquadrão em formação (`EscortMode=bodyguard|follow|off`, MCM: *Seguir quem escravizou*).
+- **Animais são animais.** Bichos de estimação e de carga nunca escravizam, são donos, vigiam, punem, recompensam ou libertam, e animais não podem ser escravizados nem vendidos.
 - **Esquadrões de escravos.** Escravos novos vão para o esquadrão `Escravos`; quando ele chega ao limite de tamanho do jogo, abrem-se `Escravos 2`, `Escravos 3`... Se a facção estiver cheia, a mensagem avisa.
 - **Relações.** Escravizar alguém de outra facção reduz a relação com ela (padrão −5). Libertar devolve um pouco (padrão +2, sempre menos que a perda).
 - **Escravizar é crime.** Enquanto coloca os grilhões, o dono está sequestrando, como ao carregar alguém desmaiado: guardas e amigos da vítima que virem reagem (o jogo decide quem se importa; os Retirantes, por exemplo, não). Se atacarem, a ação é cancelada para o dono poder lutar. `EnslaveIsCrime=0` desliga.

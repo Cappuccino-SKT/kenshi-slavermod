@@ -47,10 +47,10 @@ powershell -ExecutionPolicy Bypass -File tools\deploy.ps1 -Build
 
 ## Translations
 
-- Every visible text is `T("English", "Português")` (notices) or `L(...)` (MCM). Notices are ASCII in Portuguese (the notice font has no accents).
-- Russian comes from `ru_strings.h`, generated: `python tools/lang/gen_ru.py ru_strings.h` from `tools/lang/ru_text.py` (English C text -> Russian). Texts missing there stay in English.
-- New texts: `python tools/lang/extract_tl.py tools/lang/ru_src.json` lists them; add the Russian to `ru_text.py`, regenerate, build.
-- `Language=auto` reads `language=` from the game's `settings.cfg` (pt* -> pt, ru* -> ru). Cyrillic shows properly only with the game in Russian (its fonts).
+- Every visible text is `T("English", "Português")` (notices) or `L(...)` (MCM). English and Portuguese are built in; Portuguese notices are ASCII (the notice font has no accents).
+- Other languages are `mod/SlaverMod/lang/<code>.txt` (UTF-8, `"English" = "translation"`), loaded at start by the English text; see `docs/TRANSLATING.md`. `Language=auto` reads `language=` from the game's `settings.cfg` and tries `lang/<full code>.txt`, then the first two letters.
+- After adding or changing texts in the code: `python tools/lang/lang_tool.py update` (refreshes `_template.txt` and every language file; new texts get `""` = English) and translate the new lines.
+- `tools/deploy.ps1` always copies `lang/*.txt` to the game folder.
 
 ## Release
 
