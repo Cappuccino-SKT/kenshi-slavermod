@@ -15,7 +15,7 @@ A RE_Kenshi plugin that lets your faction own slaves, using Kenshi's own slave s
 [*][b]Rebellion:[/b] every 7 days, if the defiant slaves are stronger than your free members, they may rise up, grab iron clubs and attack.
 [*][b]Slave trade window:[/b] at slave traders, buy their slaves or sell yours; tick several and trade them all at once. Prices follow stats, race, submission and missing limbs. Other slavers leave your slaves alone.
 [*][b]Reprogram skeletons (optional):[/b] an unconscious skeleton can be reprogrammed into a free member. Robotics decides the chance; a failure destroys it. Optionally it becomes the headless Skeleton No-Head MkII.
-[*][b]New slaves[/b] follow and guard whoever enslaved them, only follow, or get no order and move with their squad (MCM: Follow the enslaver). Animals never enslave and can't be enslaved.
+[*][b]New slaves[/b] follow and guard whoever enslaved them, only follow, or get no order and move with their squad (MCM: Follow the enslaver). Animals never enslave; enslaving them is an option (MCM: Animals can be slaves).
 [*][b]Speech bubbles[/b] for slavers and slaves.
 [*][b]New game start "Slave Hunters":[/b] a leader and five hunters with rusty clubs at a random slaver camp.
 [*][b]Your own people enslaved by others[/b] (the Rebirth start) are left to the game. [i]Enabled=0[/i] (MCM: Mod active) switches the whole mod off.
@@ -30,7 +30,7 @@ Every text of the mod (messages, settings page, trade window, speech bubbles and
 [*]Start the game in your language: the mod picks the file by itself.
 [*][url=https://github.com/Cappuccino-SKT/kenshi-slavermod/issues/new?template=translation.yml]Send it with this form[/url] (drag the file in). You'll be credited.
 [/olist]
-Step by step: [url=https://github.com/Cappuccino-SKT/kenshi-slavermod/blob/main/docs/TRANSLATING.md]how to translate[/url] (also in lang\_HOW_TO_TRANSLATE.txt). The Russian, Spanish and Chinese files are new: native speakers, corrections are very welcome! Keep a copy of your file: Steam replaces the folder on updates.
+Step by step: [url=https://github.com/Cappuccino-SKT/kenshi-slavermod/blob/main/docs/TRANSLATING.md]how to translate[/url] (also in lang\_HOW_TO_TRANSLATE.txt). Chinese corrected by 石岗小学摸你穷, thank you! Russian and Spanish are new: native speakers, corrections are very welcome! Keep a copy of your file: Steam replaces the folder on updates.
 
 [h2]Tip: bounties[/h2]
 Knock the target out, enslave them and walk them to the town; to hand them in, free them, pick them up and turn them in. A faction that wants your enslaved bounty attacks them on sight, so keep them away until you carry them in.
@@ -55,7 +55,7 @@ Plugin RE_Kenshi que deixa a sua facção ter escravos usando o sistema de escra
 [*][b]Rebelião:[/b] a cada 7 dias, se os rebeldes forem mais fortes que seus membros livres.
 [*][b]Janela de comércio[/b] nos traficantes: compre e venda vários de uma vez. O preço segue atributos, raça, submissão e membros faltando.
 [*][b]Reprogramar esqueletos (opcional)[/b], com a opção de virarem o Skeleton No-Head MkII, sem cabeça.
-[*][b]Novos escravos[/b] seguem e protegem quem os escravizou, só seguem, ou andam com o esquadrão (MCM: Seguir quem escravizou). Animais não escravizam nem são escravizados.
+[*][b]Novos escravos[/b] seguem e protegem quem os escravizou, só seguem, ou andam com o esquadrão (MCM: Seguir quem escravizou). Animais não escravizam; escravizá-los é uma opção (MCM: Animais podem ser escravos).
 [*][b]Novo início "Caçadores de Escravos"[/b] num acampamento de traficantes sorteado.
 [*][b]Opções dentro do jogo[/b] com o ModConfigMenu (opcional), ou no SlaverMod.ini comentado.
 [/list]

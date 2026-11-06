@@ -439,6 +439,7 @@ struct Settings
     bool tradeWindow;                  // our buy / sell window at slave traders
     bool protectSlaves;                // other factions' slavers leave the player's slaves alone
     bool allowStealingSlaves;          // enslave other factions' slaves (off: they are their owners' property)
+    bool animalSlaves;                 // animals can be enslaved and sold (they never act as owners)
     bool disableCarriedSale;           // hide the fixed 400 cats offer for a carried person
     float tradeBaseValue, tradeStatValue, tradeBuyMult, tradeSellMult, tradeBoughtBonus, tradeRadius;
     std::string escapeTestKey;
@@ -569,6 +570,7 @@ static void LoadSettings()
     g_cfg.tradeWindow = IniBool("TradeWindow", true);
     g_cfg.protectSlaves = IniBool("ProtectSlaves", true);
     g_cfg.allowStealingSlaves = IniBool("AllowStealingSlaves", false);
+    g_cfg.animalSlaves = IniBool("AnimalSlaves", false);
     g_cfg.disableCarriedSale = IniBool("DisableCarriedSale", true);
     g_cfg.tradeBaseValue = IniFloat("TradeBaseValue", 300.0f);
     g_cfg.tradeStatValue = IniFloat("TradeStatValue", 12.0f);
@@ -609,7 +611,7 @@ static void LoadSettings()
           " thrallRace=" + g_cfg.thrallRace + " limbPenalty=" + Num(g_cfg.tradeMissingLimbPenalty) +
           " punish=" + Num(g_cfg.punishEnabled) + "/" + Num(g_cfg.punishSubmission) + "/" + Num(g_cfg.punishDamage) + "/" + Num(g_cfg.punishCooldownDays) +
           "d anim='" + g_cfg.punishAnimation + "'/'" + g_cfg.punishVictimAnimation + "' speech=" + Num(g_cfg.speech) + " reward=" + Num(g_cfg.rewardEnabled) + "/" + Num(g_cfg.rewardSubmission) +
-          "/" + Num((float)g_cfg.rewardCost) + "cats/" + Num(g_cfg.rewardCooldownDays) + "d cage=" + Num(g_cfg.cageDailyGain) + "/" + Num(g_cfg.cageSubmissionCap) + " races=" + Num(g_cfg.raceTraits) + " trade=" + Num(g_cfg.tradeWindow) + " protect=" + Num(g_cfg.protectSlaves) + " steal=" + Num(g_cfg.allowStealingSlaves) + " noCarriedSale=" + Num(g_cfg.disableCarriedSale) +
+          "/" + Num((float)g_cfg.rewardCost) + "cats/" + Num(g_cfg.rewardCooldownDays) + "d cage=" + Num(g_cfg.cageDailyGain) + "/" + Num(g_cfg.cageSubmissionCap) + " races=" + Num(g_cfg.raceTraits) + " trade=" + Num(g_cfg.tradeWindow) + " protect=" + Num(g_cfg.protectSlaves) + " steal=" + Num(g_cfg.allowStealingSlaves) + " animals=" + Num(g_cfg.animalSlaves) + " noCarriedSale=" + Num(g_cfg.disableCarriedSale) +
           " value=" + Num(g_cfg.tradeBaseValue) + "+" + Num(g_cfg.tradeStatValue) + "/stat buy x" + Num(g_cfg.tradeBuyMult) + " sell x" + Num(g_cfg.tradeSellMult) +
           " bought+" + Num(g_cfg.tradeBoughtBonus) + " radius=" + Num(g_cfg.tradeRadius) + " relationLoss=" + Num(g_cfg.relationLoss) + " relationGain=" + Num(g_cfg.relationGain) + " crime=" + Num(g_cfg.enslaveIsCrime) +
           " escort=" + Num(g_cfg.slaveEscort) + "/" + g_cfg.escortMode);
@@ -778,7 +780,7 @@ static bool IsEnslaveCandidate(Character* c, std::string* why)
 {
     if (c == 0) { if (why) *why = T("no character", "nenhum personagem"); return false; }
     if (c->isDead()) { if (why) *why = T("the character is dead", "personagem morto"); return false; }
-    if (IsAnimal(c)) { if (why) *why = T("animals cannot be slaves", "animais nao podem ser escravos"); return false; }
+    if (IsAnimal(c) && !g_cfg.animalSlaves) { if (why) *why = T("animals cannot be slaves", "animais nao podem ser escravos"); return false; }
     if (IsPlayerFaction(c)) { if (why) *why = T("already in your faction", "ja e da sua faccao"); return false; }
     // someone else's slave is their property: no stealing (a runaway, ESCAPING_SLAVE, is fair game)
     if (c->isSlave() == IS_SLAVE && !g_cfg.allowStealingSlaves)
@@ -1255,6 +1257,10 @@ struct SlaveRecord
 
 static std::map<std::string, SlaveRecord> g_records;
 static std::string g_recordsSave;   // save the records in memory belong to
+// The key a character had when last looked up: the game gives a character a new handle
+// (index-serial) when they move to another squad, so the records follow them by pointer.
+static std::map<Character*, std::string> g_lastKey;
+static void MoveSlaveState(const std::string& from, const std::string& to);
 
 // Full handle as "type.container.containerSerial.index.serial" (no '|', safe in the data file).
 static std::string HandleText(const hand& h)
@@ -1315,6 +1321,7 @@ static void WriteRecords(const std::string& save)
 static void ReadRecords(const std::string& save)
 {
     g_records.clear();
+    g_lastKey.clear();
     g_recordsSave = save;
     std::ifstream f(SaveDataFile(save).c_str());
     std::string line;
@@ -1362,8 +1369,27 @@ static std::string LegacyOrigin(Character* c)
 
 static SlaveRecord* FindRecord(Character* c)
 {
-    std::map<std::string, SlaveRecord>::iterator it = g_records.find(SlaveKey(c));
-    return it == g_records.end() ? 0 : &it->second;
+    std::string key = SlaveKey(c);
+    std::map<std::string, SlaveRecord>::iterator it = g_records.find(key);
+    if (it != g_records.end())
+    {
+        g_lastKey[c] = key;
+        return &it->second;
+    }
+    // moved to another squad: same character, new key (the name guards against a reused pointer)
+    std::map<Character*, std::string>::iterator last = g_lastKey.find(c);
+    if (last == g_lastKey.end() || last->second == key)
+        return 0;
+    std::map<std::string, SlaveRecord>::iterator old = g_records.find(last->second);
+    if (old == g_records.end() || old->second.name != c->getName())
+        return 0;
+    std::string from = last->second;
+    g_records[key] = old->second;
+    g_records.erase(from);
+    MoveSlaveState(from, key);
+    last->second = key;
+    Trace("record of '" + c->getName() + "' moved with them: key " + from + " -> " + key + " (squad change)");
+    return &g_records[key];
 }
 
 static float ClampSubmission(float s)
@@ -1374,6 +1400,7 @@ static float ClampSubmission(float s)
 static SlaveRecord& CreateRecord(Character* c, const std::string& origin, float submission)
 {
     SlaveRecord& r = g_records[SlaveKey(c)];
+    g_lastKey[c] = SlaveKey(c);
     r.submission = ClampSubmission(submission);
     r.origin = origin;
     r.name = c->getName();
@@ -2367,7 +2394,7 @@ static bool ActionStillValid(SlaveAction action, Character* performer, Character
     }
     if (IsOurSlave(target)) { *why = target->getName() + T(" is already a slave", " ja e escravo(a)"); return false; }
     if (CarriedByOthers(target)) { *why = target->getName() + T(" is being carried away by someone else", " esta sendo carregado(a) por outra pessoa"); return false; }
-    if (IsAnimal(target)) { *why = T("animals cannot be slaves", "animais nao podem ser escravos"); return false; }
+    if (IsAnimal(target) && !g_cfg.animalSlaves) { *why = T("animals cannot be slaves", "animais nao podem ser escravos"); return false; }
     if (IsPlayerFaction(target))
     {
         if (CountFreeMembers() <= 1) { *why = T("they would be the last free member of your faction", "seria o ultimo membro livre da faccao"); return false; }
@@ -2383,6 +2410,23 @@ struct DisciplineState
     int punishStreak;
 };
 static std::map<std::string, DisciplineState> g_discipline;
+
+// Per-slave memory keyed like the records: moved along when a slave changes squads.
+static void MoveSlaveState(const std::string& from, const std::string& to)
+{
+    std::map<std::string, DisciplineState>::iterator d = g_discipline.find(from);
+    if (d != g_discipline.end())
+    {
+        g_discipline[to] = d->second;
+        g_discipline.erase(from);
+    }
+    std::map<std::string, float>::iterator u = g_unsupervisedDays.find(from);
+    if (u != g_unsupervisedDays.end())
+    {
+        g_unsupervisedDays[to] = u->second;
+        g_unsupervisedDays.erase(from);
+    }
+}
 
 static DisciplineState& DisciplineOf(Character* c)
 {
@@ -3024,7 +3068,7 @@ static void TestEnslaveNearby()
         for (uint32_t k = 0; k < found.size() && picked.size() < 10; k++)
         {
             Character* c = found.stuff[k] != 0 ? hand(found.stuff[k]).getCharacter() : 0;
-            if (c == 0 || c->isDead() || IsPlayerFaction(c) || c->isAnimal() != 0 || c->isSlave() == IS_SLAVE)
+            if (c == 0 || c->isDead() || IsPlayerFaction(c) || (c->isAnimal() != 0 && !g_cfg.animalSlaves) || c->isSlave() == IS_SLAVE)
                 continue;
             picked.push_back(c);
         }
@@ -3296,7 +3340,7 @@ static void FindMenuFlags()
 static std::vector<SlaveAction> MenuActionsFor(Character* target)
 {
     std::vector<SlaveAction> out;
-    if (target == 0 || target->isDead() || IsAnimal(target) || IsAnimal(SelectedPlayerCharacter()))
+    if (target == 0 || target->isDead() || (IsAnimal(target) && !g_cfg.animalSlaves) || IsAnimal(SelectedPlayerCharacter()))
         return out;
     if (IsOurSlave(target))
     {
@@ -4924,6 +4968,7 @@ void SaveManager_newGame_hook(SaveManager* thisptr, const std::string& startId)
 {
     ResetWorldState("new game");
     g_records.clear();
+    g_lastKey.clear();
     g_recordsSave = "";
     g_recordsReady = true;
     SaveManager_newGame_orig(thisptr, startId);
@@ -5042,6 +5087,9 @@ extern "C" __declspec(dllexport) void MCM_Describe(MCM_Api* api)
                 L("What a new slave does: follow and guard whoever enslaved them, only follow, or nothing (they move with their squad, in formation).",
                   "O que o recém-escravizado faz: segue e protege quem o escravizou, só segue, ou nada (anda com o esquadrão, em formação)."),
                 "bodyguard", escortValues, escortLabels, 3, 0);
+    api->toggle(api, sec, "AnimalSlaves", L("Animals can be slaves", "Animais podem ser escravos"),
+                L("Animals and creatures can be enslaved and sold. They never enslave, punish or free anyone themselves.",
+                  "Animais e criaturas podem ser escravizados e vendidos. Eles mesmos nunca escravizam, punem nem libertam ninguém."), 0, 0);
     api->toggle(api, sec, "SlaveAIJob", L("Native slave work", "Trabalho escravo nativo"),
                 L("Turns on the game's slave work behaviour. Experimental.", "Liga o comportamento de trabalho escravo do jogo. Experimental."), 0, 0);
     api->text(api, sec, "ShackleItem", L("Shackles (ID)", "Grilhão (ID)"), L("Shackles item used.", "Item de grilhão usado."), "SHACKLES", 0);
@@ -5195,7 +5243,7 @@ __declspec(dllexport) void startPlugin()
     LoadLines();
     ParseHotkey();
     srand(GetTickCount());
-    Trace("startPlugin v1.14");
+    Trace("startPlugin v1.15");
 
     if (KenshiLib::SUCCESS != KenshiLib::AddHook(KenshiLib::GetRealAddress(&GameWorld::_NV_mainLoop_GPUSensitiveStuff), GameWorld_update_hook, (void**)&GameWorld_update_orig))
         ErrorLog("SlaverMod: could not add GameWorld update hook!");

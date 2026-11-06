@@ -15,7 +15,7 @@ A [RE_Kenshi](https://github.com/BFrizzleFoShizzle/RE_Kenshi) plugin that lets t
 - **Locked shackles** (`Prisoner Shackles`; the hive version for hivers). Clothes in the way go to the inventory (or the ground). Freeing removes the shackles.
 - **Slaves cannot use weapons.** Any equipped weapon is dropped.
 - **New slaves follow and guard** whoever enslaved them (native `BODYGUARD` order), only follow, or get no order at all and move with their squad in formation (`EscortMode=bodyguard|follow|off`, MCM: *Follow the enslaver*).
-- **Animals stay animals.** Pets and pack beasts never enslave, own, guard, punish, reward or free anyone, and animals cannot be enslaved or sold.
+- **Animals stay animals.** Pets and pack beasts never enslave, own, guard, punish, reward or free anyone. Animals cannot be enslaved or sold unless `AnimalSlaves=1` (MCM: *Animals can be slaves*), handy with creature mods.
 - **Slave squads.** New slaves go to the `Slaves` squad; once it reaches the game's squad size limit, `Slaves 2`, `Slaves 3`... are opened. If your faction is full, the message says so.
 - **Relations.** Enslaving someone from another faction lowers your relation with it (default −5). Freeing gives a little back (default +2, always less than the loss).
 - **Enslaving is a crime.** While the shackles go on, the owner is kidnapping, as when carrying an unconscious person off: guards and the victim's friends who see it react (the game decides who cares; drifters, for one, don't). If they attack, the action is cancelled so the owner can fight back. `EnslaveIsCrime=0` turns it off.
@@ -47,7 +47,7 @@ Slavery doesn't get in the way of bounties. Knock the target out, enslave them a
 
 ## Translating
 
-Every text of the mod (messages, settings page, trade window, speech bubbles and the game start) is in one plain text file per language in `lang/`, so anyone can translate it without coding: copy `lang/_template.txt` to `<code>.txt`, fill in the right side of each line and send it with the [translation form](https://github.com/Cappuccino-SKT/kenshi-slavermod/issues/new?template=translation.yml). Step by step: [docs/TRANSLATING.md](docs/TRANSLATING.md). The Russian, Spanish and Chinese files are new: corrections from native speakers are very welcome.
+Every text of the mod (messages, settings page, trade window, speech bubbles and the game start) is in one plain text file per language in `lang/`, so anyone can translate it without coding: copy `lang/_template.txt` to `<code>.txt`, fill in the right side of each line and send it with the [translation form](https://github.com/Cappuccino-SKT/kenshi-slavermod/issues/new?template=translation.yml). Step by step: [docs/TRANSLATING.md](docs/TRANSLATING.md). Simplified Chinese was corrected by 石岗小学摸你穷; the Russian and Spanish files are new, so corrections from native speakers are very welcome.
 
 ## Requirements
 
@@ -119,7 +119,7 @@ Plugin [RE_Kenshi](https://github.com/BFrizzleFoShizzle/RE_Kenshi) que deixa a f
 - **Grilhões trancados** (`Prisoner Shackles`; versão de colmeia para hivers). A roupa que ocupa o lugar deles vai para o inventário (ou para o chão). Ao libertar, os grilhões somem.
 - **Escravos não usam armas.** Qualquer arma equipada é largada.
 - **O recém-escravizado segue e protege** quem o escravizou (ordem nativa `BODYGUARD`), só segue, ou não recebe ordem nenhuma e anda com o esquadrão em formação (`EscortMode=bodyguard|follow|off`, MCM: *Seguir quem escravizou*).
-- **Animais são animais.** Bichos de estimação e de carga nunca escravizam, são donos, vigiam, punem, recompensam ou libertam, e animais não podem ser escravizados nem vendidos.
+- **Animais são animais.** Bichos de estimação e de carga nunca escravizam, são donos, vigiam, punem, recompensam ou libertam. Animais só podem ser escravizados e vendidos com `AnimalSlaves=1` (MCM: *Animais podem ser escravos*), útil com mods de criaturas.
 - **Esquadrões de escravos.** Escravos novos vão para o esquadrão `Escravos`; quando ele chega ao limite de tamanho do jogo, abrem-se `Escravos 2`, `Escravos 3`... Se a facção estiver cheia, a mensagem avisa.
 - **Relações.** Escravizar alguém de outra facção reduz a relação com ela (padrão −5). Libertar devolve um pouco (padrão +2, sempre menos que a perda).
 - **Escravizar é crime.** Enquanto coloca os grilhões, o dono está sequestrando, como ao carregar alguém desmaiado: guardas e amigos da vítima que virem reagem (o jogo decide quem se importa; os Retirantes, por exemplo, não). Se atacarem, a ação é cancelada para o dono poder lutar. `EnslaveIsCrime=0` desliga.
