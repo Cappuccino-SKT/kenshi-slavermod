@@ -45,6 +45,13 @@ powershell -ExecutionPolicy Bypass -File tools\deploy.ps1 -Build
 - `Kenshi\RE_Kenshi_log.txt` — RE_Kenshi loader log; plugin load errors and `ErrorLog()` lines.
 - The update hook logs `time step: N units in 20 real seconds` once per session (the hook's time unit is not real seconds; ~4.4 units per 20 s at normal speed).
 
+## Game data (SlaverMod.mod)
+
+- `python tools/build_start.py`: the "Slave Hunters" game start (records 1-4).
+- `python tools/build_caravan.py`: the slave caravan squad, its slaves and its waiting AI (records 5-7).
+- `python tools/build_shackles.py`: the vanilla shackles' weight (changed records SHACKLES, SHACKLES-BODY).
+- Each one replaces its own records, so they can be run in any order; then rewrite the Workshop description into the header (see Release).
+
 ## Translations
 
 - Every visible text is `T("English", "Português")` (notices) or `L(...)` (MCM). English and Portuguese are built in; Portuguese notices are ASCII (the notice font has no accents).

@@ -13,9 +13,11 @@ A RE_Kenshi plugin that lets your faction own slaves, using Kenshi's own slave s
 [*][b]Punish and Reward[/b] in the same menu: a beating (+submission, some damage) or a few cats.
 [*][b]Freeing:[/b] slaves with 90+ submission stay in your faction; the others go home.
 [*][b]Rebellion:[/b] every 7 days, if the defiant slaves are stronger than your free members, they may rise up, grab iron clubs and attack.
-[*][b]Slave trade window:[/b] at slave traders, buy their slaves or sell yours; tick several and trade them all at once. Prices follow stats, race, submission and missing limbs. Other slavers leave your slaves alone.
+[*][b]Slave trade window:[/b] at slave traders, buy their slaves or sell the ones you have with you; tick several and trade them all at once. Prices follow stats, race, submission and missing limbs; the list shows each one's sex. Other slavers leave your slaves alone.
+[*][b]Slave caravan:[/b] every 7 days a Slave Traders caravan visits your base to buy and sell slaves, with a warning a day before. It stays a few hours and leaves.
 [*][b]Reprogram skeletons (optional):[/b] an unconscious skeleton can be reprogrammed into a free member. Robotics decides the chance; a failure destroys it. Optionally it becomes the headless Skeleton No-Head MkII.
 [*][b]New slaves[/b] follow and guard whoever enslaved them, only follow, or get no order and move with their squad (MCM: Follow the enslaver). Animals never enslave; enslaving them is an option (MCM: Animals can be slaves).
+[*][b]Shackles[/b] are locked, weigh 3 kg (no more strength training) and stop your slaves from running. Optional: the neck collar of Macropod's Slave dress mod instead.
 [*][b]Speech bubbles[/b] for slavers and slaves.
 [*][b]New game start "Slave Hunters":[/b] a leader and five hunters with rusty clubs at a random slaver camp.
 [*][b]Your own people enslaved by others[/b] (the Rebirth start) are left to the game. [i]Enabled=0[/i] (MCM: Mod active) switches the whole mod off.
@@ -53,7 +55,9 @@ Plugin RE_Kenshi que deixa a sua facção ter escravos usando o sistema de escra
 [*][b]Punir e Recompensar[/b] no mesmo menu.
 [*][b]Libertar:[/b] com 90+ de submissão ficam na sua facção; os outros voltam para casa.
 [*][b]Rebelião:[/b] a cada 7 dias, se os rebeldes forem mais fortes que seus membros livres.
-[*][b]Janela de comércio[/b] nos traficantes: compre e venda vários de uma vez. O preço segue atributos, raça, submissão e membros faltando.
+[*][b]Janela de comércio[/b] nos traficantes: compre e venda vários de uma vez, só dos escravos que estão com você. O preço segue atributos, raça, submissão e membros faltando; a lista mostra o sexo.
+[*][b]Caravana de escravos[/b] a cada 7 dias na sua base, para comprar e vender escravos, com aviso um dia antes.
+[*][b]Grilhões[/b] trancados, com 3 kg (sem treino de força), que impedem correr. Opcional: a coleira do mod Slave dress do Macropod.
 [*][b]Reprogramar esqueletos (opcional)[/b], com a opção de virarem o Skeleton No-Head MkII, sem cabeça.
 [*][b]Novos escravos[/b] seguem e protegem quem os escravizou, só seguem, ou andam com o esquadrão (MCM: Seguir quem escravizou). Animais não escravizam; escravizá-los é uma opção (MCM: Animais podem ser escravos).
 [*][b]Novo início "Caçadores de Escravos"[/b] num acampamento de traficantes sorteado.

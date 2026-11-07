@@ -18,6 +18,8 @@ class GunClassPersonal;   // GunClass.h uses it before declaring it
 #include <kenshi/GunClass.h>
 #include <kenshi/Appearance.h>
 #include <kenshi/AppearanceManager.h>
+#include <kenshi/CameraClass.h>
+#include <kenshi/CharMovement.h>
 #include <kenshi/Faction.h>
 #include <kenshi/Inventory.h>
 #include <kenshi/Item.h>
@@ -437,6 +439,17 @@ struct Settings
     float cageSubmissionCap;
     bool raceTraits;                   // races and subraces take slavery differently (SlaverMod_races.ini)
     bool tradeWindow;                  // our buy / sell window at slave traders
+    bool slaveCaravan;                 // the Slave Traders' caravan visits the player's base
+    float slaveCaravanDays;            // days between visits
+    float slaveCaravanStayHours;       // game hours it stays at the base
+    float caravanSpawnDistance;        // the caravan appears this far from the base (0 = where the game puts it)
+    bool caravanCamera;                // the camera goes to the caravan boss when it arrives
+    bool shacklesNoRunning;            // your shackled slaves can only walk
+    int caravanSlavesMin, caravanSlavesMax;              // slaves the caravan sells
+    std::vector<std::string> caravanSlaveTemplates;      // character templates of those slaves
+    std::string caravanFaction, caravanSquad, caravanBoss;
+    float caravanArriveDistance;       // the caravan has arrived this close to the base
+    float caravanLeash;                // while coming / staying, members farther than this walk back   // data IDs
     bool protectSlaves;                // other factions' slavers leave the player's slaves alone
     bool allowStealingSlaves;          // enslave other factions' slaves (off: they are their owners' property)
     bool animalSlaves;                 // animals can be enslaved and sold (they never act as owners)
@@ -509,6 +522,7 @@ static void LoadSettings()
     g_cfg.approachTimeout = IniFloat("ApproachTimeout", 120.0f);
     g_cfg.reachFactor = IniFloat("ReachFactor", 2.5f);
     g_cfg.giveShackles = IniBool("GiveShackles", true);
+    g_cfg.shacklesNoRunning = IniBool("ShacklesNoRunning", true);
     g_cfg.shackleItem = IniString("ShackleItem", "SHACKLES");
     g_cfg.shackleItemAlt = IniString("ShackleItemAlt", "SHACKLES-BODY");
     g_cfg.actionAnimation = IniString("ActionAnimation", "medic");
@@ -568,6 +582,40 @@ static void LoadSettings()
     g_cfg.cageSubmissionCap = IniFloat("CageSubmissionCap", 75.0f);
     g_cfg.raceTraits = IniBool("RaceTraits", true);
     g_cfg.tradeWindow = IniBool("TradeWindow", true);
+    g_cfg.slaveCaravan = IniBool("SlaveCaravan", true);
+    g_cfg.slaveCaravanDays = IniFloat("SlaveCaravanDays", 7.0f);
+    if (g_cfg.slaveCaravanDays < 0.5f)
+        g_cfg.slaveCaravanDays = 0.5f;
+    g_cfg.slaveCaravanStayHours = IniFloat("SlaveCaravanStayHours", 6.0f);
+    g_cfg.caravanSpawnDistance = IniFloat("SlaveCaravanSpawnDistance", 2000.0f);
+    g_cfg.caravanCamera = IniBool("SlaveCaravanCamera", true);
+    g_cfg.caravanArriveDistance = IniFloat("SlaveCaravanArriveDistance", 1500.0f);
+    g_cfg.caravanLeash = IniFloat("SlaveCaravanLeash", 3000.0f);
+    g_cfg.caravanSlavesMin = (int)IniFloat("SlaveCaravanSlavesMin", 3.0f);
+    g_cfg.caravanSlavesMax = (int)IniFloat("SlaveCaravanSlavesMax", 6.0f);
+    if (g_cfg.caravanSlavesMax < g_cfg.caravanSlavesMin)
+        g_cfg.caravanSlavesMax = g_cfg.caravanSlavesMin;
+    {
+        // the vanilla "Slave" characters of the slave squads, comma separated
+        std::string list = IniString("SlaveCaravanSlaveTemplates", "5258-gamedata.base,96355-__Southern hive.mod,96357-__Southern hive.mod,96358-__Southern hive.mod,96359-__Southern hive.mod,96360-__Southern hive.mod");
+        g_cfg.caravanSlaveTemplates.clear();
+        size_t start = 0;
+        while (start <= list.size())
+        {
+            size_t comma = list.find(',', start);
+            std::string one = list.substr(start, comma == std::string::npos ? std::string::npos : comma - start);
+            while (!one.empty() && one[0] == ' ')
+                one.erase(0, 1);
+            if (!one.empty())
+                g_cfg.caravanSlaveTemplates.push_back(one);
+            if (comma == std::string::npos)
+                break;
+            start = comma + 1;
+        }
+    }
+    g_cfg.caravanFaction = IniString("SlaveCaravanFaction", "1084-gamedata.base");
+    g_cfg.caravanSquad = IniString("SlaveCaravanSquad", "6-SlaverMod.mod");
+    g_cfg.caravanBoss = IniString("SlaveCaravanBoss", "95766-rebirth.mod");
     g_cfg.protectSlaves = IniBool("ProtectSlaves", true);
     g_cfg.allowStealingSlaves = IniBool("AllowStealingSlaves", false);
     g_cfg.animalSlaves = IniBool("AnimalSlaves", false);
@@ -611,7 +659,7 @@ static void LoadSettings()
           " thrallRace=" + g_cfg.thrallRace + " limbPenalty=" + Num(g_cfg.tradeMissingLimbPenalty) +
           " punish=" + Num(g_cfg.punishEnabled) + "/" + Num(g_cfg.punishSubmission) + "/" + Num(g_cfg.punishDamage) + "/" + Num(g_cfg.punishCooldownDays) +
           "d anim='" + g_cfg.punishAnimation + "'/'" + g_cfg.punishVictimAnimation + "' speech=" + Num(g_cfg.speech) + " reward=" + Num(g_cfg.rewardEnabled) + "/" + Num(g_cfg.rewardSubmission) +
-          "/" + Num((float)g_cfg.rewardCost) + "cats/" + Num(g_cfg.rewardCooldownDays) + "d cage=" + Num(g_cfg.cageDailyGain) + "/" + Num(g_cfg.cageSubmissionCap) + " races=" + Num(g_cfg.raceTraits) + " trade=" + Num(g_cfg.tradeWindow) + " protect=" + Num(g_cfg.protectSlaves) + " steal=" + Num(g_cfg.allowStealingSlaves) + " animals=" + Num(g_cfg.animalSlaves) + " noCarriedSale=" + Num(g_cfg.disableCarriedSale) +
+          "/" + Num((float)g_cfg.rewardCost) + "cats/" + Num(g_cfg.rewardCooldownDays) + "d cage=" + Num(g_cfg.cageDailyGain) + "/" + Num(g_cfg.cageSubmissionCap) + " races=" + Num(g_cfg.raceTraits) + " trade=" + Num(g_cfg.tradeWindow) + " protect=" + Num(g_cfg.protectSlaves) + " steal=" + Num(g_cfg.allowStealingSlaves) + " animals=" + Num(g_cfg.animalSlaves) + " caravan=" + Num(g_cfg.slaveCaravan) + "/" + Num(g_cfg.slaveCaravanDays) + "d/stay " + Num(g_cfg.slaveCaravanStayHours) + "h " + " noCarriedSale=" + Num(g_cfg.disableCarriedSale) +
           " value=" + Num(g_cfg.tradeBaseValue) + "+" + Num(g_cfg.tradeStatValue) + "/stat buy x" + Num(g_cfg.tradeBuyMult) + " sell x" + Num(g_cfg.tradeSellMult) +
           " bought+" + Num(g_cfg.tradeBoughtBonus) + " radius=" + Num(g_cfg.tradeRadius) + " relationLoss=" + Num(g_cfg.relationLoss) + " relationGain=" + Num(g_cfg.relationGain) + " crime=" + Num(g_cfg.enslaveIsCrime) +
           " escort=" + Num(g_cfg.slaveEscort) + "/" + g_cfg.escortMode);
@@ -1051,6 +1099,22 @@ static bool WearsShackles(Character* c)
     return false;
 }
 
+// Restraints on the legs or body (shackles): a collar or a mark elsewhere does not stop running.
+static bool WearsLegRestraints(Character* c)
+{
+    if (c == 0 || c->inventory == 0)
+        return false;
+    lektor<Item*> armour;
+    c->inventory->getEquippedArmour(armour);
+    for (uint32_t i = 0; i < armour.size(); i++)
+    {
+        Item* it = armour.stuff[i];
+        if (IsShackleItem(it) && (it->slotType == ATTACH_BOOTS || it->slotType == ATTACH_BODY || it->slotType == ATTACH_LEGS))
+            return true;
+    }
+    return false;
+}
+
 static bool TryEquipShackles(Character* c, const std::string& sid)
 {
     if (sid.empty())
@@ -1117,7 +1181,8 @@ static void GiveShackles(Character* c)
 {
     if (!g_cfg.giveShackles || c == 0 || c->inventory == 0 || WearsShackles(c))
         return;
-    if (!TryEquipShackles(c, g_cfg.shackleItem) && !TryEquipShackles(c, g_cfg.shackleItemAlt))
+    if (!TryEquipShackles(c, g_cfg.shackleItem) && !TryEquipShackles(c, g_cfg.shackleItemAlt) &&
+        (g_cfg.shackleItem == "SHACKLES" || !TryEquipShackles(c, "SHACKLES")))
         ShowNotice(T("Could not put shackles on ", "Nao deu para colocar grilhoes em ") + c->getName() + ".");
 }
 
@@ -1256,6 +1321,11 @@ struct SlaveRecord
 };
 
 static std::map<std::string, SlaveRecord> g_records;
+// slave caravan visit of this save (see UpdateSlaveCaravan), saved with the records
+static int g_caravanState = 0;            // CaravanState
+static double g_caravanNextHour = -1.0;   // game hour of the next visit (-1 = not scheduled)
+static double g_caravanLeaveHour = -1.0;  // game hour the caravan at the base leaves
+static std::string g_caravanSquadID;      // Platoon::stringID of the caravan squad (kept across loads)
 static std::string g_recordsSave;   // save the records in memory belong to
 // The key a character had when last looked up: the game gives a character a new handle
 // (index-serial) when they move to another squad, so the records follow them by pointer.
@@ -1308,6 +1378,7 @@ static void WriteRecords(const std::string& save)
         return;
     }
     f << "# SlaverMod data for save '" << save << "'. key=submission|origin faction|flags (e<day> = escaped on that game day)|handle|name\n";
+    f << "!caravan=" << g_caravanState << "|" << g_caravanNextHour << "|" << g_caravanLeaveHour << "|" << g_caravanSquadID << "\n";
     for (std::map<std::string, SlaveRecord>::const_iterator it = g_records.begin(); it != g_records.end(); ++it)
     {
         f << it->first << "=" << it->second.submission << "|" << it->second.origin << "|";
@@ -1321,6 +1392,10 @@ static void WriteRecords(const std::string& save)
 static void ReadRecords(const std::string& save)
 {
     g_records.clear();
+    g_caravanState = 0;
+    g_caravanNextHour = -1.0;
+    g_caravanLeaveHour = -1.0;
+    g_caravanSquadID.clear();
     g_lastKey.clear();
     g_recordsSave = save;
     std::ifstream f(SaveDataFile(save).c_str());
@@ -1329,6 +1404,24 @@ static void ReadRecords(const std::string& save)
     {
         if (line.empty() || line[0] == '#')
             continue;
+        if (line.compare(0, 9, "!caravan=") == 0)
+        {
+            std::vector<std::string> parts;
+            std::string rest = line.substr(9);
+            size_t start = 0;
+            for (int k = 0; k < 3; k++)
+            {
+                size_t bar = rest.find('|', start);
+                parts.push_back(rest.substr(start, bar == std::string::npos ? std::string::npos : bar - start));
+                start = bar == std::string::npos ? rest.size() : bar + 1;
+            }
+            parts.push_back(start < rest.size() ? rest.substr(start) : std::string());
+            g_caravanState = atoi(parts[0].c_str());
+            g_caravanNextHour = parts[1].empty() ? -1.0 : atof(parts[1].c_str());
+            g_caravanLeaveHour = parts[2].empty() ? -1.0 : atof(parts[2].c_str());
+            g_caravanSquadID = parts[3];
+            continue;
+        }
         size_t eq = line.find('=');
         if (eq == std::string::npos)
             continue;
@@ -1933,6 +2026,8 @@ static void LoadLines()
                              "Estou livre!|Liberdade!|Chega! Nao sirvo a ninguem!|Corre!" },
         { "EscapeMaster",    "Slave! Stop!|A slave is getting away! Stop them!|Slave! You'll be punished for this!",
                              "Escravo! Para!|Um escravo esta fugindo! Pega!|Escravo! Voce vai ser punido por isso!" },
+        { "CaravanArrive",   "Slave caravan! Fresh stock, chained and ready!|Slavers here! Come see the merchandise!|Slaves for sale, and we're buying too!",
+                             "Caravana de escravos! Mercadoria fresca, acorrentada e pronta!|Escravistas na area! Venham ver a mercadoria!|Escravos a venda, e a gente compra tambem!" },
         { "RebellionSlave",  "Screw this! I serve no one!|Rise up! Break the chains!|Kill the masters!|No more shackles!",
                              "Chega! Nao sirvo a ninguem!|Levantem! Quebrem as correntes!|Matem os donos!|Chega de grilhoes!" },
     };
@@ -3015,7 +3110,7 @@ static void UpdateCarryTest()
 }
 
 // ---- Test kit (DebugMode only), fixed hotkeys: CTRL+SHIFT+ I info, M money, N enslave nearby,
-// L cut a limb off, H ThrallRace on the selected character.
+// L cut a limb off, H ThrallRace on the selected character, V slave caravan now.
 static int MissingLimbs(Character* c);
 static int SellPrice(Character* c);
 static void GivePlayerMoney(int amount);
@@ -3024,6 +3119,8 @@ static Hotkey g_tkMoney = { 'M', true, true, false, false };
 static Hotkey g_tkNearby = { 'N', true, true, false, false };
 static Hotkey g_tkLimb = { 'L', true, true, false, false };
 static Hotkey g_tkRace = { 'H', true, true, false, false };
+static Hotkey g_tkCaravan = { 'V', true, true, false, false };
+static void TestCaravanNow();
 
 static void TestInfo()
 {
@@ -3157,6 +3254,8 @@ static void HandleTestKit()
         TestCutLimb();
     if (KeyPressed(g_tkRace))
         TestThrallRace();
+    if (KeyPressed(g_tkCaravan))
+        TestCaravanNow();
 }
 
 static void HandleHotkey()
@@ -4073,6 +4172,449 @@ void TitleScreen_update_hook(TitleScreen* thisptr)
     TitleScreen_update_orig(thisptr);
 }
 
+// ---------------------------------------------------------------------------
+// Slave caravan: every SlaveCaravanDays days the Slave Traders send a caravan to the player's
+// base (the first town of the player's faction) to buy and sell slaves. SlaverMod runs it
+// itself: it creates the squad (SlaverMod.mod 6-SlaverMod.mod) SlaveCaravanSpawnDistance from
+// the base and walks it in; its AI (7-SlaverMod.mod) has no goal that walks, so it then waits
+// there. After SlaveCaravanStayHours (default 6) it is walked off towards the Slave Traders'
+// town and removed once far enough.
+// Talking to the caravan boss ("I'm looking to buy slaves") opens SlaverMod's trade window.
+// The visit state is saved with the slave records of each save.
+// ---------------------------------------------------------------------------
+
+enum CaravanState { CARAVAN_NONE, CARAVAN_COMING, CARAVAN_HERE, CARAVAN_LEAVING };
+static DWORD g_nextCaravanCheck = 0;
+static bool g_caravanNoBaseLogged = false;
+static bool g_caravanSoonNoticed = false;
+static hand g_caravanSquad;               // the caravan's platoon (found again after a load)
+static Ogre::Vector3 g_caravanLastPos(0.0f, 0.0f, 0.0f);   // where its boss was last seen
+static double g_caravanStateHour = -1.0;  // game hour the current state began
+
+// TownBase derives from RootObject first; Town.h cannot be included (Building.h clash).
+static RootObject* TownObject(TownBase* t) { return reinterpret_cast<RootObject*>(t); }
+static double GameHours() { return ou->getTimeStamp_inGameHours().getTotalHours(); }
+
+static Faction* SlaveTradersFaction()
+{
+    return ou->factionMgr != 0 ? ou->factionMgr->getFactionByStringID(g_cfg.caravanFaction) : 0;
+}
+
+// The player's base the caravan visits: the first town of the player's faction.
+static TownBase* PlayerBase()
+{
+    Faction* pf = PlayerFaction();
+    if (pf == 0 || pf->warMgr == 0 || pf->warMgr->myTowns.size() == 0)
+        return 0;
+    return pf->warMgr->myTowns.stuff[0];
+}
+
+static void ScheduleNextCaravan(const std::string& why)
+{
+    g_caravanState = CARAVAN_NONE;
+    g_caravanNextHour = GameHours() + g_cfg.slaveCaravanDays * 24.0;
+    g_caravanSoonNoticed = false;
+    g_caravanSquad = hand();
+    g_caravanSquadID.clear();
+    Trace("caravan: next visit in " + Num(g_cfg.slaveCaravanDays) + " days (" + why + ")");
+}
+
+// The caravan squad: kept by handle, found again after a load by its string ID.
+static Platoon* CaravanPlatoon(Faction* traders, TownBase* base)
+{
+    Platoon* p = g_caravanSquad.getPlatoon();
+    if (p != 0)
+        return p;
+    if (g_caravanSquadID.empty() || base == 0)
+        return 0;
+    lektor<RootObject*> found;
+    Ogre::Vector3 around = g_caravanLastPos.isZeroLength() ? TownObject(base)->getPosition() : g_caravanLastPos;
+    traders->getCharactersInArea(found, around, g_cfg.caravanSpawnDistance + 8000.0f, false);
+    for (uint32_t i = 0; i < found.size(); i++)
+    {
+        Character* c = found.stuff[i] != 0 ? hand(found.stuff[i]).getCharacter() : 0;
+        Platoon* cp = c != 0 && c->getPlatoon() != 0 ? c->getPlatoon()->me : 0;
+        if (cp != 0 && cp->stringID == g_caravanSquadID)
+        {
+            g_caravanSquad = hand(cp);
+            return cp;
+        }
+    }
+    return 0;
+}
+
+// The caravan boss: the squad leader (or its first standing member). 0 while the squad is
+// not loaded (far from the player's characters).
+static Character* CaravanBoss(Platoon* p)
+{
+    ActivePlatoon* ap = p != 0 ? p->getActivePlatoon() : 0;
+    if (ap == 0)
+        return 0;
+    if (ap->squadleader != 0 && !ap->squadleader->isDead())
+        return ap->squadleader;
+    lektor<RootObject*>* things = ap->getThings();
+    for (uint32_t i = 0; things != 0 && i < things->size(); i++)
+    {
+        Character* c = things->stuff[i] != 0 ? hand(things->stuff[i]).getCharacter() : 0;
+        if (c != 0 && !c->isDead() && c->isSlave() != IS_SLAVE)
+            return c;
+    }
+    return 0;
+}
+
+static bool g_caravanSlavesDone = false;   // once per visit
+static void FindSlavesForSale(Character* trader, std::vector<Character*>& out);
+
+// The caravan brings SlaveCaravanSlavesMin..Max shackled slaves, owned by the boss and walking
+// in his squad (made here when the squad came without them).
+static void EnsureCaravanSlaves(Character* boss)
+{
+    if (g_caravanSlavesDone || boss == 0)
+        return;
+    g_caravanSlavesDone = true;
+    std::vector<Character*> have;
+    FindSlavesForSale(boss, have);
+    if ((int)have.size() >= g_cfg.caravanSlavesMin || g_cfg.caravanSlaveTemplates.empty())
+        return;
+    int span = g_cfg.caravanSlavesMax - g_cfg.caravanSlavesMin;
+    int want = g_cfg.caravanSlavesMin + (span > 0 ? rand() % (span + 1) : 0) - (int)have.size();
+    ActivePlatoon* squad = boss->getPlatoon();
+    int made = 0;
+    for (int i = 0; i < want; i++)
+    {
+        const std::string& sid = g_cfg.caravanSlaveTemplates[rand() % g_cfg.caravanSlaveTemplates.size()];
+        GameData* tpl = ou->gamedata.getData(sid, CHARACTER);
+        if (tpl == 0)
+            continue;
+        Ogre::Vector3 at = boss->getPosition() + Ogre::Vector3((float)(rand() % 300 - 150), 0.0f, (float)(rand() % 300 - 150));
+        RootObject* obj = ou->theFactory->createRandomCharacter(boss->getFaction(), at, squad, tpl, 0, -1.0f);
+        Character* c = obj != 0 ? hand(obj).getCharacter() : 0;
+        if (c == 0)
+            continue;
+        SetSlaveState(c, IS_SLAVE);
+        c->changeSlaveOwner(hand(boss));
+        GiveShackles(c);
+        made++;
+    }
+    Trace("caravan: " + Num((float)have.size()) + " slave(s) with the caravan, " + Num((float)made) + " added");
+}
+
+// Creates the caravan SlaveCaravanSpawnDistance from the base, on the Slave Traders' side.
+static void SpawnCaravan(Faction* traders, TownBase* base)
+{
+    GameData* squadData = ou->gamedata.getData(g_cfg.caravanSquad, SQUAD_TEMPLATE);
+    if (squadData == 0)
+    {
+        Trace("caravan: squad template '" + g_cfg.caravanSquad + "' not found (SlaverMod.mod)");
+        ScheduleNextCaravan("no squad data");
+        return;
+    }
+    Ogre::Vector3 at = TownObject(base)->getPosition();
+    TownBase* home = traders->warMgr != 0 ? traders->warMgr->getNearestTown(at) : 0;
+    Ogre::Vector3 dir = home != 0 ? TownObject(home)->getPosition() - at : Ogre::Vector3(1.0f, 0.0f, 0.0f);
+    dir.y = 0.0f;
+    if (dir.length() < 1.0f)
+        dir = Ogre::Vector3(1.0f, 0.0f, 0.0f);
+    dir.normalise();
+    Ogre::Vector3 spawn = at + dir * g_cfg.caravanSpawnDistance;
+    Platoon* p = ou->theFactory->createRandomSquad(traders, spawn, base, 30, 0, squadData, 0, 0, 0, false, hand(), base, 1.0f, SQ_ROAMING, false);
+    if (p == 0)
+    {
+        Trace("caravan: the game did not create the squad");
+        ScheduleNextCaravan("squad not created");
+        return;
+    }
+    g_caravanSquad = hand(p);
+    g_caravanSquadID = p->stringID;
+    g_caravanState = CARAVAN_COMING;
+    g_caravanStateHour = GameHours();
+    g_caravanSlavesDone = false;
+    Trace("caravan: created " + Num(g_cfg.caravanSpawnDistance) + " units from '" + TownObject(base)->getName() + "' (towards '" +
+          (home != 0 ? TownObject(home)->getName() : std::string("?")) + "'), loaded=" + Num(p->getActivePlatoon() != 0));
+    ShowNotice(T("A slave caravan of the Slave Traders is coming to ", "Uma caravana de escravos dos Traficantes esta vindo para ") +
+               TownObject(base)->getName() + ".");
+}
+
+static void CaravanArrived(Character* boss, TownBase* base)
+{
+    g_caravanState = CARAVAN_HERE;
+    g_caravanStateHour = GameHours();
+    g_caravanLeaveHour = GameHours() + g_cfg.slaveCaravanStayHours;
+    EnsureCaravanSlaves(boss);
+    Trace("caravan: arrived at '" + TownObject(base)->getName() + "', stays " + Num(g_cfg.slaveCaravanStayHours) + " h");
+    ShowNotice(T("The slave caravan arrived. Talk to ", "A caravana de escravos chegou. Fale com ") + boss->getName() +
+               T(" to buy or sell slaves.", " para comprar ou vender escravos."));
+    Say(boss, "CaravanArrive", 0);
+    if (g_cfg.caravanCamera && ou->player->getCamera() != 0)
+        ou->player->getCamera()->focusCameraOnObject(boss, Ogre::Vector3(0.0f, 0.0f, 0.0f), false);
+}
+
+static Ogre::Vector3 g_caravanAwayPos(0.0f, 0.0f, 0.0f);   // where it walks when leaving
+static DWORD g_caravanLastLeaveOrder = 0;
+
+// Walks every standing member of the caravan to `where` (its AI only follows the leader).
+static void OrderCaravan(Platoon* squad, const Ogre::Vector3& where)
+{
+    ActivePlatoon* ap = squad != 0 ? squad->getActivePlatoon() : 0;
+    lektor<RootObject*>* things = ap != 0 ? ap->getThings() : 0;
+    for (uint32_t i = 0; things != 0 && i < things->size(); i++)
+    {
+        Character* c = things->stuff[i] != 0 ? hand(things->stuff[i]).getCharacter() : 0;
+        if (c != 0 && !c->isDead() && !c->medical.isUnconcious())
+            OrderMove(c, where);
+    }
+    g_caravanLastLeaveOrder = GetTickCount();
+}
+
+// The stay is over: the caravan walks off towards the Slave Traders' town and is removed
+// once far enough (see UpdateSlaveCaravan).
+static void CaravanLeaves(Faction* traders, TownBase* base)
+{
+    g_caravanState = CARAVAN_LEAVING;
+    g_caravanStateHour = GameHours();
+    Platoon* p = g_caravanSquad.getPlatoon();
+    TownBase* home = traders->warMgr != 0 && base != 0 ? traders->warMgr->getNearestTown(TownObject(base)->getPosition()) : 0;
+    if (base != 0)
+    {
+        Ogre::Vector3 at = TownObject(base)->getPosition();
+        Ogre::Vector3 dir = home != 0 ? TownObject(home)->getPosition() - at : Ogre::Vector3(1.0f, 0.0f, 0.0f);
+        dir.y = 0.0f;
+        if (dir.length() < 1.0f)
+            dir = Ogre::Vector3(1.0f, 0.0f, 0.0f);
+        dir.normalise();
+        g_caravanAwayPos = at + dir * (g_cfg.caravanSpawnDistance + 6000.0f);
+        if (p != 0)
+            OrderCaravan(p, g_caravanAwayPos);
+    }
+    Trace("caravan: leaving towards '" + (home != 0 ? TownObject(home)->getName() : std::string("?")) + "'");
+    ShowNotice(T("The slave caravan is packing up and leaving.", "A caravana de escravos esta arrumando as coisas e indo embora."));
+}
+
+// Removes the caravan squad (an NPC squad: nothing else keeps it).
+static void RemoveCaravan(Faction* traders, const std::string& why)
+{
+    Platoon* p = g_caravanSquad.getPlatoon();
+    if (p != 0)
+        traders->destroyPlatoon(p);
+    Trace("caravan: removed (" + why + ")");
+    ScheduleNextCaravan("visit over");
+}
+
+
+// While coming and staying, the caravan's AI may wander off: members too far from the base
+// are walked back to it (a spot near the base, around the boss's side).
+static void LeashCaravan(Platoon* squad, TownBase* base)
+{
+    ActivePlatoon* ap = squad->getActivePlatoon();
+    lektor<RootObject*>* things = ap != 0 ? ap->getThings() : 0;
+    if (things == 0)
+        return;
+    Ogre::Vector3 at = TownObject(base)->getPosition();
+    int moved = 0;
+    for (uint32_t i = 0; i < things->size(); i++)
+    {
+        Character* c = things->stuff[i] != 0 ? hand(things->stuff[i]).getCharacter() : 0;
+        if (c == 0 || c->isDead() || c->medical.isUnconcious())
+            continue;
+        Ogre::Vector3 off = c->getPosition() - at;
+        off.y = 0.0f;
+        float d = off.length();
+        if (d <= g_cfg.caravanLeash)
+            continue;
+        off *= (g_cfg.caravanArriveDistance * 0.5f) / d;
+        OrderMove(c, at + off);
+        moved++;
+    }
+    static DWORD lastLog = 0;
+    if (moved > 0 && GetTickCount() - lastLog > 30000)
+    {
+        lastLog = GetTickCount();
+        Trace("caravan: " + Num((float)moved) + " member(s) walked back to the base");
+    }
+}
+
+static void UpdateSlaveCaravan()
+{
+    if (!g_cfg.enabled || ou->factionMgr == 0 || ou->theFactory == 0 || GetTickCount() < g_nextCaravanCheck)
+        return;
+    g_nextCaravanCheck = GetTickCount() + 2000;
+    Faction* traders = SlaveTradersFaction();
+    if (traders == 0)
+        return;
+    TownBase* base = PlayerBase();
+    double now = GameHours();
+
+    if (g_caravanState == CARAVAN_NONE)
+    {
+        if (!g_cfg.slaveCaravan)
+            return;
+        if (base == 0)
+        {
+            if (!g_caravanNoBaseLogged)
+                Trace("caravan: the player has no base, no visit");
+            g_caravanNoBaseLogged = true;
+            return;
+        }
+        g_caravanNoBaseLogged = false;
+        if (g_caravanNextHour < 0.0)
+        {
+            ScheduleNextCaravan("first schedule in this save");
+            return;
+        }
+        if (traders->relations != 0 && traders->relations->isEnemy(PlayerFaction()))
+            return;
+        if (!g_caravanSoonNoticed && now >= g_caravanNextHour - 24.0)
+        {
+            g_caravanSoonNoticed = true;
+            ShowNotice(T("A slave caravan of the Slave Traders will visit ", "Uma caravana de escravos dos Traficantes vai visitar ") +
+                       TownObject(base)->getName() + T(" in about a day.", " em cerca de um dia."));
+        }
+        if (now >= g_caravanNextHour)
+            SpawnCaravan(traders, base);
+        return;
+    }
+
+    Platoon* squad = CaravanPlatoon(traders, base);
+    if (squad == 0)
+    {
+        // destroyed, or not found again after a load
+        if (now - g_caravanStateHour > 6.0)
+        {
+            Trace("caravan: squad not found");
+            ScheduleNextCaravan("squad gone");
+        }
+        return;
+    }
+    Character* boss = CaravanBoss(squad);
+    if (boss == 0)
+    {
+        // not loaded (far from your characters): its time still runs
+        if (g_caravanState == CARAVAN_HERE && now >= g_caravanLeaveHour)
+            CaravanLeaves(traders, base);
+        else if (g_caravanState == CARAVAN_LEAVING && now - g_caravanStateHour > 12.0)
+            RemoveCaravan(traders, "left while unloaded");
+        return;
+    }
+    g_caravanLastPos = boss->getPosition();
+    float dist = base != 0 ? (boss->getPosition() - TownObject(base)->getPosition()).length() : 1e9f;
+    if (g_caravanState == CARAVAN_COMING)
+    {
+        if (base == 0)
+            RemoveCaravan(traders, "base gone");
+        else if (dist < g_cfg.caravanArriveDistance || now - g_caravanStateHour > 12.0)
+            CaravanArrived(boss, base);
+        else if (GetTickCount() - g_caravanLastLeaveOrder > 10000)
+        {
+            // its AI does not walk: it is walked to a spot by the base, on its side
+            Ogre::Vector3 at = TownObject(base)->getPosition();
+            Ogre::Vector3 off = boss->getPosition() - at;
+            off.y = 0.0f;
+            if (off.length() > 1.0f)
+                off *= (g_cfg.caravanArriveDistance * 0.4f) / off.length();
+            OrderCaravan(squad, at + off);
+        }
+    }
+    else if (g_caravanState == CARAVAN_HERE)
+    {
+        if (now >= g_caravanLeaveHour || base == 0)
+            CaravanLeaves(traders, base);
+        else
+            LeashCaravan(squad, base);
+    }
+    else if (g_caravanState == CARAVAN_LEAVING)
+    {
+        if (dist > g_cfg.caravanSpawnDistance + 4000.0f || now - g_caravanStateHour > 12.0)
+            RemoveCaravan(traders, "left");
+        else if (GetTickCount() - g_caravanLastLeaveOrder > 10000)
+            OrderCaravan(squad, g_caravanAwayPos);   // keep them walking off
+    }
+}
+
+// Test key: the caravan comes now, or leaves now if it is here.
+static void TestCaravanNow()
+{
+    if (g_caravanState == CARAVAN_NONE)
+    {
+        g_caravanNextHour = GameHours();
+        Trace("caravan test: visit now");
+        ShowNotice(T("Test: the slave caravan comes now.", "Teste: a caravana de escravos vem agora."));
+    }
+    else if (g_caravanState == CARAVAN_HERE)
+    {
+        g_caravanLeaveHour = GameHours();
+        Trace("caravan test: leave now");
+        ShowNotice(T("Test: the slave caravan leaves now.", "Teste: a caravana de escravos vai embora agora."));
+    }
+    g_nextCaravanCheck = 0;
+}
+
+// ---------------------------------------------------------------------------
+// Shackles forbid running (ShacklesNoRunning): the movement of your shackled slaves never asks
+// for more than walking. The movers are listed once a second; the hooks only look them up.
+// ---------------------------------------------------------------------------
+
+static std::set<AbstractMovementBase*> g_walkOnly;
+static DWORD g_nextWalkOnlyUpdate = 0;
+
+static void UpdateWalkOnly()
+{
+    if (GetTickCount() < g_nextWalkOnlyUpdate)
+        return;
+    g_nextWalkOnlyUpdate = GetTickCount() + 1000;
+    g_walkOnly.clear();
+    if (!g_cfg.enabled || !g_cfg.shacklesNoRunning)
+        return;
+    const lektor<Character*>& all = ou->player->getAllPlayerCharacters();
+    for (uint32_t i = 0; i < all.size(); i++)
+    {
+        Character* c = all.stuff[i];
+        if (c != 0 && c->movement != 0 && !c->isDead() && IsOurSlave(c) && WearsLegRestraints(c))
+        {
+            AbstractMovementBase* m = c->movement;   // CharMovement derives from it first
+            if (m->getSpeedOrders() > WALK)
+                m->setDesiredSpeedOrders(WALK);
+            g_walkOnly.insert(m);
+        }
+    }
+}
+
+static MoveSpeed CapSpeed(AbstractMovementBase* m, MoveSpeed speed)
+{
+    return (speed == JOG || speed == RUN) && !g_walkOnly.empty() && g_walkOnly.count(m) ? WALK : speed;
+}
+
+static float CapSpeed(AbstractMovementBase* m, float speed)
+{
+    if (g_walkOnly.empty() || !g_walkOnly.count(m))
+        return speed;
+    float walk = m->getStandardWalkSpeed();
+    return walk > 0.0f && speed > walk ? walk : speed;
+}
+
+void (*Move_setDesiredSpeed_orig)(AbstractMovementBase*, MoveSpeed) = NULL;
+void Move_setDesiredSpeed_hook(AbstractMovementBase* thisptr, MoveSpeed speed)
+{
+    Move_setDesiredSpeed_orig(thisptr, CapSpeed(thisptr, speed));
+}
+
+void (*Move_setDesiredSpeedF_orig)(AbstractMovementBase*, float) = NULL;
+void Move_setDesiredSpeedF_hook(AbstractMovementBase* thisptr, float speed)
+{
+    Move_setDesiredSpeedF_orig(thisptr, CapSpeed(thisptr, speed));
+}
+
+void (*Move_setDesiredSpeedOrders_orig)(AbstractMovementBase*, MoveSpeed) = NULL;
+void Move_setDesiredSpeedOrders_hook(AbstractMovementBase* thisptr, MoveSpeed speed)
+{
+    Move_setDesiredSpeedOrders_orig(thisptr, CapSpeed(thisptr, speed));
+}
+
+void (*Move_setDesiredSpeedOrdersF_orig)(AbstractMovementBase*, float) = NULL;
+void Move_setDesiredSpeedOrdersF_hook(AbstractMovementBase* thisptr, float speed)
+{
+    Move_setDesiredSpeedOrdersF_orig(thisptr, CapSpeed(thisptr, speed));
+}
+
 void GameWorld_update_hook(GameWorld* thisptr, float time)
 {
     if (GameWorld_update_orig)
@@ -4123,6 +4665,8 @@ void GameWorld_update_hook(GameWorld* thisptr, float time)
         UpdateRebels(time);
         UpdateEscapees(time);
         UpdateEscorts(time);
+        UpdateSlaveCaravan();
+        UpdateWalkOnly();
         WatchMembers(time, false);
         CalibrateTime(time);
     }
@@ -4268,7 +4812,7 @@ static void UpdateTradeInfo()
         g_tradeAll->setCaption(count > 0 && count == (int)g_tradeOffers.size() ? T("CLEAR", "DESMARCAR") : T("SELECT ALL", "MARCAR TODOS"));
     if (g_tradeOffers.empty())
         text = (g_tradeBuying ? T("The trader has no slaves for sale here.", "O traficante nao tem escravos a venda aqui.")
-                              : T("You have no slaves to sell.", "Voce nao tem escravos para vender.")) + "   " + text;
+                              : T("You have no slaves near the trader to sell.", "Voce nao tem escravos perto do traficante para vender.")) + "   " + text;
     g_tradeInfo->setCaption(text);
 }
 
@@ -4276,6 +4820,15 @@ static std::string RowName(const TradeOffer& o)
 {
     Character* c = o.who.getCharacter();
     return std::string(o.marked ? "[X] " : "[  ] ") + (c != 0 ? c->getName() : std::string("?"));
+}
+
+// " (woman)" / " (man)" after the race in the trade window; nothing for single-sex races.
+static std::string SexMark(Character* c)
+{
+    RaceData* race = c->getRace();
+    if (race != 0 && race->singleGender)
+        return "";
+    return c->isFemale() ? T(" (woman)", " (mulher)") : T(" (man)", " (homem)");
 }
 
 static void FillTradeList()
@@ -4290,10 +4843,15 @@ static void FillTradeList()
         FindSlavesForSale(trader, people);
     else
     {
+        // only the slaves around the trader, like the ones for sale (not those at a far base)
         const lektor<Character*>& all = ou->player->getAllPlayerCharacters();
         for (uint32_t i = 0; i < all.size(); i++)
-            if (IsOurSlave(all.stuff[i]) && !all.stuff[i]->isDead())
-                people.push_back(all.stuff[i]);
+        {
+            Character* c = all.stuff[i];
+            if (c != 0 && IsOurSlave(c) && !c->isDead() &&
+                (c->getPosition() - trader->getPosition()).length() <= g_cfg.tradeRadius)
+                people.push_back(c);
+        }
     }
     for (size_t i = 0; i < people.size(); i++)
     {
@@ -4306,7 +4864,7 @@ static void FillTradeList()
         float sub = g_tradeBuying ? TraitsOf(c).start + g_cfg.tradeBoughtBonus : SubmissionOf(c);
         size_t row = g_tradeList->getItemCount();
         g_tradeList->addItem(RowName(o));
-        g_tradeList->setSubItemNameAt(1, row, TraitsOf(c).name);
+        g_tradeList->setSubItemNameAt(1, row, TraitsOf(c).name + SexMark(c));
         g_tradeList->setSubItemNameAt(2, row, Num((float)(int)StatOf(c, STAT_STRENGTH)));
         g_tradeList->setSubItemNameAt(3, row, Num((float)(int)StatOf(c, STAT_TOUGHNESS)));
         g_tradeList->setSubItemNameAt(4, row, Num((float)(int)StatOf(c, STAT_MELEE_ATTACK)));
@@ -4383,6 +4941,13 @@ static void GivePlayerMoney(int amount)
 // Squads of ours (named SquadName) that a sale emptied are deleted.
 static void RemoveEmptySlaveSquads(const std::set<ActivePlatoon*>& squads)
 {
+    // SquadAutonomy (also inside Second Life of Kenshi) keeps every player squad and crashes the
+    // game on the next save if one is destroyed under it: then the empty squad is left alone.
+    if (GetModuleHandleA("SquadAutonomy.dll") != 0)
+    {
+        Trace("trade: SquadAutonomy loaded, empty slave squads are kept (deleting them crashes it on save)");
+        return;
+    }
     Faction* pf = PlayerFaction();
     for (std::set<ActivePlatoon*>::const_iterator it = squads.begin(); it != squads.end(); ++it)
     {
@@ -4968,6 +5533,10 @@ void SaveManager_newGame_hook(SaveManager* thisptr, const std::string& startId)
 {
     ResetWorldState("new game");
     g_records.clear();
+    g_caravanState = 0;
+    g_caravanNextHour = -1.0;
+    g_caravanLeaveHour = -1.0;
+    g_caravanSquadID.clear();
     g_lastKey.clear();
     g_recordsSave = "";
     g_recordsReady = true;
@@ -5076,6 +5645,9 @@ extern "C" __declspec(dllexport) void MCM_Describe(MCM_Api* api)
     api->section(api, L("Slaves", "Escravos"));
     api->toggle(api, sec, "GiveShackles", L("Shackles", "Grilhões"),
                 L("Slaves get locked shackles; freeing removes them.", "O escravo ganha grilhões trancados; ao ser liberto eles somem."), 1, 0);
+    api->toggle(api, sec, "ShacklesNoRunning", L("Shackles forbid running", "Grilhões impedem correr"),
+                L("Your slaves with shackles on the legs or body can only walk (a collar does not count).",
+                  "Seus escravos com grilhões nas pernas ou no corpo só conseguem andar (coleira não conta)."), 1, 0);
     api->toggle(api, sec, "BanWeapons", L("Ban weapons", "Proibir armas"),
                 L("Slaves drop any equipped weapon.", "Escravos largam qualquer arma equipada."), 1, 0);
     // SlaveEscort=0 in old ini files still turns it off; here it is the "off" choice
@@ -5092,7 +5664,15 @@ extern "C" __declspec(dllexport) void MCM_Describe(MCM_Api* api)
                   "Animais e criaturas podem ser escravizados e vendidos. Eles mesmos nunca escravizam, punem nem libertam ninguém."), 0, 0);
     api->toggle(api, sec, "SlaveAIJob", L("Native slave work", "Trabalho escravo nativo"),
                 L("Turns on the game's slave work behaviour. Experimental.", "Liga o comportamento de trabalho escravo do jogo. Experimental."), 0, 0);
-    api->text(api, sec, "ShackleItem", L("Shackles (ID)", "Grilhão (ID)"), L("Shackles item used.", "Item de grilhão usado."), "SHACKLES", 0);
+    // the neck collar comes from Macropod's "Slave dress" mod; without it, the shackles are used
+    static const char* const restraintValues[] = { "SHACKLES", "21-Slave dress.mod" };
+    std::string restraintShackles = T("Prisoner shackles", "Grilhões de prisioneiro");
+    std::string restraintCollar = T("Slave collar on the neck (Slave dress mod)", "Coleira de escravo no pescoço (mod Slave dress)");
+    const char* restraintLabels[] = { restraintShackles.c_str(), restraintCollar.c_str() };
+    api->choice(api, sec, "ShackleItem", L("Restraint", "Restrição"),
+                L("What new slaves get locked on. Any locked item counts as a restraint for SlaverMod; other item IDs can be set in SlaverMod.ini.",
+                  "O que é trancado nos novos escravos. Qualquer item trancado conta como restrição para o SlaverMod; outros IDs de item podem ser postos no SlaverMod.ini."),
+                "SHACKLES", restraintValues, restraintLabels, 2, 0);
     api->text(api, sec, "ShackleItemAlt", L("Alternative shackles (ID)", "Grilhão alternativo (ID)"),
               L("Used when the first one does not fit (e.g. hivers).", "Usado quando o primeiro não serve (ex.: colmeia)."), "SHACKLES-BODY", 0);
 
@@ -5162,6 +5742,14 @@ extern "C" __declspec(dllexport) void MCM_Describe(MCM_Api* api)
     api->section(api, L("Slave trade", "Comércio de escravos"));
     api->toggle(api, sec, "TradeWindow", L("SlaverMod trade window", "Janela de comércio do SlaverMod"),
                 L("Replaces the game's buy / sell slave windows at slave traders.", "Substitui as janelas de compra e venda de escravos dos traficantes."), 1, 0);
+    api->toggle(api, sec, "SlaveCaravan", L("Slave caravan", "Caravana de escravos"),
+                L("The Slave Traders send a caravan to your base to buy and sell slaves. A message warns you a day before.",
+                  "Os Traficantes de Escravos mandam uma caravana para a sua base para comprar e vender escravos. Uma mensagem avisa um dia antes."), 1, 0);
+    api->number(api, sec, "SlaveCaravanDays", L("Slave caravan: days between visits", "Caravana de escravos: dias entre visitas"),
+                L("Counted from when the last caravan leaves. A new value counts from the next visit.",
+                  "Contados a partir de quando a última caravana vai embora. Um valor novo vale a partir da próxima visita."), 7.0f, 0.5f, 60.0f, 1, 0);
+    api->number(api, sec, "SlaveCaravanStayHours", L("Slave caravan: hours at your base", "Caravana de escravos: horas na sua base"),
+                L("Game hours the caravan stays after it arrives, then it leaves.", "Horas de jogo que a caravana fica depois de chegar; depois ela vai embora."), 6.0f, 1.0f, 96.0f, 0, 0);
     api->toggle(api, sec, "ProtectSlaves", L("Other slavers leave your slaves alone", "Outros escravistas deixam seus escravos em paz"),
                 L("Slavers of other factions no longer try to process, cage or ship your slaves.", "Escravistas de outras facções deixam de tentar processar, prender ou levar seus escravos."), 1, 0);
     api->toggle(api, sec, "AllowStealingSlaves", L("Allow stealing slaves", "Permitir roubar escravos"),
@@ -5243,7 +5831,7 @@ __declspec(dllexport) void startPlugin()
     LoadLines();
     ParseHotkey();
     srand(GetTickCount());
-    Trace("startPlugin v1.15");
+    Trace("startPlugin v1.16");
 
     if (KenshiLib::SUCCESS != KenshiLib::AddHook(KenshiLib::GetRealAddress(&GameWorld::_NV_mainLoop_GPUSensitiveStuff), GameWorld_update_hook, (void**)&GameWorld_update_orig))
         ErrorLog("SlaverMod: could not add GameWorld update hook!");
@@ -5281,6 +5869,14 @@ __declspec(dllexport) void startPlugin()
         ErrorLog("SlaverMod: could not add dialogue condition hook!");
     if (KenshiLib::SUCCESS != KenshiLib::AddHook(KenshiLib::GetRealAddress(&SaveManager::newGame), SaveManager_newGame_hook, (void**)&SaveManager_newGame_orig))
         ErrorLog("SlaverMod: could not add new game hook!");
+    if (KenshiLib::SUCCESS != KenshiLib::AddHook(KenshiLib::GetRealAddress(&AbstractMovementBase::_NV_setDesiredSpeed), Move_setDesiredSpeed_hook, (void**)&Move_setDesiredSpeed_orig))
+        ErrorLog("SlaverMod: could not add speed hook 1!");
+    if (KenshiLib::SUCCESS != KenshiLib::AddHook(KenshiLib::GetRealAddress(static_cast<void (AbstractMovementBase::*)(float)>(&AbstractMovementBase::setDesiredSpeed)), Move_setDesiredSpeedF_hook, (void**)&Move_setDesiredSpeedF_orig))
+        ErrorLog("SlaverMod: could not add speed hook 2!");
+    if (KenshiLib::SUCCESS != KenshiLib::AddHook(KenshiLib::GetRealAddress(static_cast<void (AbstractMovementBase::*)(MoveSpeed)>(&AbstractMovementBase::setDesiredSpeedOrders)), Move_setDesiredSpeedOrders_hook, (void**)&Move_setDesiredSpeedOrders_orig))
+        ErrorLog("SlaverMod: could not add speed hook 3!");
+    if (KenshiLib::SUCCESS != KenshiLib::AddHook(KenshiLib::GetRealAddress(static_cast<void (AbstractMovementBase::*)(float)>(&AbstractMovementBase::setDesiredSpeedOrders)), Move_setDesiredSpeedOrdersF_hook, (void**)&Move_setDesiredSpeedOrdersF_orig))
+        ErrorLog("SlaverMod: could not add speed hook 4!");
     if (KenshiLib::SUCCESS != KenshiLib::AddHook(KenshiLib::GetRealAddress(&TitleScreen::_NV_update), TitleScreen_update_hook, (void**)&TitleScreen_update_orig))
         ErrorLog("SlaverMod: could not add title screen hook!");
     if (KenshiLib::SUCCESS != KenshiLib::AddHook(KenshiLib::GetRealAddress(&NewGameWindow::setVisible), NewGameWindow_setVisible_hook, (void**)&NewGameWindow_setVisible_orig))

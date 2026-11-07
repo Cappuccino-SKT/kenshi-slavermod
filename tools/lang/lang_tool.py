@@ -33,8 +33,10 @@ CPP = os.path.join(REPO, 'SlaverMod.cpp')
 MOD = os.path.join(REPO, 'mod', 'SlaverMod', 'SlaverMod.mod')
 LANG = os.path.join(REPO, 'mod', 'SlaverMod', 'lang')
 INFO_KEYS = ['name', 'squad', 'author']
-# record types whose texts players see: 1 CHARACTER (names), 64 NEW_GAME_STARTOFF (game start)
-MOD_TYPES = {1: ['name'], 64: ['name', 'description', 'difficulty', 'style']}
+# record types whose texts players see: 1 CHARACTER (names), 64 NEW_GAME_STARTOFF (game start),
+# 93 FACTION_CAMPAIGN (the name in the faction screen's events)
+MOD_TYPES = {1: ['name'], 64: ['name', 'description', 'difficulty', 'style'], 93: ['display name'],
+             19: ['text0', 'text1', 'text2']}
 
 LIT = r'"((?:[^"\\]|\\.)*)"'
 

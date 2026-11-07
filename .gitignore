@@ -23,3 +23,6 @@ __pycache__/
 
 # merge backups of translation files
 mod/SlaverMod/lang/*.bak
+
+# third-party mods kept here for testing (not ours to publish)
+Slave dress/
