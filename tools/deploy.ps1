@@ -3,7 +3,8 @@
 #   -Build   runs tools\build_plugin.bat first
 # The game must be closed: Windows locks the loaded DLL.
 # SlaverMod.mod (game data: records such as game starts) and lang\*.txt (translations) always come from the repository.
-# SlaverMod.ini, SlaverMod_races.ini and SlaverMod_lines.ini are only copied when the game folder has none, so personal settings survive.
+# SlaverMod.ini (defaults) is always copied; personal settings are in SlaverMod_user.ini, never touched.
+# SlaverMod_races.ini and SlaverMod_lines.ini are only copied when the game folder has none.
 # The previous SlaverMod_trace.log is moved to local\logs (gitignored) with a timestamp.
 param(
     [string]$KenshiDir = $(if ($env:KENSHI_DIR) { $env:KENSHI_DIR } else { 'C:\Program Files (x86)\Steam\steamapps\common\Kenshi' }),
@@ -38,8 +39,15 @@ if (Test-Path $trace) {
 Copy-Item $dll $dest -Force
 Copy-Item (Join-Path $repo 'mod\SlaverMod\RE_Kenshi.json') $dest -Force
 Copy-Item (Join-Path $repo 'mod\SlaverMod\SlaverMod.mod') $dest -Force
+# SlaverMod.ini holds the defaults (like a Workshop update, always replaced); personal settings live in
+# SlaverMod_user.ini, which is never shipped. A personal SlaverMod.ini from before 1.17 becomes the user file once.
 $ini = Join-Path $dest 'SlaverMod.ini'
-if (-not (Test-Path $ini)) { Copy-Item (Join-Path $repo 'mod\SlaverMod\SlaverMod.ini') $dest }
+$userIni = Join-Path $dest 'SlaverMod_user.ini'
+if ((Test-Path $ini) -and -not (Test-Path $userIni)) {
+    Copy-Item $ini $userIni
+    Write-Host 'Personal SlaverMod.ini kept as SlaverMod_user.ini'
+}
+Copy-Item (Join-Path $repo 'mod\SlaverMod\SlaverMod.ini') $dest -Force
 $races = Join-Path $dest 'SlaverMod_races.ini'
 if (-not (Test-Path $races)) { Copy-Item (Join-Path $repo 'mod\SlaverMod\SlaverMod_races.ini') $dest }
 $lines = Join-Path $dest 'SlaverMod_lines.ini'

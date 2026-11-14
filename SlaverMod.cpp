@@ -407,7 +407,9 @@ struct Settings
     float escapeShackledMult;
     std::string escapeFaction;         // used when the slave's origin is unknown
     bool escapeMarkEscaped;            // native ESCAPING_SLAVE state (slavers recognise runaways)
-    bool escapeRemoveShackles;         // runaways get out of their shackles
+    std::string shacklesComeOff;       // runaways and rebels: always | skill | never
+    float shackleBreakStrength;        // skill: strength that breaks the shackles
+    float shackleBreakLockpicking;     // skill: lockpicking that opens them
     std::string escapeGoal;            // forced | run_away | total | hometown
     float escapeSafeDistance;
     float escapeRecapturePenalty;
@@ -467,9 +469,21 @@ struct Settings
 
 static Settings g_cfg;
 
+// Settings live in two files: SlaverMod.ini ships with the mod (defaults, replaced by every Workshop
+// update) and SlaverMod_user.ini holds the player's choices (MCM writes there; the mod never ships it,
+// so updates keep it). A key in the user file wins.
+static std::string UserIniPath()
+{
+    return g_modDir + "SlaverMod_user.ini";
+}
+
 static std::string IniString(const char* key, const char* def)
 {
     char buf[512] = {0};
+    const char* unset = "\x01unset";
+    GetPrivateProfileStringA("SlaverMod", key, unset, buf, sizeof(buf), UserIniPath().c_str());
+    if (strcmp(buf, unset) != 0)
+        return buf;
     GetPrivateProfileStringA("SlaverMod", key, def, buf, sizeof(buf), (g_modDir + "SlaverMod.ini").c_str());
     return buf;
 }
@@ -546,7 +560,9 @@ static void LoadSettings()
     g_cfg.escapeShackledMult = IniFloat("EscapeShackledMult", 0.5f);
     g_cfg.escapeFaction = IniString("EscapeFaction", "51707-rebirth.mod");
     g_cfg.escapeMarkEscaped = IniBool("EscapeMarkEscaped", true);
-    g_cfg.escapeRemoveShackles = IniBool("EscapeRemoveShackles", true);
+    g_cfg.shacklesComeOff = IniString("ShacklesComeOff", "skill");
+    g_cfg.shackleBreakStrength = IniFloat("ShackleBreakStrength", 50.0f);
+    g_cfg.shackleBreakLockpicking = IniFloat("ShackleBreakLockpicking", 40.0f);
     g_cfg.escapeGoal = IniString("EscapeGoal", "forced");
     g_cfg.escapeSafeDistance = IniFloat("EscapeSafeDistance", 1500.0f);
     g_cfg.escapeRecapturePenalty = IniFloat("EscapeRecapturePenalty", 10.0f);
@@ -654,7 +670,7 @@ static void LoadSettings()
           " rebelMax=" + Num(g_cfg.rebelMaxSubmission) + " supervision=" + Num(g_cfg.supervisionEnabled) + "/" + Num(g_cfg.supervisionRange) +
           " unwatchedLoss=" + Num(g_cfg.submissionUnsupervisedLoss) + " escape=" + Num(g_cfg.escapeEnabled) + " max=" + Num(g_cfg.escapeMaxSubmission) +
           " daily=" + Num(g_cfg.escapeDailyChance) + " watched=" + Num(g_cfg.escapeSupervisedMult) + " shackled=" + Num(g_cfg.escapeShackledMult) +
-          " faction=" + g_cfg.escapeFaction + " mark=" + Num(g_cfg.escapeMarkEscaped) + " unshackle=" + Num(g_cfg.escapeRemoveShackles) + " goal=" + g_cfg.escapeGoal +
+          " faction=" + g_cfg.escapeFaction + " mark=" + Num(g_cfg.escapeMarkEscaped) + " unshackle=" + g_cfg.shacklesComeOff + " goal=" + g_cfg.escapeGoal +
           " safe=" + Num(g_cfg.escapeSafeDistance) + " recapture=" + Num(g_cfg.escapeRecapturePenalty) + " forget=" + Num(g_cfg.escapeForgetDays) + " freeStay=" + Num(g_cfg.freeStayMinSubmission) + " freedAI=" + g_cfg.freedSquadTemplate + " escapeAI=" + g_cfg.escapeSquadTemplate + " soldAI=" + g_cfg.soldSquadTemplate +
           " thrallRace=" + g_cfg.thrallRace + " limbPenalty=" + Num(g_cfg.tradeMissingLimbPenalty) +
           " punish=" + Num(g_cfg.punishEnabled) + "/" + Num(g_cfg.punishSubmission) + "/" + Num(g_cfg.punishDamage) + "/" + Num(g_cfg.punishCooldownDays) +
@@ -3627,6 +3643,24 @@ static float StrengthOf(Character* c)
     return stats != 0 ? stats->getStat(STAT_STRENGTH, true) : 0.0f;
 }
 
+// Runaways and rebels get out of their shackles (ShacklesComeOff): always, never, or only the strong
+// enough to break them or the skilled enough to pick the lock (skill).
+static bool GetsOutOfShackles(Character* c)
+{
+    if (g_cfg.shacklesComeOff == "always")
+        return true;
+    if (g_cfg.shacklesComeOff == "never")
+        return false;
+    CharStats* stats = c->getStats();
+    if (stats == 0)
+        return false;
+    float str = stats->getStat(STAT_STRENGTH, true);
+    float lock = stats->getStat(STAT_LOCKPICKING, true);
+    bool out = str >= g_cfg.shackleBreakStrength || lock >= g_cfg.shackleBreakLockpicking;
+    Trace("shackles: '" + c->getName() + "' str=" + Num(str) + " lockpicking=" + Num(lock) + (out ? " gets out" : " stays shackled"));
+    return out;
+}
+
 static double GameDays()
 {
     return ou->getTimeStamp_inGameHours().getTotalDays();
@@ -3691,7 +3725,8 @@ static void StartRebellion(const std::vector<Character*>& rebels)
         c->setSlaveAIJob(false);
         SetSlaveState(c, NOT_SLAVE);
         c->changeSlaveOwner(hand());
-        RemoveShackles(c);
+        if (GetsOutOfShackles(c))
+            RemoveShackles(c);
         if (c->isChainedMode())
             c->setChainedMode(false, hand());
         c->setFaction(rebelFaction, squad);
@@ -3920,7 +3955,7 @@ static void StartEscape(Character* c, const char* why)
     c->setFaction(f, squad);
     SetSlaveState(c, g_cfg.escapeMarkEscaped ? ESCAPING_SLAVE : NOT_SLAVE);
     Trace("escape: AI template " + (ai != 0 ? g_cfg.escapeSquadTemplate : std::string("none")));
-    if (g_cfg.escapeRemoveShackles)
+    if (GetsOutOfShackles(c))
         RemoveShackles(c);   // they got out of them to run
 
     // a home for the new squad, so the game's own AI has somewhere to take them
@@ -4564,17 +4599,60 @@ static void UpdateWalkOnly()
     g_walkOnly.clear();
     if (!g_cfg.enabled || !g_cfg.shacklesNoRunning)
         return;
+    // your slaves and every runaway slave (ESCAPING_SLAVE, yours or anyone's) still in leg shackles
+    std::vector<Character*> movers;
+    std::vector<Ogre::Vector3> spots;   // where your people are, 1500 apart: runaways nearby are checked
     const lektor<Character*>& all = ou->player->getAllPlayerCharacters();
     for (uint32_t i = 0; i < all.size(); i++)
     {
         Character* c = all.stuff[i];
-        if (c != 0 && c->movement != 0 && !c->isDead() && IsOurSlave(c) && WearsLegRestraints(c))
+        if (c == 0 || c->isDead())
+            continue;
+        movers.push_back(c);
+        Ogre::Vector3 p = c->getPosition();
+        bool seen = false;
+        for (size_t k = 0; k < spots.size() && !seen; k++)
+            seen = spots[k].squaredDistance(p) < 1500.0f * 1500.0f;
+        if (!seen && spots.size() < 8)
+            spots.push_back(p);
+    }
+    const lektor<Faction*>& factions = ou->factionMgr->participants;
+    for (uint32_t i = 0; i < factions.size(); i++)
+    {
+        Faction* f = factions.stuff[i];
+        if (f == 0 || f == PlayerFaction())
+            continue;
+        for (size_t k = 0; k < spots.size(); k++)
         {
-            AbstractMovementBase* m = c->movement;   // CharMovement derives from it first
-            if (m->getSpeedOrders() > WALK)
-                m->setDesiredSpeedOrders(WALK);
-            g_walkOnly.insert(m);
+            lektor<RootObject*> found;
+            f->getCharactersInArea(found, spots[k], 3000.0f, false);
+            for (uint32_t j = 0; j < found.size(); j++)
+            {
+                Character* c = found.stuff[j] != 0 ? hand(found.stuff[j]).getCharacter() : 0;
+                if (c != 0 && !c->isDead() && c->isSlave() == ESCAPING_SLAVE)
+                    movers.push_back(c);
+            }
         }
+    }
+    std::set<Character*> rebels;   // rebels who could not get out of their shackles
+    for (size_t i = 0; i < g_rebels.size(); i++)
+    {
+        Character* c = g_rebels[i].getCharacter();
+        if (c != 0 && !c->isDead())
+        {
+            movers.push_back(c);
+            rebels.insert(c);
+        }
+    }
+    for (size_t i = 0; i < movers.size(); i++)
+    {
+        Character* c = movers[i];
+        if (c->movement == 0 || !(c->isSlave() == ESCAPING_SLAVE || rebels.count(c) || IsOurSlave(c)) || !WearsLegRestraints(c))
+            continue;
+        AbstractMovementBase* m = c->movement;   // CharMovement derives from it first
+        if (m->getSpeedOrders() > WALK)
+            m->setDesiredSpeedOrders(WALK);
+        g_walkOnly.insert(m);
     }
 }
 
@@ -5545,7 +5623,7 @@ void SaveManager_newGame_hook(SaveManager* thisptr, const std::string& startId)
 
 // ---------------------------------------------------------------------------
 // ModConfigMenu (optional): an in-game settings page in Options > MCM.
-// MCM writes SlaverMod.ini and calls ReloadSettings; without MCM nothing changes.
+// MCM writes SlaverMod_user.ini and calls ReloadSettings; without MCM nothing changes.
 // ---------------------------------------------------------------------------
 
 static void __cdecl ReloadSettings()
@@ -5558,7 +5636,7 @@ static void __cdecl ReloadSettings()
 
 extern "C" __declspec(dllexport) void MCM_Describe(MCM_Api* api)
 {
-    static const std::string ini = g_modDir + "SlaverMod.ini";   // must outlive the call
+    static const std::string ini = UserIniPath();   // must outlive the call
     const char* const sec = "SlaverMod";
 #define L(en, pt) T(en, pt).c_str()
 
@@ -5646,8 +5724,8 @@ extern "C" __declspec(dllexport) void MCM_Describe(MCM_Api* api)
     api->toggle(api, sec, "GiveShackles", L("Shackles", "Grilhões"),
                 L("Slaves get locked shackles; freeing removes them.", "O escravo ganha grilhões trancados; ao ser liberto eles somem."), 1, 0);
     api->toggle(api, sec, "ShacklesNoRunning", L("Shackles forbid running", "Grilhões impedem correr"),
-                L("Your slaves with shackles on the legs or body can only walk (a collar does not count).",
-                  "Seus escravos com grilhões nas pernas ou no corpo só conseguem andar (coleira não conta)."), 1, 0);
+                L("Slaves, runaways and rebels with shackles on the legs or body can only walk (a collar does not count).",
+                  "Escravos, fugitivos e rebeldes com grilhões nas pernas ou no corpo só conseguem andar (coleira não conta)."), 1, 0);
     api->toggle(api, sec, "BanWeapons", L("Ban weapons", "Proibir armas"),
                 L("Slaves drop any equipped weapon.", "Escravos largam qualquer arma equipada."), 1, 0);
     // SlaveEscort=0 in old ini files still turns it off; here it is the "off" choice
@@ -5713,8 +5791,20 @@ extern "C" __declspec(dllexport) void MCM_Describe(MCM_Api* api)
                    "Depois disso, um fugitivo capturado conta como escravo novo. 0 = nunca. Fugitivos mortos são sempre esquecidos."), 30, 0, 365, 0);
     api->integer(api, sec, "EscapeSafeDistance", L("Runaway safe distance", "Distância segura do fugitivo"),
                  L("Runaways flee until your nearest member is this far.", "O fugitivo corre até seu membro mais próximo estar a esta distância."), 1500, 200, 10000, 0);
-    api->toggle(api, sec, "EscapeRemoveShackles", L("Runaways lose the shackles", "Fugitivo perde os grilhões"),
-                L("Off: they run away still wearing them.", "Desligado: ele foge ainda com eles."), 1, 0);
+    static const char* offValues[] = { "skill", "always", "never" };
+    static std::string offLabels[3];
+    static const char* offLabelPtrs[3];
+    offLabels[0] = T("Strong or skilled only", "Só os fortes ou habilidosos");
+    offLabels[1] = T("Always", "Sempre");
+    offLabels[2] = T("Never", "Nunca");
+    for (int i = 0; i < 3; i++)
+        offLabelPtrs[i] = offLabels[i].c_str();
+    api->choice(api, sec, "ShacklesComeOff", L("Runaways and rebels get out of shackles", "Fugitivos e rebeldes se livram dos grilhões"),
+                L("Strong or skilled only: those with the strength to break them or the lockpicking to open them. The others keep them, and leg shackles keep them walking.",
+                  "Só os fortes ou habilidosos: quem tem força para quebrar ou arrombamento para abrir. Os outros ficam com eles, e grilhões nas pernas os mantêm andando."),
+                "skill", offValues, offLabelPtrs, 3, 0);
+    api->integer(api, sec, "ShackleBreakStrength", L("Strength to break shackles", "Força para quebrar grilhões"), NULL, 50, 1, 100, 0);
+    api->integer(api, sec, "ShackleBreakLockpicking", L("Lockpicking to open shackles", "Arrombamento para abrir grilhões"), NULL, 40, 1, 100, 0);
     api->text(api, sec, "EscapeFaction", L("Runaway faction if origin unknown (ID)", "Facção do fugitivo sem origem (ID)"), NULL, "51707-rebirth.mod", 0);
 
     api->section(api, L("Punishment and reward", "Punição e recompensa"));
@@ -5831,7 +5921,7 @@ __declspec(dllexport) void startPlugin()
     LoadLines();
     ParseHotkey();
     srand(GetTickCount());
-    Trace("startPlugin v1.16");
+    Trace("startPlugin v1.17");
 
     if (KenshiLib::SUCCESS != KenshiLib::AddHook(KenshiLib::GetRealAddress(&GameWorld::_NV_mainLoop_GPUSensitiveStuff), GameWorld_update_hook, (void**)&GameWorld_update_orig))
         ErrorLog("SlaverMod: could not add GameWorld update hook!");

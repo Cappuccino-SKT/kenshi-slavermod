@@ -9,10 +9,10 @@ A RE_Kenshi plugin that lets your faction own slaves, using Kenshi's own slave s
 [*][b]Enslave from the right-click menu.[/b] Hold the right mouse button over an unconscious, chained or caged person: the selected member walks over, kneels and puts locked shackles on them. Other factions' slaves are their owners' property. Anyone who sees it treats it as kidnapping.
 [*][b]Submission (0-100):[/b] Defiant, Restless, Obedient or Loyal, shown over the selected slave and saved with each save. Watched slaves slowly get used to it; cages break them faster.
 [*][b]Races differ:[/b] hive drones obey, Shek resist, the QueenBirth Hive Queen almost never submits (SlaverMod_races.ini).
-[*][b]Supervision and escape:[/b] slaves left without a free member nearby lose submission and may run away. Knock them out to recapture them.
+[*][b]Supervision and escape:[/b] slaves left without a free member nearby lose submission and may run away. Knock them out to recapture them. Only the strong or skilled get out of their shackles; the others can only walk.
 [*][b]Punish and Reward[/b] in the same menu: a beating (+submission, some damage) or a few cats.
 [*][b]Freeing:[/b] slaves with 90+ submission stay in your faction; the others go home.
-[*][b]Rebellion:[/b] every 7 days, if the defiant slaves are stronger than your free members, they may rise up, grab iron clubs and attack.
+[*][b]Rebellion:[/b] every 7 days, if the defiant slaves are stronger than your free members, they may rise up, grab iron clubs and attack. Weak rebels stay shackled.
 [*][b]Slave trade window:[/b] at slave traders, buy their slaves or sell the ones you have with you; tick several and trade them all at once. Prices follow stats, race, submission and missing limbs; the list shows each one's sex. Other slavers leave your slaves alone.
 [*][b]Slave caravan:[/b] every 7 days a Slave Traders caravan visits your base to buy and sell slaves, with a warning a day before. It stays a few hours and leaves.
 [*][b]Reprogram skeletons (optional):[/b] an unconscious skeleton can be reprogrammed into a free member. Robotics decides the chance; a failure destroys it. Optionally it becomes the headless Skeleton No-Head MkII.
@@ -21,7 +21,7 @@ A RE_Kenshi plugin that lets your faction own slaves, using Kenshi's own slave s
 [*][b]Speech bubbles[/b] for slavers and slaves.
 [*][b]New game start "Slave Hunters":[/b] a leader and five hunters with rusty clubs at a random slaver camp.
 [*][b]Your own people enslaved by others[/b] (the Rebirth start) are left to the game. [i]Enabled=0[/i] (MCM: Mod active) switches the whole mod off.
-[*][b]In-game settings[/b] with ModConfigMenu (optional), or the commented SlaverMod.ini.
+[*][b]In-game settings[/b] with ModConfigMenu (optional), or the commented SlaverMod.ini. Your settings are kept in SlaverMod_user.ini, so updates no longer reset them.
 [/list]
 
 [h2]Translate SlaverMod into your language[/h2]
@@ -51,7 +51,7 @@ Plugin RE_Kenshi que deixa a sua facção ter escravos usando o sistema de escra
 [*][b]Escravizar pelo menu do botão direito[/b] sobre alguém desmaiado, acorrentado ou preso: o membro selecionado vai até lá e coloca grilhões trancados. Quem vê trata como sequestro.
 [*][b]Submissão (0-100):[/b] Rebelde, Inquieto, Obediente ou Leal, salva em cada save. Vigiados se acostumam; a jaula quebra mais rápido.
 [*][b]Raças diferentes:[/b] drones da colmeia obedecem, Shek resistem.
-[*][b]Vigilância e fuga:[/b] sem um membro livre por perto, perdem submissão e podem fugir.
+[*][b]Vigilância e fuga:[/b] sem um membro livre por perto, perdem submissão e podem fugir. Só os fortes ou habilidosos se livram dos grilhões; os outros só andam.
 [*][b]Punir e Recompensar[/b] no mesmo menu.
 [*][b]Libertar:[/b] com 90+ de submissão ficam na sua facção; os outros voltam para casa.
 [*][b]Rebelião:[/b] a cada 7 dias, se os rebeldes forem mais fortes que seus membros livres.
@@ -61,7 +61,7 @@ Plugin RE_Kenshi que deixa a sua facção ter escravos usando o sistema de escra
 [*][b]Reprogramar esqueletos (opcional)[/b], com a opção de virarem o Skeleton No-Head MkII, sem cabeça.
 [*][b]Novos escravos[/b] seguem e protegem quem os escravizou, só seguem, ou andam com o esquadrão (MCM: Seguir quem escravizou). Animais não escravizam; escravizá-los é uma opção (MCM: Animais podem ser escravos).
 [*][b]Novo início "Caçadores de Escravos"[/b] num acampamento de traficantes sorteado.
-[*][b]Opções dentro do jogo[/b] com o ModConfigMenu (opcional), ou no SlaverMod.ini comentado.
+[*][b]Opções dentro do jogo[/b] com o ModConfigMenu (opcional), ou no SlaverMod.ini comentado. Suas escolhas ficam em SlaverMod_user.ini, e as atualizações não apagam mais.
 [/list]
 
 [h2]Traduza para o seu idioma[/h2]

@@ -11,7 +11,8 @@
 | `C:\KenshiDev\SlaverMod_pessoal` | Parking spot for the personal ini/origins while uploading to the Workshop. |
 | `local\` (in the repo, gitignored) | Personal scratch: old trace logs moved here by the deploy script. |
 
-Files in the game's mod folder that are **not** in git: the personal `SlaverMod.ini`, the `saves\` folder (per-save
+Files in the game's mod folder that are **not** in git: the personal `SlaverMod_user.ini` (v1.17+; the plugin reads it before
+`SlaverMod.ini`, and the MCM writes it), the `saves\` folder (per-save
 slave data, v1.3+), `SlaverMod_origins.ini` (v1.0–1.2),
 `SlaverMod_trace.log`, `_SlaverMod.info` (Workshop id + tags) and `_SlaverMod.img` (preview; source in `workshop/`).
 
@@ -34,10 +35,10 @@ powershell -ExecutionPolicy Bypass -File tools\deploy.ps1 -Build
 ```
 
 - Refuses to run while `kenshi_x64` is open (the DLL is locked).
-- Copies `SlaverMod.dll`, `RE_Kenshi.json` and `SlaverMod.mod`; copies `SlaverMod.ini` only when the game folder has none.
+- Copies `SlaverMod.dll`, `RE_Kenshi.json`, `SlaverMod.mod` and the public `SlaverMod.ini` (defaults, like a Workshop update).
+  Personal settings live in `SlaverMod_user.ini`, never touched (a pre-1.17 personal ini became it once).
 - Moves the previous `SlaverMod_trace.log` to `local\logs\trace_<timestamp>.log`.
-- New ini keys: when a new option is added, also add it by hand to the personal ini in the game folder
-  (the plugin uses the default when a key is missing, so this is only needed to change it).
+- New ini keys: the public `SlaverMod.ini` documents them; put a key in `SlaverMod_user.ini` only to change it.
 
 ## Logs
 
@@ -64,8 +65,8 @@ powershell -ExecutionPolicy Bypass -File tools\deploy.ps1 -Build
 1. Bump the version in `startPlugin()` (`Trace("startPlugin vX.Y")`), README and `workshop/description.txt` if features changed.
 2. Commit, push, then `gh release create vX.Y dist/SlaverMod-vX.Y.zip` (zip = `SlaverMod/` with dll, RE_Kenshi.json, .mod, public .ini and `SlaverMod_races.ini`).
 3. Workshop update (Felipe does it in the FCS):
-   - Before: copy the personal `SlaverMod.ini` to `C:\KenshiDev\SlaverMod_pessoal`, move `SlaverMod_origins.ini`, the `saves\` folder and logs there, put the public ini files (`mod/SlaverMod/SlaverMod.ini` and `SlaverMod_races.ini`) in the game folder.
+   - Before: move `SlaverMod_user.ini`, `SlaverMod_origins.ini`, the `saves\` folder and logs to `C:\KenshiDev\SlaverMod_pessoal`, and put the public `SlaverMod_races.ini` and `SlaverMod_lines.ini` in the game folder (`SlaverMod.ini` is already the public one).
    - In the FCS info dialog: the Steam ID box shows a placeholder `123456789` until refreshed; the upload still uses `<id>` from `_SlaverMod.info` (3828708454). The status bar must say "Uploading...", not "Creating...".
    - **Do not click any tag** in that dialog: it rebuilds the tag list from the checkboxes and drops the custom `RE_Kenshi` tag (kept only in `_SlaverMod.info`).
    - The FCS sends the `.mod` header description as the Workshop description (an empty one blanks the page): after changing `workshop/description.txt` (UTF-8, no trailing newline), write it into `mod/SlaverMod/SlaverMod.mod` with `tools/re/kmod.py` (`m['header']['description'] = bytes`, `kmod.write(m, path)`).
-   - After: restore the personal ini and origins.
+   - After: restore `SlaverMod_user.ini`, the origins, saves and the personal races/lines files.
