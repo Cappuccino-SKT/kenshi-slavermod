@@ -38,6 +38,13 @@ A [RE_Kenshi](https://github.com/BFrizzleFoShizzle/RE_Kenshi) plugin that lets t
 - **In-game settings** with [ModConfigMenu](https://steamcommunity.com/sharedfiles/filedetails/?id=3813761584) (optional): *Options > MCM > SlaverMod*.
 - **Your own people enslaved by another faction** (the Rebirth start, slavers who catch you) are left to the game: no submission, escapes or protection for them, even when the game does not say whose slaves they are. `Enabled=0` (MCM: *Mod active*) switches the whole mod off by hand.
 - **Turrets leave your slaves alone.** The game scored your own slaves as turret targets and shot them; their score is now 0.
+- **Allies and neutrals leave your slaves alone** (`SparedByNeutrals=1`): people and turrets of factions not at war with you never take your slaves for enemies, whatever their race or old faction (mist creatures, Bounties Galore factions...).
+- **Shackle kits (optional, off by default).** With `RequireShackles=1` each enslavement uses up a *Shackle kit* (or loose prisoner shackles) carried by the enslaver or a member nearby. The slave trade window sells kits (*SHACKLE KIT*, 150 cats); freeing a slave gives one back.
+- **Built-in slave collar.** *MCM > Restraint > Slave collar on the neck* locks an iron collar on new slaves instead of shackles. Model, textures and icon by **Macropod** (from his *Slave dress* mod), used with his permission.
+- **Cages.** The right-click menu over one of your slaves has **Lock in a cage** (they walk into the nearest free cage of your faction) and **Let out of the cage**. With `CageAtNight=1` every slave goes to a cage at 21:00 and comes out at 07:00.
+- **Slave food** (`SlaveFood=any|own|none`): stop slaves raiding your food storage; with *own* they only eat what is in their inventory, with *none* they never eat (the game keeps slaves from starving).
+- **Rebels flee and never trust you again** (`RebelsFlee`, `RebelsDistrust`): once nobody is left to fight, rebels run towards a town, and they refuse to join you through dialogue.
+- **Sold slaves go to the cages.** Slaves sold while unconscious are carried to a cage by the trader's people, one by one.
 - **On-screen messages** in a single box at the top of the screen that fades after a few seconds. `ShowNotices=0` hides them; the REBELLION alert is always shown.
 - **Debug mode** (off by default): test hotkeys **CTRL+K** (enslave/free the selected character), **CTRL+SHIFT+R** (rebellion check right away), **CTRL+SHIFT+S** (+25 submission on the selected slave), **CTRL+SHIFT+E** (the selected slave runs away), **CTRL+SHIFT+K** (knock out), **CTRL+SHIFT+C** (carry test), and a test kit: **CTRL+SHIFT+I** (squad/faction limits and the selected character's price), **M** (+20000 cats), **N** (knock out, then enslave, up to 10 NPCs nearby), **L** (cut a limb off), **H** (apply `ThrallRace` to the selected skeleton).
 
@@ -45,11 +52,11 @@ A [RE_Kenshi](https://github.com/BFrizzleFoShizzle/RE_Kenshi) plugin that lets t
 
 ## Tip: bounties
 
-Slavery doesn't get in the way of bounties. Knock the target out, enslave them and walk them to the town; to hand them in, free them, pick them up and turn them in as usual. With several, leave them outside town with a member guarding them and hand them in one at a time. A faction that wants your enslaved bounty attacks them on sight, so keep them away from it until you carry them in.
+New slaves lose their bounties by default (`ClearSlaveBounties=1`), so guards and bounty hunters leave them alone. To hand enslaved targets in, turn it off (MCM: *Slaves lose their bounties*): knock the target out, enslave them and walk them to the town; to hand them in, free them, pick them up and turn them in as usual. With several, leave them outside town with a member guarding them and hand them in one at a time. A faction that wants your enslaved bounty attacks them on sight, so keep them away from it until you carry them in.
 
 ## Translating
 
-Every text of the mod (messages, settings page, trade window, speech bubbles and the game start) is in one plain text file per language in `lang/`, so anyone can translate it without coding: copy `lang/_template.txt` to `<code>.txt`, fill in the right side of each line and send it with the [translation form](https://github.com/Cappuccino-SKT/kenshi-slavermod/issues/new?template=translation.yml). Step by step: [docs/TRANSLATING.md](docs/TRANSLATING.md). Simplified Chinese was corrected by 石岗小学摸你穷; the Russian and Spanish files are new, so corrections from native speakers are very welcome.
+Every text of the mod (messages, settings page, trade window, speech bubbles and the game start) is in one plain text file per language in `lang/`, so anyone can translate it without coding: copy `lang/_template.txt` to `<code>.txt`, fill in the right side of each line and send it with the [translation form](https://github.com/Cappuccino-SKT/kenshi-slavermod/issues/new?template=translation.yml). Step by step: [docs/TRANSLATING.md](docs/TRANSLATING.md). Simplified Chinese was corrected by 石岗小学摸你穷 and Japanese was translated by Cure; the Russian and Spanish files are new, so corrections from native speakers are very welcome.
 
 ## Requirements
 
@@ -144,6 +151,13 @@ Plugin [RE_Kenshi](https://github.com/BFrizzleFoShizzle/RE_Kenshi) que deixa a f
 - **Configuração dentro do jogo** com o [ModConfigMenu](https://steamcommunity.com/sharedfiles/filedetails/?id=3813761584) (opcional): *Opções > MCM > SlaverMod*. Suas escolhas ficam em `SlaverMod_user.ini`, que as atualizações não apagam (o `SlaverMod.ini` tem só os valores padrão).
 - **Seus personagens escravizados por outra facção** (início do Rebirth, escravistas que pegam você) ficam por conta do jogo: sem submissão, fuga ou proteção, mesmo quando o jogo não informa de quem são escravos. `Enabled=0` (MCM: *Mod ativo*) desliga o mod inteiro na mão.
 - **Torretas deixam seus escravos em paz.** O jogo dava aos seus próprios escravos pontuação de alvo nas torretas e atirava neles; agora a pontuação é 0.
+- **Aliados e neutros deixam seus escravos em paz** (`SparedByNeutrals=1`), e escravos novos perdem as recompensas (`ClearSlaveBounties=1`).
+- **Kit de grilhões (opcional)** (`RequireShackles=1`): cada escravização gasta um kit, vendido na janela de comércio; libertar devolve um.
+- **Coleira de escravo embutida**, modelo do **Macropod** (do mod *Slave dress*), usada com a permissão dele.
+- **Jaulas:** **Prender na jaula** / **Soltar da jaula** no menu; com `CageAtNight=1` todos dormem nas jaulas (21h às 7h).
+- **Comida** (`SlaveFood=any|own|none`): impede os escravos de saquear seu estoque.
+- **Rebeldes fogem e nunca mais confiam em você** (`RebelsFlee`, `RebelsDistrust`).
+- **Vendidos vão para a jaula:** escravos vendidos desmaiados são levados um a um pelo pessoal do traficante.
 - **Mensagens na tela** numa única caixa no topo, que some depois de alguns segundos. `ShowNotices=0` esconde; o alerta de REBELIÃO sempre aparece.
 - **Modo debug** (desligado por padrão): atalhos de teste **CTRL+K** (escravizar ou libertar o personagem selecionado), **CTRL+SHIFT+R** (verificar rebelião na hora), **CTRL+SHIFT+S** (+25 de submissão no escravo selecionado), **CTRL+SHIFT+E** (o escravo selecionado foge), **CTRL+SHIFT+K** (nocautear), **CTRL+SHIFT+C** (teste de carregar) e um kit de teste: **CTRL+SHIFT+I** (limites de esquadrão/facção e preço do selecionado), **M** (+20000 cats), **N** (nocauteia e depois escraviza até 10 NPCs por perto), **L** (corta um membro), **H** (aplica `ThrallRace` no esqueleto selecionado).
 
@@ -151,7 +165,7 @@ Plugin [RE_Kenshi](https://github.com/BFrizzleFoShizzle/RE_Kenshi) que deixa a f
 
 ### Dica: recompensas
 
-A escravidão não atrapalha as recompensas. Derrube o alvo, escravize e leve andando até a cidade; para entregar, liberte, pegue no ombro e entregue normalmente. Com várias, deixe todos fora da cidade com um membro vigiando e entregue um de cada vez. A facção que quer o seu procurado ataca ele quando o reconhece, então mantenha-o longe dela até levá-lo no ombro.
+Por padrão, escravos novos perdem as recompensas (`ClearSlaveBounties=1`), e guardas e caçadores os deixam em paz. Para entregar alvos escravizados, desligue (MCM: *Escravos perdem as recompensas*): a escravidão não atrapalha as recompensas. Derrube o alvo, escravize e leve andando até a cidade; para entregar, liberte, pegue no ombro e entregue normalmente. Com várias, deixe todos fora da cidade com um membro vigiando e entregue um de cada vez. A facção que quer o seu procurado ataca ele quando o reconhece, então mantenha-o longe dela até levá-lo no ombro.
 
 ### Requisitos
 

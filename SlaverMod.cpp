@@ -453,6 +453,17 @@ struct Settings
     float caravanArriveDistance;       // the caravan has arrived this close to the base
     float caravanLeash;                // while coming / staying, members farther than this walk back   // data IDs
     bool protectSlaves;                // other factions' slavers leave the player's slaves alone
+    bool sparedByNeutrals;             // characters (and turrets) of factions not at war with the player never target our slaves
+    bool clearSlaveBounties;           // new slaves lose their bounties (guards and bounty hunters stop going after them)
+    bool requireShackles;              // enslaving uses up a shackle kit (or loose prisoner shackles) carried by the enslaver or a member nearby
+    std::string shackleKitItem;        // ITEM string ID of the shackle kit (13-SlaverMod.mod)
+    int shackleKitPrice;               // price of one kit in the slave trade window
+    bool rebelsFlee;                   // rebels with nobody left to fight run away instead of standing around
+    bool rebelsDistrust;               // former rebels never join the player again through dialogue
+    std::string slaveFood;             // any (vanilla) | own (only food they carry) | none (never eat, the game keeps slaves from starving)
+    bool cageAtNight;                  // slaves walk into a free cage at night and come out in the morning
+    float cageNightHour, cageMorningHour;
+    float cageSearchRange;             // how far a slave looks for a free cage
     bool allowStealingSlaves;          // enslave other factions' slaves (off: they are their owners' property)
     bool animalSlaves;                 // animals can be enslaved and sold (they never act as owners)
     bool disableCarriedSale;           // hide the fixed 400 cats offer for a carried person
@@ -538,6 +549,8 @@ static void LoadSettings()
     g_cfg.giveShackles = IniBool("GiveShackles", true);
     g_cfg.shacklesNoRunning = IniBool("ShacklesNoRunning", true);
     g_cfg.shackleItem = IniString("ShackleItem", "SHACKLES");
+    if (g_cfg.shackleItem == "21-Slave dress.mod")
+        g_cfg.shackleItem = "12-SlaverMod.mod";   // v1.18: Macropod's collar is built in
     g_cfg.shackleItemAlt = IniString("ShackleItemAlt", "SHACKLES-BODY");
     g_cfg.actionAnimation = IniString("ActionAnimation", "medic");
     g_cfg.progressBar = IniBool("ProgressBar", true);
@@ -633,6 +646,20 @@ static void LoadSettings()
     g_cfg.caravanSquad = IniString("SlaveCaravanSquad", "6-SlaverMod.mod");
     g_cfg.caravanBoss = IniString("SlaveCaravanBoss", "95766-rebirth.mod");
     g_cfg.protectSlaves = IniBool("ProtectSlaves", true);
+    g_cfg.sparedByNeutrals = IniBool("SparedByNeutrals", true);
+    g_cfg.clearSlaveBounties = IniBool("ClearSlaveBounties", true);
+    g_cfg.requireShackles = IniBool("RequireShackles", false);
+    g_cfg.shackleKitItem = IniString("ShackleKitItem", "13-SlaverMod.mod");
+    g_cfg.shackleKitPrice = (int)IniFloat("ShackleKitPrice", 150.0f);
+    g_cfg.rebelsFlee = IniBool("RebelsFlee", true);
+    g_cfg.rebelsDistrust = IniBool("RebelsDistrust", true);
+    g_cfg.slaveFood = IniString("SlaveFood", "any");
+    if (g_cfg.slaveFood != "own" && g_cfg.slaveFood != "none")
+        g_cfg.slaveFood = "any";
+    g_cfg.cageAtNight = IniBool("CageAtNight", false);
+    g_cfg.cageNightHour = IniFloat("CageNightHour", 21.0f);
+    g_cfg.cageMorningHour = IniFloat("CageMorningHour", 7.0f);
+    g_cfg.cageSearchRange = IniFloat("CageSearchRange", 3000.0f);
     g_cfg.allowStealingSlaves = IniBool("AllowStealingSlaves", false);
     g_cfg.animalSlaves = IniBool("AnimalSlaves", false);
     g_cfg.disableCarriedSale = IniBool("DisableCarriedSale", true);
@@ -675,7 +702,9 @@ static void LoadSettings()
           " thrallRace=" + g_cfg.thrallRace + " limbPenalty=" + Num(g_cfg.tradeMissingLimbPenalty) +
           " punish=" + Num(g_cfg.punishEnabled) + "/" + Num(g_cfg.punishSubmission) + "/" + Num(g_cfg.punishDamage) + "/" + Num(g_cfg.punishCooldownDays) +
           "d anim='" + g_cfg.punishAnimation + "'/'" + g_cfg.punishVictimAnimation + "' speech=" + Num(g_cfg.speech) + " reward=" + Num(g_cfg.rewardEnabled) + "/" + Num(g_cfg.rewardSubmission) +
-          "/" + Num((float)g_cfg.rewardCost) + "cats/" + Num(g_cfg.rewardCooldownDays) + "d cage=" + Num(g_cfg.cageDailyGain) + "/" + Num(g_cfg.cageSubmissionCap) + " races=" + Num(g_cfg.raceTraits) + " trade=" + Num(g_cfg.tradeWindow) + " protect=" + Num(g_cfg.protectSlaves) + " steal=" + Num(g_cfg.allowStealingSlaves) + " animals=" + Num(g_cfg.animalSlaves) + " caravan=" + Num(g_cfg.slaveCaravan) + "/" + Num(g_cfg.slaveCaravanDays) + "d/stay " + Num(g_cfg.slaveCaravanStayHours) + "h " + " noCarriedSale=" + Num(g_cfg.disableCarriedSale) +
+          "/" + Num((float)g_cfg.rewardCost) + "cats/" + Num(g_cfg.rewardCooldownDays) + "d cage=" + Num(g_cfg.cageDailyGain) + "/" + Num(g_cfg.cageSubmissionCap) + " races=" + Num(g_cfg.raceTraits) + " trade=" + Num(g_cfg.tradeWindow) + " protect=" + Num(g_cfg.protectSlaves) + " spared=" + Num(g_cfg.sparedByNeutrals) + " bounties=" + Num(g_cfg.clearSlaveBounties) + " requireShackles=" + Num(g_cfg.requireShackles) + "/" + g_cfg.shackleKitItem + "/" + Num((float)g_cfg.shackleKitPrice) +
+          " rebelsFlee=" + Num(g_cfg.rebelsFlee) + " distrust=" + Num(g_cfg.rebelsDistrust) + " food=" + g_cfg.slaveFood +
+          " cageAtNight=" + Num(g_cfg.cageAtNight) + " " + Num(g_cfg.cageNightHour) + "-" + Num(g_cfg.cageMorningHour) + "h range=" + Num(g_cfg.cageSearchRange) + " steal=" + Num(g_cfg.allowStealingSlaves) + " animals=" + Num(g_cfg.animalSlaves) + " caravan=" + Num(g_cfg.slaveCaravan) + "/" + Num(g_cfg.slaveCaravanDays) + "d/stay " + Num(g_cfg.slaveCaravanStayHours) + "h " + " noCarriedSale=" + Num(g_cfg.disableCarriedSale) +
           " value=" + Num(g_cfg.tradeBaseValue) + "+" + Num(g_cfg.tradeStatValue) + "/stat buy x" + Num(g_cfg.tradeBuyMult) + " sell x" + Num(g_cfg.tradeSellMult) +
           " bought+" + Num(g_cfg.tradeBoughtBonus) + " radius=" + Num(g_cfg.tradeRadius) + " relationLoss=" + Num(g_cfg.relationLoss) + " relationGain=" + Num(g_cfg.relationGain) + " crime=" + Num(g_cfg.enslaveIsCrime) +
           " escort=" + Num(g_cfg.slaveEscort) + "/" + g_cfg.escortMode);
@@ -983,11 +1012,31 @@ static std::string RecruitRefusedReason()
 // ---------------------------------------------------------------------------
 
 // Marks an already-recruited member of the player's faction as a slave.
+// A bounty stays on a character after they are enslaved: town guards, bounty hunters and allied
+// NPCs kept attacking and knocking down the slave (Bounties Galore characters all carry one).
+// A slave is property, not a wanted person: their bounties and any crime in progress are cleared.
+static void ClearBounties(Character* c)
+{
+    if (!g_cfg.clearSlaveBounties || c == 0)
+        return;
+    std::vector<Faction*> enforcers;
+    for (ogre_unordered_map<Faction*, Bounty>::type::iterator it = c->crimes.bounties.begin(); it != c->crimes.bounties.end(); ++it)
+        if (it->first != 0)
+            enforcers.push_back(it->first);
+    int total = c->crimes.getTotalBounty();
+    for (size_t i = 0; i < enforcers.size(); i++)
+        c->crimes.clearBounty(enforcers[i]);
+    if (total > 0 || !enforcers.empty())
+        Trace("bounty: '" + c->getName() + "' had " + Num((float)total) + " cats from " + Num((float)enforcers.size()) +
+              " faction(s), now " + Num((float)c->crimes.getTotalBounty()));
+}
+
 static void MakeSlave(Character* target, Character* owner)
 {
     hand ownerHand(owner);
     target->changeSlaveOwner(ownerHand);
     SetSlaveState(target, IS_SLAVE);
+    ClearBounties(target);
     if (g_cfg.unchainOnEnslave && target->isChainedMode())
         target->setChainedMode(false, ownerHand);
     target->setSlaveAIJob(g_cfg.slaveAIJob);
@@ -1218,6 +1267,91 @@ static void RemoveShackles(Character* c)
     }
 }
 
+// ---- Shackle supply (RequireShackles): enslaving uses up a shackle kit, or loose prisoner
+// shackles, carried by the enslaver or by a free member close to them. Freeing gives a kit back.
+static GameData* ShackleKitData()
+{
+    return g_cfg.shackleKitItem.empty() ? 0 : ou->gamedata.getData(g_cfg.shackleKitItem, ITEM);
+}
+
+static Item* SupplyIn(Character* c)
+{
+    if (c == 0 || c->inventory == 0)
+        return 0;
+    GameData* kit = ShackleKitData();
+    Item* it = kit != 0 ? c->inventory->getItem(kit) : 0;
+    if (it != 0)
+        return it;
+    const char* const loose[2] = { "SHACKLES", "SHACKLES-BODY" };
+    lektor<Item*> worn;
+    c->inventory->getEquippedArmour(worn);
+    for (int k = 0; k < 2; k++)
+    {
+        GameData* d = ou->gamedata.getData(loose[k], ARMOUR);
+        it = d != 0 ? c->inventory->getItem(d) : 0;
+        bool equipped = false;
+        for (uint32_t w = 0; w < worn.size(); w++)
+            equipped = equipped || worn.stuff[w] == it;
+        if (it != 0 && !equipped)
+            return it;
+    }
+    return 0;
+}
+
+// Whoever carries a shackle supply: the enslaver first, then free members within supervision range.
+static Character* SupplyHolder(Character* performer, Item** out)
+{
+    *out = SupplyIn(performer);
+    if (*out != 0)
+        return performer;
+    const lektor<Character*>& all = ou->player->getAllPlayerCharacters();
+    for (uint32_t i = 0; i < all.size(); i++)
+    {
+        Character* c = all.stuff[i];
+        if (c == 0 || c == performer || !IsFreePlayerMember(c) || c->isDead() ||
+            (c->getPosition() - performer->getPosition()).length() > g_cfg.supervisionRange)
+            continue;
+        *out = SupplyIn(c);
+        if (*out != 0)
+            return c;
+    }
+    return 0;
+}
+
+static void UseShackleSupply(Character* performer)
+{
+    if (!g_cfg.requireShackles || performer == 0)
+        return;
+    Item* it = 0;
+    Character* holder = SupplyHolder(performer, &it);
+    if (holder == 0 || it == 0)
+    {
+        Trace("shackle supply: none left to use for '" + performer->getName() + "'");
+        return;
+    }
+    std::string name = it->getName();
+    holder->inventory->removeItemAutoDestroy(it, 1);
+    Trace("shackle supply: '" + holder->getName() + "' used one '" + name + "'");
+}
+
+static bool GiveShackleKit(Character* c, int count)
+{
+    GameData* kit = ShackleKitData();
+    if (kit == 0 || c == 0 || c->inventory == 0)
+    {
+        Trace("shackle kit: item '" + g_cfg.shackleKitItem + "' not found in game data");
+        return false;
+    }
+    for (int k = 0; k < count; k++)
+    {
+        Item* item = ou->theFactory->createItem(kit, hand(), 0, 0, 0, 0);
+        if (item == 0)
+            return false;
+        c->inventory->addItem(item, 1, true, false);   // dropped at their feet if there is no room
+    }
+    return true;
+}
+
 // ---------------------------------------------------------------------------
 // Hotkey (default CTRL+K) acting on the clicked/selected non-player character
 // ---------------------------------------------------------------------------
@@ -1343,6 +1477,10 @@ static double g_caravanNextHour = -1.0;   // game hour of the next visit (-1 = n
 static double g_caravanLeaveHour = -1.0;  // game hour the caravan at the base leaves
 static std::string g_caravanSquadID;      // Platoon::stringID of the caravan squad (kept across loads)
 static std::string g_recordsSave;   // save the records in memory belong to
+// Former rebels (RebelsDistrust): key -> name. They never join the player again through dialogue.
+static std::map<std::string, std::string> g_distrust;
+// Slaves CageAtNight put in a cage (keys): only those come out in the morning.
+static std::set<std::string> g_nightCaged;
 // The key a character had when last looked up: the game gives a character a new handle
 // (index-serial) when they move to another squad, so the records follow them by pointer.
 static std::map<Character*, std::string> g_lastKey;
@@ -1395,6 +1533,10 @@ static void WriteRecords(const std::string& save)
     }
     f << "# SlaverMod data for save '" << save << "'. key=submission|origin faction|flags (e<day> = escaped on that game day)|handle|name\n";
     f << "!caravan=" << g_caravanState << "|" << g_caravanNextHour << "|" << g_caravanLeaveHour << "|" << g_caravanSquadID << "\n";
+    for (std::map<std::string, std::string>::const_iterator it = g_distrust.begin(); it != g_distrust.end(); ++it)
+        f << "!distrust=" << it->first << "|" << it->second << "\n";
+    for (std::set<std::string>::const_iterator it = g_nightCaged.begin(); it != g_nightCaged.end(); ++it)
+        f << "!nightcage=" << *it << "\n";
     for (std::map<std::string, SlaveRecord>::const_iterator it = g_records.begin(); it != g_records.end(); ++it)
     {
         f << it->first << "=" << it->second.submission << "|" << it->second.origin << "|";
@@ -1412,6 +1554,8 @@ static void ReadRecords(const std::string& save)
     g_caravanNextHour = -1.0;
     g_caravanLeaveHour = -1.0;
     g_caravanSquadID.clear();
+    g_distrust.clear();
+    g_nightCaged.clear();
     g_lastKey.clear();
     g_recordsSave = save;
     std::ifstream f(SaveDataFile(save).c_str());
@@ -1420,6 +1564,18 @@ static void ReadRecords(const std::string& save)
     {
         if (line.empty() || line[0] == '#')
             continue;
+        if (line.compare(0, 11, "!nightcage=") == 0)
+        {
+            g_nightCaged.insert(line.substr(11));
+            continue;
+        }
+        if (line.compare(0, 10, "!distrust=") == 0)
+        {
+            size_t bar = line.find('|', 10);
+            if (bar != std::string::npos)
+                g_distrust[line.substr(10, bar - 10)] = line.substr(bar + 1);
+            continue;
+        }
         if (line.compare(0, 9, "!caravan=") == 0)
         {
             std::vector<std::string> parts;
@@ -1932,6 +2088,7 @@ struct EscortOrder
 };
 static std::vector<EscortOrder> g_escorts;
 static std::vector<hand> g_leavers;   // freed slaves walking away (pushed like runaways)
+static std::vector<hand> g_fleeingRebels;   // rebels with nobody left to fight, running off (RebelsFlee)
 static float g_escortTimer = 0.0f;
 
 static void QueueEscort(Character* slave, Character* owner)
@@ -1974,7 +2131,7 @@ static void UpdateEscorts(float dt)
     }
 }
 
-enum SlaveAction { ACT_ENSLAVE, ACT_FREE, ACT_PUNISH, ACT_REWARD, ACT_THRALL };
+enum SlaveAction { ACT_ENSLAVE, ACT_FREE, ACT_PUNISH, ACT_REWARD, ACT_THRALL, ACT_CAGE, ACT_UNCAGE };
 
 // ---------------------------------------------------------------------------
 // Speech: short lines in speech bubbles (Character::say) when slaves are taken,
@@ -2504,6 +2661,15 @@ static bool ActionStillValid(SlaveAction action, Character* performer, Character
         return true;
     }
     if (IsOurSlave(target)) { *why = target->getName() + T(" is already a slave", " ja e escravo(a)"); return false; }
+    if (action == ACT_ENSLAVE && g_cfg.requireShackles)
+    {
+        Item* supply = 0;
+        if (SupplyHolder(performer, &supply) == 0)
+        {
+            *why = T("no shackle kit: buy one from a slave trader", "sem kit de grilhoes: compre um de um traficante de escravos");
+            return false;
+        }
+    }
     if (CarriedByOthers(target)) { *why = target->getName() + T(" is being carried away by someone else", " esta sendo carregado(a) por outra pessoa"); return false; }
     if (IsAnimal(target) && !g_cfg.animalSlaves) { *why = T("animals cannot be slaves", "animais nao podem ser escravos"); return false; }
     if (IsPlayerFaction(target))
@@ -2773,6 +2939,8 @@ static void CompleteAction(SlaveAction action, Character* performer, Character* 
         FreeSlave(target);
         if (!IsOurSlave(target))
         {
+            if (g_cfg.requireShackles && GiveShackleKit(performer, 1))
+                Trace("shackle kit: '" + performer->getName() + "' got the kit back from '" + name + "'");
             ForgetRecord(target);
             Faction* gone = submission < g_cfg.freeStayMinSubmission ? SendFreedHome(target, originSid) : 0;
             if (gone != 0)
@@ -2792,6 +2960,7 @@ static void CompleteAction(SlaveAction action, Character* performer, Character* 
             Trace("race of '" + target->getName() + "': " + RaceID(target) + " -> " + TraitsOf(target).name);
             SlaveRecord& r = CreateRecord(target, "", TraitsOf(target).start);
             ShowNotice(target->getName() + T(" is now a slave. ", " agora e escravo(a). ") + SubmissionText(r.submission) + ".");
+            UseShackleSupply(performer);
             GiveShackles(target);
             QueueEscort(target, performer);
         }
@@ -2822,6 +2991,7 @@ static void CompleteAction(SlaveAction action, Character* performer, Character* 
         }
         else
             ShowNotice(name + T(" is now a slave. ", " agora e escravo(a). ") + SubmissionText(r.submission) + ".");
+        UseShackleSupply(performer);
         GiveShackles(target);
         if (!recaptured)   // a runaway is still yours: no one to offend
             ApplyRelationLoss(victimFaction, name);
@@ -3452,6 +3622,227 @@ static void FindMenuFlags()
 }
 
 // Options offered for a target: enslave someone, or free / punish / reward one of your slaves.
+// ---------------------------------------------------------------------------
+// Cages: "Lock in a cage" sends one of our slaves into the nearest free cage of the player's
+// faction; "Let out of the cage" frees them from it. CageAtNight does it for every slave at
+// CageNightHour and lets the same ones out at CageMorningHour.
+// ---------------------------------------------------------------------------
+
+// Only getOccupant is used (UseableStuff.h pulls Building.h, which clashes with Platoon.h).
+class UseableStuff
+{
+public:
+    const hand& getOccupant() const;// public RVA = 0x28C440
+};
+
+struct CageTrip
+{
+    hand slave, cage;
+    float elapsed, sinceCloser, bestDist, reorder;
+    bool night;
+};
+static std::vector<CageTrip> g_caging;
+static float g_cagingTimer = 0.0f;
+
+static bool IsCaged(Character* c)
+{
+    return c != 0 && c->inSomething == IN_PRISON;
+}
+
+static bool CageTaken(Building* b)
+{
+    for (size_t i = 0; i < g_caging.size(); i++)
+        if (g_caging[i].cage.getBuilding() == b)
+            return true;
+    return false;
+}
+
+// Nearest cage of the player's faction with nobody in it (or on the way to it).
+static Building* FindFreeCage(Character* c)
+{
+    Faction* pf = PlayerFaction();
+    lektor<RootObject*> found;
+    ou->getObjectsWithinSphere(found, c->getPosition(), g_cfg.cageSearchRange, BUILDING, 400, 0);
+    Building* best = 0;
+    float bestDist = 0.0f;
+    int cages = 0;
+    for (uint32_t i = 0; i < found.size(); i++)
+    {
+        RootObject* o = found.stuff[i];
+        Building* b = o != 0 ? hand(o).getBuilding() : 0;
+        if (b == 0)
+            continue;
+        int function = *reinterpret_cast<int*>(reinterpret_cast<char*>(b) + 0x158);   // Building::specialFunction
+        if (function != BF_CAGE)
+            continue;
+        cages++;
+        if (o->getFaction() != pf || reinterpret_cast<UseableStuff*>(b)->getOccupant().getCharacter() != 0 || CageTaken(b))
+            continue;
+        float d = (o->getPosition() - c->getPosition()).length();
+        if (best == 0 || d < bestDist)
+        {
+            best = b;
+            bestDist = d;
+        }
+    }
+    Trace("cage: " + Num((float)found.size()) + " building(s), " + Num((float)cages) + " cage(s) near '" + c->getName() + "', free one " +
+          (best != 0 ? "at " + Num(bestDist) : std::string("none")));
+    return best;
+}
+
+static bool SendToCage(Character* c, bool night)
+{
+    if (c == 0 || IsCaged(c) || c->isUnconcious() || c->isBeingCarried())
+        return false;
+    for (size_t i = 0; i < g_caging.size(); i++)
+        if (g_caging[i].slave.getCharacter() == c)
+            return true;
+    Building* cage = FindFreeCage(c);
+    if (cage == 0)
+    {
+        if (!night)
+            ShowNotice(T("No free cage of yours near ", "Nenhuma jaula livre sua perto de ") + c->getName() + ".");
+        return false;
+    }
+    CageTrip t;
+    t.slave = hand(c);
+    t.cage = hand(reinterpret_cast<RootObject*>(cage));
+    t.elapsed = 0.0f;
+    t.sinceCloser = 0.0f;
+    t.bestDist = (reinterpret_cast<RootObject*>(cage)->getPosition() - c->getPosition()).length();
+    t.reorder = 0.0f;
+    t.night = night;
+    g_caging.push_back(t);
+    OrderMove(c, reinterpret_cast<RootObject*>(cage)->getPosition());
+    if (!night)
+        ShowNotice(c->getName() + T(" goes to a cage.", " vai para uma jaula."));
+    return true;
+}
+
+static void LetOutOfCage(Character* c)
+{
+    if (!IsCaged(c))
+        return;
+    UseableStuff* cage = reinterpret_cast<UseableStuff*>(c->inWhat.getBuilding());
+    c->setPrisonMode(false, cage);
+    g_nightCaged.erase(SlaveKey(c));
+    Trace("cage: '" + c->getName() + "' let out (still in prison=" + Num(IsCaged(c)) + ")");
+}
+
+static void UpdateCaging(float dt)
+{
+    if (g_caging.empty())
+        return;
+    g_cagingTimer += dt;
+    if (g_cagingTimer < 0.5f)
+        return;
+    float step = g_cagingTimer;
+    g_cagingTimer = 0.0f;
+    for (size_t i = 0; i < g_caging.size(); )
+    {
+        CageTrip& t = g_caging[i];
+        Character* c = t.slave.getCharacter();
+        Building* b = t.cage.getBuilding();
+        RootObject* cageObj = reinterpret_cast<RootObject*>(b);
+        const char* drop = 0;
+        if (c == 0 || c->isDead() || !IsOurSlave(c))
+            drop = "no longer a slave of yours";
+        else if (b == 0)
+            drop = "the cage is gone";
+        else if (c->isUnconcious() || c->isBeingCarried())
+            drop = "knocked out or carried";
+        else if (IsCaged(c))
+            drop = "already caged";
+        else if (reinterpret_cast<UseableStuff*>(b)->getOccupant().getCharacter() != 0)
+            drop = "someone else is in the cage";
+        t.elapsed += step;
+        if (drop == 0 && t.elapsed > 90.0f)
+            drop = "took too long";
+        if (drop != 0)
+        {
+            Trace(std::string("cage: trip of '") + (c != 0 ? c->getName() : std::string("?")) + "' dropped: " + drop);
+            g_caging.erase(g_caging.begin() + i);
+            continue;
+        }
+        float d = (cageObj->getPosition() - c->getPosition()).length();
+        if (d < t.bestDist - 5.0f)
+        {
+            t.bestDist = d;
+            t.sinceCloser = 0.0f;
+        }
+        else
+            t.sinceCloser += step;
+        // close enough, or as close as the cage walls let them get
+        if (d < 40.0f || (d < 150.0f && t.sinceCloser > 6.0f))
+        {
+            c->setPrisonMode(true, reinterpret_cast<UseableStuff*>(b));
+            bool in = IsCaged(c);
+            if (in && t.night)
+                g_nightCaged.insert(SlaveKey(c));
+            Trace("cage: '" + c->getName() + "' enters the cage at " + Num(d) + " -> in prison=" + Num(in));
+            g_caging.erase(g_caging.begin() + i);
+            continue;
+        }
+        t.reorder += step;
+        if (t.reorder > 5.0f)
+        {
+            t.reorder = 0.0f;
+            OrderMove(c, cageObj->getPosition());
+        }
+        i++;
+    }
+}
+
+static int g_wasNight = -1;   // -1 = not known yet (first frame / after a load)
+
+static bool IsCageNight()
+{
+    double h = fmod(ou->getTimeStamp_inGameHours().getTotalHours(), 24.0);
+    float n = g_cfg.cageNightHour, m = g_cfg.cageMorningHour;
+    return n > m ? (h >= n || h < m) : (h >= n && h < m);
+}
+
+static void UpdateCageNight()
+{
+    if (!g_cfg.cageAtNight)
+    {
+        g_wasNight = -1;
+        return;
+    }
+    int night = IsCageNight() ? 1 : 0;
+    if (night == g_wasNight)
+        return;
+    bool first = g_wasNight < 0;
+    g_wasNight = night;
+    const lektor<Character*>& all = ou->player->getAllPlayerCharacters();
+    int count = 0;
+    for (uint32_t i = 0; i < all.size(); i++)
+    {
+        Character* c = all.stuff[i];
+        if (!IsOurSlave(c))
+            continue;
+        if (night && !first)
+        {
+            bool busy = false;
+            for (size_t k = 0; k < g_pending.size(); k++)
+                busy = busy || g_pending[k].target.getCharacter() == c;
+            if (!busy && SendToCage(c, true))
+                count++;
+        }
+        else if (!night && IsCaged(c) && g_nightCaged.count(SlaveKey(c)))
+        {
+            LetOutOfCage(c);
+            count++;
+        }
+    }
+    if (!night)
+        g_nightCaged.clear();
+    Trace("cage night: " + std::string(night ? "night" : "morning") + (first ? " (first look)" : "") + ", " + Num((float)count) + " slave(s)");
+    if (count > 0)
+        ShowNotice(night ? Num((float)count) + T(" slave(s) go to their cages for the night.", " escravo(s) vao para as jaulas passar a noite.")
+                         : Num((float)count) + T(" slave(s) let out of the cages for the day.", " escravo(s) soltos das jaulas para o dia."));
+}
+
 static std::vector<SlaveAction> MenuActionsFor(Character* target)
 {
     std::vector<SlaveAction> out;
@@ -3464,6 +3855,7 @@ static std::vector<SlaveAction> MenuActionsFor(Character* target)
             out.push_back(ACT_PUNISH);
         if (g_cfg.rewardEnabled)
             out.push_back(ACT_REWARD);
+        out.push_back(IsCaged(target) ? ACT_UNCAGE : ACT_CAGE);
         return out;
     }
     if (IsPlayerFaction(target))
@@ -3484,7 +3876,15 @@ static void OnMenuOption(MyGUI::Widget* sender, int left, int top, MyGUI::MouseB
     {
         SlaveAction action = (SlaveAction)atoi(sender->getUserString("SlaverModAction").c_str());
         Trace("menu option " + Num((float)action) + " on '" + target->getName() + "'");
-        StartAction(target, action);
+        if (action == ACT_CAGE)
+            SendToCage(target, false);
+        else if (action == ACT_UNCAGE)
+        {
+            LetOutOfCage(target);
+            ShowNotice(target->getName() + T(" was let out of the cage.", " foi solto(a) da jaula."));
+        }
+        else
+            StartAction(target, action);
     }
     // close the menu the same way the game's own options do
     ou->player->contextMenu.showContextMenu(false, 0);
@@ -3515,6 +3915,8 @@ static std::string MenuCaption(SlaveAction action, bool upper)
     case ACT_PUNISH: return upper ? T("PUNISH", "PUNIR") : T("Punish", "Punir");
     case ACT_REWARD: return upper ? T("REWARD", "RECOMPENSAR") : T("Reward", "Recompensar");
     case ACT_THRALL: return upper ? T("REPROGRAM", "REPROGRAMAR") : T("Reprogram", "Reprogramar");
+    case ACT_CAGE: return upper ? T("LOCK IN A CAGE", "PRENDER NA JAULA") : T("Lock in a cage", "Prender na jaula");
+    case ACT_UNCAGE: return upper ? T("LET OUT OF THE CAGE", "SOLTAR DA JAULA") : T("Let out of the cage", "Soltar da jaula");
     default: return upper ? T("ENSLAVE", "ESCRAVIZAR") : T("Enslave", "Escravizar");
     }
 }
@@ -3625,9 +4027,13 @@ static void UpdateRebels(float dt)
         }
         float dist = 0.0f;
         Character* target = NearestFreeMember(c->getPosition(), &dist, 0, true);
-        if (target == 0 || dist > g_cfg.rebelChaseRange)
+        // not at war (RebellionHostile=0) or nobody left to fight: the uprising becomes a flight
+        if (target == 0 || dist > g_cfg.rebelChaseRange || !g_cfg.rebellionHostile)
         {
-            Trace("rebel '" + c->getName() + "' has nobody to fight (dist " + Num(dist) + "), leaving");
+            Trace("rebel '" + c->getName() + "' has nobody to fight (dist " + Num(dist) + ", hostile " + Num(g_cfg.rebellionHostile) + "), " +
+                  (g_cfg.rebelsFlee ? "fleeing" : "leaving"));
+            if (g_cfg.rebelsFlee)
+                g_fleeingRebels.push_back(g_rebels[i]);
             g_rebels.erase(g_rebels.begin() + i);
             continue;
         }
@@ -3706,6 +4112,10 @@ static void StartRebellion(const std::vector<Character*>& rebels)
     }
     Platoon* platoon = rebelFaction->createNewEmptyActivePlatoon(0, false, rebels[0]->getPosition());
     ActivePlatoon* squad = platoon != 0 ? platoon->getActivePlatoon() : 0;
+    // a home for the rebels' squad, so fleeing rebels have a town to head to
+    TownBase* home = rebelFaction->warMgr != 0 ? rebelFaction->warMgr->getNearestTown(rebels[0]->getPosition()) : 0;
+    if (home != 0 && platoon != 0)
+        platoon->ownerships.setHomeTown(home, SQ_ROAMING);
     Trace("rebellion: " + Num((float)rebels.size()) + " rebels join '" + rebelFaction->getName() + "' squad=" + Num(squad != 0));
 
     for (size_t r = 0; r < rebels.size(); r++)
@@ -3729,8 +4139,12 @@ static void StartRebellion(const std::vector<Character*>& rebels)
             RemoveShackles(c);
         if (c->isChainedMode())
             c->setChainedMode(false, hand());
+        std::string keyBefore = SlaveKey(c);
         c->setFaction(rebelFaction, squad);
         ForgetRecord(c);
+        g_records.erase(keyBefore);
+        if (g_cfg.rebelsDistrust)
+            g_distrust[SlaveKey(c)] = c->getName();   // never joins you again through dialogue
         GiveRebelWeapon(c);
         g_rebels.push_back(hand(c));
         Trace("rebellion: '" + c->getName() + "' str=" + Num(StrengthOf(c)) + " now player=" + Num(IsPlayerFaction(c)) +
@@ -4100,7 +4514,7 @@ static void PushAway(std::vector<hand>& list, TaskType goal, const char* label)
 
 static void UpdateEscapees(float dt)
 {
-    if (g_escapees.empty() && g_leavers.empty())
+    if (g_escapees.empty() && g_leavers.empty() && g_fleeingRebels.empty())
         return;
     g_escapeeTimer += dt;
     if (g_escapeeTimer < 2.0f)
@@ -4108,6 +4522,7 @@ static void UpdateEscapees(float dt)
     g_escapeeTimer = 0.0f;
     PushAway(g_escapees, EscapeGoal(), "runaway");
     PushAway(g_leavers, GoalFromName(g_cfg.freedGoal), "freed");
+    PushAway(g_fleeingRebels, EscapeGoal(), "fleeing rebel");
 }
 
 // ---------------------------------------------------------------------------
@@ -4644,6 +5059,15 @@ static void UpdateWalkOnly()
             rebels.insert(c);
         }
     }
+    for (size_t i = 0; i < g_fleeingRebels.size(); i++)
+    {
+        Character* c = g_fleeingRebels[i].getCharacter();
+        if (c != 0 && !c->isDead())
+        {
+            movers.push_back(c);
+            rebels.insert(c);
+        }
+    }
     for (size_t i = 0; i < movers.size(); i++)
     {
         Character* c = movers[i];
@@ -4693,6 +5117,8 @@ void Move_setDesiredSpeedOrdersF_hook(AbstractMovementBase* thisptr, float speed
     Move_setDesiredSpeedOrdersF_orig(thisptr, CapSpeed(thisptr, speed));
 }
 
+static void UpdateSoldToCage(float dt);
+
 void GameWorld_update_hook(GameWorld* thisptr, float time)
 {
     if (GameWorld_update_orig)
@@ -4725,7 +5151,10 @@ void GameWorld_update_hook(GameWorld* thisptr, float time)
         // slaves made before shackles existed in this mod
         for (uint32_t i = 0; i < all.size(); i++)
             if (IsOurSlave(all.stuff[i]))
+            {
                 GiveShackles(all.stuff[i]);
+                ClearBounties(all.stuff[i]);   // slaves made before v1.18 kept them
+            }
     }
 
     HandleHotkey();
@@ -4745,6 +5174,9 @@ void GameWorld_update_hook(GameWorld* thisptr, float time)
         UpdateEscorts(time);
         UpdateSlaveCaravan();
         UpdateWalkOnly();
+        UpdateSoldToCage(time);
+        UpdateCaging(time);
+        UpdateCageNight();
         WatchMembers(time, false);
         CalibrateTime(time);
     }
@@ -5048,6 +5480,97 @@ static void RemoveEmptySlaveSquads(const std::set<ActivePlatoon*>& squads)
     }
 }
 
+// A slave sold while unconscious (or carried in) was left lying on the floor: the slave's own
+// "get in my master's cage" goal needs them awake. An awake member of the trader's faction near
+// the shop (a guard rather than the trader if there is one) carries them to a cage instead.
+static Character* ShopCarrier(Character* trader, Character* slave)
+{
+    Faction* f = trader->getFaction();
+    if (f == 0)
+        return 0;
+    lektor<RootObject*> found;
+    f->getCharactersInArea(found, slave->getPosition(), g_cfg.tradeRadius, false);
+    Character* best = 0;
+    float bestDist = 0.0f;
+    for (uint32_t k = 0; k < found.size(); k++)
+    {
+        Character* c = found.stuff[k] != 0 ? hand(found.stuff[k]).getCharacter() : 0;
+        if (c == 0 || c == slave || c->isDead() || c->isUnconcious() || c->isSlave() != NOT_SLAVE ||
+            c->isCarryingSomething || c->isAnimal() != 0)
+            continue;
+        float d = (c->getPosition() - slave->getPosition()).length() + (c == trader ? 100000.0f : 0.0f);
+        if (best == 0 || d < bestDist)
+        {
+            best = c;
+            bestDist = d;
+        }
+    }
+    return best;
+}
+
+// Sold slaves still lying down, waiting for a free carrier: in a batch sale the shop's guards
+// are busy carrying the first ones, so the rest wait here and are picked up one by one.
+struct SoldToCage
+{
+    hand trader, slave;
+    float elapsed;
+};
+static std::vector<SoldToCage> g_soldToCage;
+static float g_soldToCageTimer = 0.0f;
+
+static bool TryCageSoldSlave(Character* trader, Character* c)
+{
+    Character* carrier = ShopCarrier(trader, c);
+    if (carrier == 0)
+        return false;
+    carrier->pickupObject(c);
+    carrier->addGoal(FIND_CAGE_AND_PUT_IN, c);
+    Trace("trade: '" + carrier->getName() + "' carries the sold '" + c->getName() + "' to a cage (carrying=" + Num(carrier->isCarryingSomething) + ")");
+    return true;
+}
+
+static void CageSoldSlave(Character* trader, Character* c)
+{
+    if (!c->isUnconcious() || c->isBeingCarried())
+        return;
+    if (TryCageSoldSlave(trader, c))
+        return;
+    SoldToCage s;
+    s.trader = hand(trader);
+    s.slave = hand(c);
+    s.elapsed = 0.0f;
+    g_soldToCage.push_back(s);
+    Trace("trade: '" + c->getName() + "' waits for a free carrier of the trader's faction (" + Num((float)g_soldToCage.size()) + " waiting)");
+}
+
+static void UpdateSoldToCage(float dt)
+{
+    if (g_soldToCage.empty())
+        return;
+    g_soldToCageTimer += dt;
+    if (g_soldToCageTimer < 1.0f)
+        return;
+    float step = g_soldToCageTimer;
+    g_soldToCageTimer = 0.0f;
+    for (size_t i = 0; i < g_soldToCage.size(); )
+    {
+        SoldToCage& s = g_soldToCage[i];
+        Character* trader = s.trader.getCharacter();
+        Character* c = s.slave.getCharacter();
+        s.elapsed += step;
+        bool done = trader == 0 || c == 0 || c->isDead() || !c->isUnconcious() || c->isBeingCarried() ||
+                    c->inSomething == IN_PRISON || IsPlayerFaction(c) || s.elapsed > 120.0f;
+        if (!done)
+            done = TryCageSoldSlave(trader, c);
+        else if (c != 0 && s.elapsed > 120.0f)
+            Trace("trade: nobody came to carry '" + c->getName() + "' to a cage");
+        if (done)
+            g_soldToCage.erase(g_soldToCage.begin() + i);
+        else
+            i++;
+    }
+}
+
 static void SellSlave(Character* customer, Character* trader, Character* c, int price)
 {
     std::string name = c->getName();
@@ -5119,6 +5642,7 @@ static void SellSlave(Character* customer, Character* trader, Character* c, int 
         return;
     }
     Say(c, "SoldSlave", 300);
+    CageSoldSlave(trader, c);
     int before = customer->getMoney();
     GivePlayerMoney(price);
     Trace("trade: sold '" + name + "' to '" + (toFaction != 0 ? toFaction->getName() : std::string("?")) + "' (squad of " +
@@ -5198,6 +5722,28 @@ static void OnTradeAll(MyGUI::Widget* sender)
     UpdateTradeInfo();
 }
 
+// RequireShackles: the slave traders also sell shackle kits, one per click.
+static void OnTradeKit(MyGUI::Widget* sender)
+{
+    Character* customer = g_tradeCustomer.getCharacter();
+    if (customer == 0)
+        return;
+    if (customer->getMoney() < g_cfg.shackleKitPrice)
+    {
+        ShowNotice(T("Not enough money for a shackle kit.", "Dinheiro insuficiente para um kit de grilhoes."));
+        return;
+    }
+    if (!GiveShackleKit(customer, 1))
+    {
+        ShowNotice(T("The shackle kit item is missing from the game data.", "O item kit de grilhoes nao esta nos dados do jogo."));
+        return;
+    }
+    customer->takeMoney(g_cfg.shackleKitPrice);
+    Trace("trade: '" + customer->getName() + "' bought a shackle kit for " + Num((float)g_cfg.shackleKitPrice) + " cats");
+    ShowNotice(customer->getName() + T(" bought a shackle kit.", " comprou um kit de grilhoes."));
+    UpdateTradeInfo();
+}
+
 static void OnTradeClose(MyGUI::Widget* sender)
 {
     CloseTradeWindow();
@@ -5248,6 +5794,12 @@ static void OpenTradeWindow(Character* trader, Character* customer, bool buying)
     g_tradeAll = g_tradeWindow->createWidget<MyGUI::Button>("Kenshi_Button1", 8, ch - 42, 170, 34, MyGUI::Align::Default, "SlaverModTradeAll");
     g_tradeAll->setCaption(T("SELECT ALL", "MARCAR TODOS"));
     g_tradeAll->eventMouseButtonClick += MyGUI::newDelegate(OnTradeAll);
+    if (buying && g_cfg.requireShackles && ShackleKitData() != 0)
+    {
+        MyGUI::Button* kit = g_tradeWindow->createWidget<MyGUI::Button>("Kenshi_Button1", 186, ch - 42, cw - 186 - 368, 34, MyGUI::Align::Default, "SlaverModTradeKit");
+        kit->setCaption(T("SHACKLE KIT ", "KIT DE GRILHOES ") + Num((float)g_cfg.shackleKitPrice));
+        kit->eventMouseButtonClick += MyGUI::newDelegate(OnTradeKit);
+    }
     g_tradeDo = g_tradeWindow->createWidget<MyGUI::Button>("Kenshi_Button1", cw - 360, ch - 42, 170, 34, MyGUI::Align::Default, "SlaverModTradeDo");
     g_tradeDo->setCaption(buying ? T("BUY", "COMPRAR") : T("SELL", "VENDER"));
     g_tradeDo->eventMouseButtonClick += MyGUI::newDelegate(OnTradeDo);
@@ -5342,8 +5894,50 @@ void Dialogue_doActions_hook(Dialogue* thisptr, DialogLineData* line)
 // The fixed-price offer for a carried person ("I'll give you 400 Cats"): with the trade
 // window on, the lines that need DC_CARRYING_SOMEONE_TO_ENSLAVE are never chosen.
 bool (*DialogLineData_checkConditions_orig)(DialogLineData*, Dialogue*, Character*, bool) = NULL;
+// RebelsDistrust: a slave who rose up against you never joins you again through dialogue.
+static bool IsDistrustful(Character* c)
+{
+    if (c == 0 || g_distrust.empty() || IsPlayerFaction(c))
+        return false;
+    std::map<std::string, std::string>::const_iterator it = g_distrust.find(SlaveKey(c));
+    if (it != g_distrust.end())
+        return true;
+    // the game may have given them a new handle (another squad): the name still tells
+    std::string name = c->getName();
+    for (it = g_distrust.begin(); it != g_distrust.end(); ++it)
+        if (it->second == name)
+            return true;
+    return false;
+}
+
+static bool JoinsPlayer(DialogLineData* line)
+{
+    const lektor<DialogLineData::DialogAction*>* actions = line != 0 ? line->getActions() : 0;
+    if (actions != 0)
+        for (uint32_t i = 0; i < actions->size(); i++)
+        {
+            DialogLineData::DialogAction* a = actions->stuff[i];
+            if (a != 0 && (a->key == DA_JOIN_SQUAD_WITH_EDIT || a->key == DA_JOIN_SQUAD_FAST))
+                return true;
+        }
+    return false;
+}
+
+static std::set<Character*> g_loggedDistrust;
+
 bool DialogLineData_checkConditions_hook(DialogLineData* thisptr, Dialogue* dialog, Character* target, bool isWordswap)
 {
+    if (g_cfg.enabled && g_cfg.rebelsDistrust && !g_distrust.empty() && thisptr != 0 && JoinsPlayer(thisptr))
+    {
+        Character* me = dialog != 0 ? dialog->me : 0;
+        Character* who = IsDistrustful(me) ? me : (IsDistrustful(target) ? target : 0);
+        if (who != 0)
+        {
+            if (g_loggedDistrust.insert(who).second)
+                Trace("distrust: '" + who->getName() + "' rose up against you and will not join again");
+            return false;
+        }
+    }
     if (g_cfg.enabled && g_cfg.disableCarriedSale && thisptr != 0)
         for (uint32_t i = 0; i < thisptr->conditions.size(); i++)
         {
@@ -5374,6 +5968,7 @@ public:
     float findConsciousSlaveInTown_unholy(const hand& in, hand& out, bool justAsking);// public RVA = 0x8CFC60
     float findKOedSlaveOfMine(const hand& in, hand& out, bool justAsking);// public RVA = 0x8CC7A0
     float _findWoundedAllies(hand& out, bool robots);// public RVA = 0x99DEE0
+    float _NV_scoreGetFood_inHomeTown(const hand& subject, const Ogre::Vector3& v);// public RVA = 0x59B450 (vtable 0xC0)
     void* vtable_;
     float meiDistance; // 0x8 Member
     float meiDistanceTolerance; // 0xC Member
@@ -5434,14 +6029,31 @@ static std::map<std::string, bool> g_loggedBusy;
 // A slave of the player's faction is still a member of it: the game counts them as enemies of
 // their own faction (turret guards shot them). Between two members of the player's faction, one
 // of them our slave, nobody is an enemy (rebels leave the faction first, so they still fight).
+// v1.18: the same goes for anyone whose faction is not at war with the player (SparedByNeutrals):
+// allies' turrets and gunners, town guards and modded factions kept shooting our slaves when
+// the slave's race or old faction made them look hostile (UWE mist ghouls, Bounties Galore).
+static bool SlaveOfFaction(Character* c, Faction* pf)
+{
+    return c->getFaction() == pf && c->isSlave() == IS_SLAVE;
+}
+
 static bool OwnSlavePair(Character* a, Character* b)
 {
     if (!g_cfg.enabled || a == 0 || b == 0 || a == b)
         return false;
     Faction* pf = PlayerFaction();
-    if (pf == 0 || a->getFaction() != pf || b->getFaction() != pf)
+    if (pf == 0)
         return false;
-    return a->isSlave() == IS_SLAVE || b->isSlave() == IS_SLAVE;
+    bool aSlave = SlaveOfFaction(a, pf), bSlave = SlaveOfFaction(b, pf);
+    if (!aSlave && !bSlave)
+        return false;
+    Character* other = aSlave ? b : a;
+    Faction* of = other->getFaction();
+    if (of == pf)
+        return true;
+    if (!g_cfg.sparedByNeutrals || of == 0 || of->relations == 0)
+        return false;
+    return !of->relations->isEnemy(pf);
 }
 
 static std::set<Character*> g_loggedEnemy;
@@ -5451,7 +6063,7 @@ bool Character_isEnemy_hook(Character* thisptr, Character* who, bool factorInDis
     bool enemy = Character_isEnemy_orig(thisptr, who, factorInDisguises);
     if (enemy && OwnSlavePair(thisptr, who))
     {
-        Character* slave = who->isSlave() == IS_SLAVE ? who : thisptr;
+        Character* slave = SlaveOfFaction(who, PlayerFaction()) ? who : thisptr;
         if (g_loggedEnemy.insert(slave).second)
             Trace("isEnemy: '" + thisptr->getName() + "' vs '" + who->getName() + "' was enemy, now not (slave '" + slave->getName() + "')");
         return false;
@@ -5490,6 +6102,40 @@ void Character_addOrder_hook(Character* thisptr, Building* dest, TaskType t, Roo
                 Trace("order: '" + thisptr->getName() + "' got order " + Num((float)t) + " from the player");
             }
     Character_addOrder_orig(thisptr, dest, t, subject, shift, clear, location);
+}
+
+// SlaveFood: own = slaves only eat food they carry (feed them by hand); none = they never eat
+// (the game keeps slaves from starving). Either way they stop raiding your food storage.
+static bool SlaveMayEat(Character* c, Inventory* from)
+{
+    if (!g_cfg.enabled || g_cfg.slaveFood == "any" || c == 0 || !IsOurSlave(c))
+        return true;
+    if (g_cfg.slaveFood == "none")
+        return false;
+    return from == 0 || from == c->inventory;
+}
+
+static std::set<Character*> g_loggedFood;
+bool (*Character_eatItem_orig)(Character*, Item*, Inventory*) = NULL;
+bool Character_eatItem_hook(Character* thisptr, Item* food, Inventory* from)
+{
+    if (!SlaveMayEat(thisptr, from))
+    {
+        if (g_loggedFood.insert(thisptr).second)
+            Trace("food: slave '" + thisptr->getName() + "' may not eat " + (food != 0 ? "'" + food->getName() + "'" : std::string("?")) +
+                  " (SlaveFood=" + g_cfg.slaveFood + ", " + (from == thisptr->inventory ? "own" : "other") + " inventory)");
+        return false;
+    }
+    return Character_eatItem_orig(thisptr, food, from);
+}
+
+float (*AI_scoreGetFood_orig)(AI*, const hand&, const Ogre::Vector3&) = NULL;
+float AI_scoreGetFood_hook(AI* ai, const hand& subject, const Ogre::Vector3& v)
+{
+    Character* me = ai != 0 ? *reinterpret_cast<Character**>(reinterpret_cast<char*>(ai) + 0x2F8) : 0;
+    if (me != 0 && g_cfg.enabled && g_cfg.slaveFood != "any" && IsOurSlave(me))
+        return 0.0f;   // never walks to the food storage
+    return AI_scoreGetFood_orig(ai, subject, v);
 }
 
 float (*AI__findWoundedAllies_orig)(AI*, hand&, bool) = NULL;
@@ -5575,6 +6221,10 @@ static void ResetWorldState(const char* why)
     g_rebels.clear();
     g_escapees.clear();
     g_leavers.clear();
+    g_fleeingRebels.clear();
+    g_caging.clear();
+    g_soldToCage.clear();
+    g_wasNight = -1;
     g_unsupervisedDays.clear();
     g_discipline.clear();
     g_speech.clear();
@@ -5615,6 +6265,8 @@ void SaveManager_newGame_hook(SaveManager* thisptr, const std::string& startId)
     g_caravanNextHour = -1.0;
     g_caravanLeaveHour = -1.0;
     g_caravanSquadID.clear();
+    g_distrust.clear();
+    g_nightCaged.clear();
     g_lastKey.clear();
     g_recordsSave = "";
     g_recordsReady = true;
@@ -5742,10 +6394,27 @@ extern "C" __declspec(dllexport) void MCM_Describe(MCM_Api* api)
                   "Animais e criaturas podem ser escravizados e vendidos. Eles mesmos nunca escravizam, punem nem libertam ninguém."), 0, 0);
     api->toggle(api, sec, "SlaveAIJob", L("Native slave work", "Trabalho escravo nativo"),
                 L("Turns on the game's slave work behaviour. Experimental.", "Liga o comportamento de trabalho escravo do jogo. Experimental."), 0, 0);
-    // the neck collar comes from Macropod's "Slave dress" mod; without it, the shackles are used
-    static const char* const restraintValues[] = { "SHACKLES", "21-Slave dress.mod" };
+    static const char* const foodValues[] = { "any", "own", "none" };
+    std::string foodAny = T("Like anyone (from your storage too)", "Como qualquer um (também do seu estoque)"),
+                foodOwn = T("Only food they carry", "Só a comida que carregam"),
+                foodNone = T("Never (the game keeps them from starving)", "Nunca (o jogo não os deixa morrer de fome)");
+    const char* foodLabels[] = { foodAny.c_str(), foodOwn.c_str(), foodNone.c_str() };
+    api->choice(api, sec, "SlaveFood", L("Slaves eat", "Escravos comem"),
+                L("Stops slaves raiding your food storage. With \"only food they carry\", put food in a slave's inventory to feed them.",
+                  "Impede os escravos de saquear seu estoque de comida. Com \"só a comida que carregam\", ponha comida no inventário do escravo para alimentá-lo."),
+                "any", foodValues, foodLabels, 3, 0);
+    api->toggle(api, sec, "CageAtNight", L("Slaves sleep in cages", "Escravos dormem nas jaulas"),
+                L("At night your slaves walk into free cages of your faction; in the morning they come out. A slave can also be sent with the order menu.",
+                  "À noite seus escravos entram nas jaulas livres da sua facção; de manhã saem. Também dá para mandar um escravo pelo menu de ordens."), 0, 0);
+    api->integer(api, sec, "CageNightHour", L("Into the cages at (hour)", "Entram nas jaulas às (hora)"), NULL, 21, 0, 23, 0);
+    api->integer(api, sec, "CageMorningHour", L("Out of the cages at (hour)", "Saem das jaulas às (hora)"), NULL, 7, 0, 23, 0);
+    api->toggle(api, sec, "RequireShackles", L("Enslaving needs a shackle kit", "Escravizar exige kit de grilhões"),
+                L("Each enslavement uses up a shackle kit (or loose prisoner shackles) carried by the enslaver or a member nearby. Slave traders sell kits; freeing a slave gives one back.",
+                  "Cada escravização gasta um kit de grilhões (ou grilhões de prisioneiro soltos) carregado por quem escraviza ou por um membro perto. Traficantes vendem kits; libertar um escravo devolve um."), 0, 0);
+    api->integer(api, sec, "ShackleKitPrice", L("Shackle kit price", "Preço do kit de grilhões"), NULL, 150, 0, 5000, 0);
+    static const char* const restraintValues[] = { "SHACKLES", "12-SlaverMod.mod" };
     std::string restraintShackles = T("Prisoner shackles", "Grilhões de prisioneiro");
-    std::string restraintCollar = T("Slave collar on the neck (Slave dress mod)", "Coleira de escravo no pescoço (mod Slave dress)");
+    std::string restraintCollar = T("Slave collar on the neck (by Macropod)", "Coleira de escravo no pescoço (por Macropod)");
     const char* restraintLabels[] = { restraintShackles.c_str(), restraintCollar.c_str() };
     api->choice(api, sec, "ShackleItem", L("Restraint", "Restrição"),
                 L("What new slaves get locked on. Any locked item counts as a restraint for SlaverMod; other item IDs can be set in SlaverMod.ini.",
@@ -5842,6 +6511,12 @@ extern "C" __declspec(dllexport) void MCM_Describe(MCM_Api* api)
                 L("Game hours the caravan stays after it arrives, then it leaves.", "Horas de jogo que a caravana fica depois de chegar; depois ela vai embora."), 6.0f, 1.0f, 96.0f, 0, 0);
     api->toggle(api, sec, "ProtectSlaves", L("Other slavers leave your slaves alone", "Outros escravistas deixam seus escravos em paz"),
                 L("Slavers of other factions no longer try to process, cage or ship your slaves.", "Escravistas de outras facções deixam de tentar processar, prender ou levar seus escravos."), 1, 0);
+    api->toggle(api, sec, "SparedByNeutrals", L("Allies and neutrals never attack your slaves", "Aliados e neutros nunca atacam seus escravos"),
+                L("People and turrets of factions not at war with you never take your slaves for enemies, whatever their race or old faction.",
+                  "Pessoas e torretas de facções que não estão em guerra com você nunca tratam seus escravos como inimigos, seja qual for a raça ou a antiga facção deles."), 1, 0);
+    api->toggle(api, sec, "ClearSlaveBounties", L("Slaves lose their bounties", "Escravos perdem as recompensas"),
+                L("Bounties on a new slave are cleared, so guards and bounty hunters stop hunting them.",
+                  "As recompensas pela cabeça de um novo escravo são apagadas, então guardas e caçadores de recompensa param de persegui-lo."), 1, 0);
     api->toggle(api, sec, "AllowStealingSlaves", L("Allow stealing slaves", "Permitir roubar escravos"),
                 L("Lets you enslave other factions' slaves. Off: only runaways and free people.", "Deixa escravizar os escravos de outras facções. Desligado: só fugitivos e pessoas livres."), 0, 0);
     api->toggle(api, sec, "DisableCarriedSale", L("No fixed 400 cats offer", "Sem a oferta fixa de 400 cats"),
@@ -5885,6 +6560,12 @@ extern "C" __declspec(dllexport) void MCM_Describe(MCM_Api* api)
                 L("The Anti-Slavers go to war with you on a rebellion.", "Os Abolicionistas entram em guerra com você na rebelião."), 1, 0);
     api->integer(api, sec, "RebelChaseRange", L("Chase distance", "Distância de perseguição"),
                  L("How far rebels chase your free members.", "Até onde os rebeldes perseguem seus membros livres."), 1000, 100, 5000, 0);
+    api->toggle(api, sec, "RebelsFlee", L("Rebels flee", "Rebeldes fogem"),
+                L("Once nobody is left to fight (or without war), the rebels run away towards a town instead of staying around.",
+                  "Quando não sobra ninguém para lutar (ou sem guerra), os rebeldes fogem para uma cidade em vez de ficar por perto."), 1, 0);
+    api->toggle(api, sec, "RebelsDistrust", L("Rebels never trust you again", "Rebeldes nunca mais confiam em você"),
+                L("Slaves who rose up against you refuse to join you through dialogue. Enslaving them again still works.",
+                  "Escravos que se rebelaram contra você recusam entrar no seu grupo por diálogo. Escravizar de novo ainda funciona."), 1, 0);
     api->text(api, sec, "RebelFaction", L("Rebel faction (ID)", "Facção dos rebeldes (ID)"), NULL, "58229-Dialogue.mod", 0);
     api->text(api, sec, "RebelWeapon", L("Rebel weapon (ID)", "Arma dos rebeldes (ID)"), NULL, "52295-rebirth.mod", 0);
     api->text(api, sec, "RebelWeaponMaker", L("Weapon manufacturer (ID)", "Fabricante da arma (ID)"), NULL, "912-gamedata.base", 0);
@@ -5921,7 +6602,7 @@ __declspec(dllexport) void startPlugin()
     LoadLines();
     ParseHotkey();
     srand(GetTickCount());
-    Trace("startPlugin v1.17");
+    Trace("startPlugin v1.18");
 
     if (KenshiLib::SUCCESS != KenshiLib::AddHook(KenshiLib::GetRealAddress(&GameWorld::_NV_mainLoop_GPUSensitiveStuff), GameWorld_update_hook, (void**)&GameWorld_update_orig))
         ErrorLog("SlaverMod: could not add GameWorld update hook!");
@@ -5975,4 +6656,8 @@ __declspec(dllexport) void startPlugin()
         ErrorLog("SlaverMod: could not add isEnemy hook!");
     if (KenshiLib::SUCCESS != KenshiLib::AddHook(KenshiLib::GetRealAddress(&GunClassTurret::_NV_scoreTarget), GunClassTurret_scoreTarget_hook, (void**)&GunClassTurret_scoreTarget_orig))
         ErrorLog("SlaverMod: could not add turret score hook!");
+    if (KenshiLib::SUCCESS != KenshiLib::AddHook(KenshiLib::GetRealAddress(&Character::eatItem), Character_eatItem_hook, (void**)&Character_eatItem_orig))
+        ErrorLog("SlaverMod: could not add eatItem hook!");
+    if (KenshiLib::SUCCESS != KenshiLib::AddHook(KenshiLib::GetRealAddress(&AI::_NV_scoreGetFood_inHomeTown), AI_scoreGetFood_hook, (void**)&AI_scoreGetFood_orig))
+        ErrorLog("SlaverMod: could not add get-food hook!");
 }

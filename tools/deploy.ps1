@@ -59,4 +59,7 @@ $langDest = Join-Path $dest 'lang'
 New-Item -ItemType Directory -Force $langDest | Out-Null
 Copy-Item (Join-Path $langSrc '*.txt') $langDest -Force
 
+# item meshes, textures and icons (the slave collar, v1.18) always come from the repository
+Copy-Item (Join-Path $repo 'mod\SlaverMod\items') $dest -Recurse -Force
+
 Write-Host "Deployed to $dest"

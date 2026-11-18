@@ -8,6 +8,7 @@ Kenshi\mods\SlaverMod\lang\          (or the Workshop folder: steamapps\workshop
     ru.txt          Русский
     es.txt          Español
     zh.txt          简体中文
+    ja.txt          日本語
 ```
 
 English and Brazilian Portuguese are built into the mod.
