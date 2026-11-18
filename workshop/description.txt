@@ -8,7 +8,7 @@ A RE_Kenshi plugin that lets your faction own slaves, using Kenshi's own slave s
 [list]
 [*][b]Enslave from the right-click menu.[/b] Hold the right mouse button over an unconscious, chained or caged person: the selected member walks over, kneels and puts locked shackles on them. Other factions' slaves are their owners' property. Anyone who sees it treats it as kidnapping.
 [*][b]Submission (0-100):[/b] Defiant, Restless, Obedient or Loyal, shown over the selected slave and saved with each save. Watched slaves slowly get used to it; cages break them faster.
-[*][b]Races differ:[/b] hive drones obey, Shek resist, the QueenBirth Hive Queen almost never submits (SlaverMod_races.ini).
+[*][b]Races differ:[/b] hive drones obey, Shek resist (SlaverMod_races.ini).
 [*][b]Supervision and escape:[/b] slaves left without a free member nearby lose submission and may run away. Knock them out to recapture them. Only the strong or skilled get out of their shackles; the others can only walk.
 [*][b]Punish and Reward[/b] in the same menu: a beating (+submission, some damage) or a few cats.
 [*][b]Freeing:[/b] slaves with 90+ submission stay in your faction; the others go home.
@@ -22,7 +22,6 @@ A RE_Kenshi plugin that lets your faction own slaves, using Kenshi's own slave s
 [*][b]Your slaves are safe from allies and neutrals:[/b] their guards, turrets and bounty hunters no longer attack them.
 [*][b]Speech bubbles[/b] for slavers and slaves.
 [*][b]New game start "Slave Hunters":[/b] a leader and five hunters with rusty clubs at a random slaver camp.
-[*][b]Your own people enslaved by others[/b] (the Rebirth start) are left to the game. [i]Enabled=0[/i] (MCM: Mod active) switches the whole mod off.
 [*][b]In-game settings[/b] with ModConfigMenu (optional), or the commented SlaverMod.ini. Your settings are kept in SlaverMod_user.ini, so updates no longer reset them.
 [/list]
 
@@ -34,10 +33,10 @@ Every text of the mod (messages, settings page, trade window, speech bubbles and
 [*]Start the game in your language: the mod picks the file by itself.
 [*][url=https://github.com/Cappuccino-SKT/kenshi-slavermod/issues/new?template=translation.yml]Send it with this form[/url] (drag the file in). You'll be credited.
 [/olist]
-Step by step: [url=https://github.com/Cappuccino-SKT/kenshi-slavermod/blob/main/docs/TRANSLATING.md]how to translate[/url] (also in lang\_HOW_TO_TRANSLATE.txt). Chinese corrected by 石岗小学摸你穷 and Japanese by Cure, thank you! Russian and Spanish are new: native speakers, corrections are very welcome! Keep a copy of your file: Steam replaces the folder on updates.
+Guide: lang\_HOW_TO_TRANSLATE.txt. Chinese corrected by 石岗小学摸你穷 and Japanese by Cure, thank you! Russian and Spanish are new: native speakers, corrections are very welcome! Keep a copy of your file: Steam replaces the folder on updates.
 
 [h2]Tip: bounties[/h2]
-New slaves lose their bounties, so guards leave them alone. To hand enslaved targets in, turn that off (MCM: Slaves lose their bounties), then: knock the target out, enslave them and walk them to the town; to hand them in, free them, pick them up and turn them in. A faction that wants your enslaved bounty attacks them on sight, so keep them away until you carry them in.
+Slaves lose their bounties, so guards leave them alone. To hand an enslaved target in, turn that off (MCM: Slaves lose their bounties), keep them away from that faction, then free them, pick them up and turn them in.
 
 [h2]Requirements[/h2]
 RE_Kenshi 0.3.x. Optional: ModConfigMenu. Tested on Kenshi 1.0.65 Steam, also with Second Life of Kenshi.
@@ -69,6 +68,6 @@ Plugin RE_Kenshi que deixa a sua facção ter escravos usando o sistema de escra
 [/list]
 
 [h2]Traduza para o seu idioma[/h2]
-Todos os textos estão num único arquivo de texto: copie [i]lang\_template.txt[/i] como <código>.txt, preencha o lado direito de cada linha e envie pelo [url=https://github.com/Cappuccino-SKT/kenshi-slavermod/issues/new?template=translation.yml]formulário[/url]. Guia: [url=https://github.com/Cappuccino-SKT/kenshi-slavermod/blob/main/docs/TRANSLATING.md]como traduzir[/url].
+Todos os textos estão num único arquivo de texto: copie [i]lang\_template.txt[/i] como <código>.txt, preencha o lado direito de cada linha e envie pelo [url=https://github.com/Cappuccino-SKT/kenshi-slavermod/issues/new?template=translation.yml]formulário[/url].
 
 Requisitos: RE_Kenshi 0.3.x; opcional: ModConfigMenu.
